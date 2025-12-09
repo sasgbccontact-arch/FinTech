@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:fintech/models/chart_models.dart';
 import 'package:fintech/models/financial_snapshot.dart';
+import 'package:fintech/models/dividend_event.dart';
 import 'package:fintech/models/news_models.dart';
 import 'package:http/http.dart' as http;
 
@@ -687,7 +687,7 @@ class YahooFinanceService {
     }
 
     if (aggregated.isEmpty && lastError != null) {
-      throw lastError!;
+      throw lastError;
     }
 
     aggregated.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
@@ -799,6 +799,9 @@ class YahooFinanceService {
         'incomeStatementHistory',
         'incomeStatementHistoryQuarterly',
         'cashflowStatementHistory',
+        'summaryProfile',
+        'fundProfile',
+        'fundPerformance',
       ].join(',');
       final params = <String, String>{'modules': modules};
       if (_yahooCrumb != null && _yahooCrumb!.isNotEmpty) {
@@ -892,6 +895,181 @@ class YahooFinanceService {
     }
 
     return FinancialSnapshot.fromQuoteSummary(first);
+  }
+
+  static Future<DividendEvent?> fetchDividendEvent(String symbol) async {
+    try {
+      await _ensureYahooAuth(symbol);
+    } on FinanceRequestException {
+      rethrow;
+    } catch (e) {
+      _log('ensureYahooAuth (dividend) error: ' + e.toString());
+    }
+
+    try {
+      await _refreshCrumb();
+    } catch (e) {
+      _log('refreshCrumb (dividend) error: ' + e.toString());
+    }
+
+    if ((_buildCookieHeader() ?? '').isEmpty) {
+      throw FinanceRequestException('consent_required');
+    }
+
+    Uri _buildUri() {
+      final symbolPath = Uri.encodeComponent(symbol);
+      const modules = 'calendarEvents,summaryDetail,price';
+      final params = <String, String>{'modules': modules};
+      if (_yahooCrumb != null && _yahooCrumb!.isNotEmpty) {
+        params['crumb'] = _yahooCrumb!;
+      }
+      return Uri.parse('$_quoteSummaryEndpoint/$symbolPath').replace(
+        queryParameters: params,
+      );
+    }
+
+    Future<http.Response> _doRequest(Uri uri) {
+      final headers = <String, String>{
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'Accept-Language': 'en-US,en;q=0.9,fr-FR;q=0.8',
+        'User-Agent': _baseHeaders['User-Agent']!,
+        'Referer': 'https://finance.yahoo.com/quote/$symbol',
+        'Connection': 'keep-alive',
+      };
+      final cookie = _buildCookieHeader();
+      if (cookie != null && cookie.isNotEmpty) {
+        headers['Cookie'] = cookie;
+      }
+      return http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
+    }
+
+    Uri uri = _buildUri();
+    http.Response res;
+    try {
+      res = await _doRequest(uri);
+    } on TimeoutException {
+      throw FinanceRequestException('Calendrier de dividendes indisponible (timeout).');
+    } catch (e) {
+      throw FinanceRequestException('Calendrier de dividendes indisponible. ${e.toString()}');
+    }
+
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      _yahooCookie = null;
+      _yahooCrumb = null;
+      _yahooCookieExpiry = null;
+      await _bootstrapCookies();
+      try {
+        await _refreshCrumb(force: true);
+      } catch (e) {
+        _log('refreshCrumb (dividend retry) error: ' + e.toString());
+      }
+      uri = _buildUri();
+      res = await _doRequest(uri);
+    }
+
+    if (res.statusCode != 200) {
+      throw FinanceRequestException(
+        'Calendrier de dividendes indisponible (${res.statusCode}).',
+        statusCode: res.statusCode,
+      );
+    }
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } catch (e) {
+      throw FinanceRequestException('Réponse Yahoo invalide pour le calendrier de dividendes.');
+    }
+
+    Map<String, dynamic>? _asMap(dynamic value) =>
+        value is Map<String, dynamic> ? value : null;
+
+    DateTime? _readDate(dynamic value) {
+      if (value == null) return null;
+      if (value is num) {
+        return DateTime.fromMillisecondsSinceEpoch(value.toInt() * 1000, isUtc: true).toLocal();
+      }
+      if (value is Map<String, dynamic>) {
+        final raw = value['raw'];
+        if (raw is num) {
+          return DateTime.fromMillisecondsSinceEpoch(raw.toInt() * 1000, isUtc: true).toLocal();
+        }
+        final fmt = value['fmt'];
+        if (fmt is String) {
+          return DateTime.tryParse(fmt)?.toLocal();
+        }
+      }
+      if (value is String) {
+        return DateTime.tryParse(value)?.toLocal();
+      }
+      return null;
+    }
+
+    double? _readNum(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value.replaceAll(',', ''));
+      if (value is Map<String, dynamic>) {
+        final raw = value['raw'];
+        if (raw is num) return raw.toDouble();
+        final fmt = value['fmt'];
+        if (fmt is String) {
+          return double.tryParse(fmt.replaceAll(',', ''));
+        }
+      }
+      return null;
+    }
+
+    final summary = _asMap(decoded)?['quoteSummary'];
+    final resultList = summary is Map<String, dynamic> ? summary['result'] : null;
+    if (resultList is! List || resultList.isEmpty) {
+      return null;
+    }
+
+    final first = _asMap(resultList.first);
+    if (first == null) {
+      return null;
+    }
+
+    final calendarEvents = _asMap(first['calendarEvents']);
+    final summaryDetail = _asMap(first['summaryDetail']);
+    final priceMap = _asMap(first['price']);
+
+    final cashDividend = _asMap(calendarEvents?['cashDividend']);
+    DateTime? exDate = _readDate(calendarEvents?['exDividendDate'] ?? summaryDetail?['exDividendDate']);
+    DateTime? paymentDate = _readDate(calendarEvents?['dividendDate'] ?? summaryDetail?['dividendDate']);
+    final declarationDate = _readDate(calendarEvents?['dividendDeclDate'] ?? calendarEvents?['declarationDate']);
+    double? amount = _readNum(cashDividend?['raw'] ?? cashDividend);
+    amount ??= _readNum(summaryDetail?['dividendRate'] ?? summaryDetail?['trailingAnnualDividendRate']);
+    final currency = (summaryDetail?['currency'] ?? priceMap?['currency'])?.toString();
+    final frequency = summaryDetail?['dividendFrequency']?.toString();
+    final name =
+        (priceMap?['shortName'] ?? priceMap?['longName'] ?? priceMap?['displayName'] ?? symbol).toString();
+
+    if (exDate == null && paymentDate != null) {
+      exDate = paymentDate.subtract(const Duration(days: 3));
+    } else if (paymentDate == null && exDate != null) {
+      paymentDate = exDate.add(const Duration(days: 3));
+    }
+    if (exDate != null && paymentDate != null && paymentDate.isBefore(exDate)) {
+      paymentDate = exDate.add(const Duration(days: 3));
+    }
+
+    if (exDate == null && paymentDate == null && amount == null) {
+      return null;
+    }
+
+    return DividendEvent(
+      symbol: symbol,
+      name: name,
+      exDate: exDate,
+      paymentDate: paymentDate,
+      declarationDate: declarationDate,
+      amount: amount,
+      currency: currency,
+      frequency: frequency?.isEmpty ?? true ? null : frequency,
+    );
   }
 
   static Set<String> _buildTickerAliases(String symbol, List<String>? aliases) {
@@ -1457,14 +1635,12 @@ class YahooFinanceService {
     // If last point is earlier than "now", extend with a synthetic point at now using last close
     final last = windowed.last;
     final lastClose = last.close;
-    if (lastClose != null) {
-      final now = last.time.isUtc ? DateTime.now().toUtc() : DateTime.now();
-      // only append if we moved forward by >= 1 minute to avoid duplicates
-      if (now.difference(last.time).inMinutes >= 1) {
-        windowed.add(HistoricalPoint(time: now, close: lastClose));
-      }
+    final now = last.time.isUtc ? DateTime.now().toUtc() : DateTime.now();
+    // only append if we moved forward by >= 1 minute to avoid duplicates
+    if (now.difference(last.time).inMinutes >= 1) {
+      windowed.add(HistoricalPoint(time: now, close: lastClose));
     }
-
+  
     return windowed;
   }
 
@@ -1962,6 +2138,8 @@ class TickerSearchResult {
   final String currency;
 
   bool get isEquity => quoteType.toUpperCase() == 'EQUITY';
+  bool get isEtf => quoteType.toUpperCase() == 'ETF';
+  bool get isSupportedInstrument => isEquity || isEtf;
 
   bool get isSupportedExchange {
     final up = exchange.toUpperCase();
@@ -2008,16 +2186,16 @@ class TickerSearchResult {
     final region = (json['region'] ?? '').toString();
     final currency = (json['currency'] ?? '').toString();
 
-    final result = TickerSearchResult(
-      symbol: rawSymbol,
-      displayName: name.isEmpty ? rawSymbol : name,
-      exchange: exchange,
-      quoteType: type.isEmpty ? 'UNKNOWN' : type,
+  final result = TickerSearchResult(
+    symbol: rawSymbol,
+    displayName: name.isEmpty ? rawSymbol : name,
+    exchange: exchange,
+    quoteType: type.isEmpty ? 'UNKNOWN' : type,
       region: region,
       currency: currency,
-    );
+  );
 
-    if (!result.isEquity || !result.isSupportedExchange) return null;
+    if (!result.isSupportedInstrument || !result.isSupportedExchange) return null;
     return result;
   }
 }
@@ -2047,6 +2225,7 @@ class QuoteDetail {
     required this.dividendYield,
     required this.previousClose,
     required this.open,
+    this.quoteType,
   });
 
   final String symbol;
@@ -2055,6 +2234,7 @@ class QuoteDetail {
   final String? exchange;
   final String? fullExchangeName;
   final String? currency;
+  final String? quoteType;
   final double? regularMarketPrice;
   final double? regularMarketChange;
   final double? regularMarketChangePercent;
@@ -2105,6 +2285,7 @@ class QuoteDetail {
       fullExchangeName:
           (json['fullExchangeName'] ?? json['exchDisp'])?.toString(),
       currency: (json['currency'] ?? json['financialCurrency'])?.toString(),
+      quoteType: (json['quoteType'] ?? json['type'])?.toString(),
       regularMarketPrice: _toDouble(json['regularMarketPrice']),
       regularMarketChange: _toDouble(json['regularMarketChange']),
       regularMarketChangePercent: _toDouble(json['regularMarketChangePercent']),

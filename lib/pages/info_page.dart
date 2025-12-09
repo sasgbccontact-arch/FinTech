@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fintech/core/constants.dart';
 import 'package:fintech/models/chart_models.dart';
 import 'package:fintech/models/financial_snapshot.dart';
 import 'package:fintech/models/news_models.dart';
+import 'package:fintech/services/portfolio_service.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:fintech/utils/decision_indicators.dart';
+import 'package:fintech/utils/portfolio_dialogs.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,12 +24,14 @@ class InfoPage extends StatefulWidget {
     this.initialName,
     this.initialExchange,
     this.initialCurrency,
+    this.initialQuoteType,
   });
 
   final String? ticker;
   final String? initialName;
   final String? initialExchange;
   final String? initialCurrency;
+  final String? initialQuoteType;
 
   @override
   State<InfoPage> createState() => _InfoPageState();
@@ -35,6 +42,7 @@ class _InfoPageState extends State<InfoPage> {
   String? _displayName;
   String? _exchange;
   String? _currency;
+  String? _quoteType;
 
   QuoteDetail? _quote;
   bool _loading = true;
@@ -55,7 +63,18 @@ class _InfoPageState extends State<InfoPage> {
   bool _newsLoading = true;
   String? _newsError;
   int _newsRequestId = 0;
+  Set<String> _newsFavoriteMatches = const <String>{};
+  Set<String> _newsTickerMatches = const <String>{};
   _PeriodDelta? _periodDelta;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _favoriteSubscription;
+  bool _favoriteStatusReady = false;
+  bool _isFavorite = false;
+  bool _favoriteUpdating = false;
+  String? _favoriteListenSymbol;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _portfolioSubscription;
+  List<_PortfolioInfo> _portfolios = const <_PortfolioInfo>[];
+  bool _portfoliosReady = false;
+  bool _portfolioUpdating = false;
   static const List<String> _shortMonths = <String>[
     'janv.',
     'févr.',
@@ -77,6 +96,8 @@ class _InfoPageState extends State<InfoPage> {
     _displayName = widget.initialName;
     _exchange = widget.initialExchange;
     _currency = widget.initialCurrency;
+    _quoteType = widget.initialQuoteType;
+    _listenToPortfolios();
   }
 
   Widget _buildEssentialPage({
@@ -88,6 +109,7 @@ class _InfoPageState extends State<InfoPage> {
     required String periodLabel,
     required String? lastUpdate,
     required List<_MetricEntry> essentialMetrics,
+    required List<_InsightHighlight> highlights,
   }) {
     final variationTexts = <String>[
       if (changeText != null) changeText,
@@ -124,38 +146,50 @@ class _InfoPageState extends State<InfoPage> {
                 ],
               ),
             ),
-            if (variationTexts.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: changePositive
-                      ? Colors.green.shade100
-                      : Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      periodLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
-                      ),
+            const SizedBox(width: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPortfolioButton(theme),
+                const SizedBox(width: 8),
+                _buildFavoriteButton(theme),
+                if (variationTexts.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: changePositive
+                          ? Colors.green.shade100
+                          : Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      variationTexts.join(' · '),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: changePositive
-                            ? Colors.green.shade800
-                            : Colors.red.shade800,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          periodLabel,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: Colors.black54,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          variationTexts.join(' · '),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: changePositive
+                                ? Colors.green.shade800
+                                : Colors.red.shade800,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -170,6 +204,10 @@ class _InfoPageState extends State<InfoPage> {
             ),
           ],
         ),
+        if (highlights.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          _InsightHighlightRow(highlights: highlights),
+        ],
         if (lastUpdate != null) ...[
           const SizedBox(height: 6),
           Text(
@@ -236,9 +274,15 @@ class _InfoPageState extends State<InfoPage> {
           if (rawCurrency is String && rawCurrency.trim().isNotEmpty) {
             _currency ??= rawCurrency.trim();
           }
+          final rawType = args['quoteType'];
+          if (rawType is String && rawType.trim().isNotEmpty) {
+            _quoteType ??= rawType.trim();
+          }
         }
       }
     }
+
+    _ensureFavoriteListener();
 
     if (!_hasRequested) {
       _hasRequested = true;
@@ -256,8 +300,702 @@ class _InfoPageState extends State<InfoPage> {
 
   @override
   void dispose() {
+    _favoriteSubscription?.cancel();
+    _portfolioSubscription?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _listenToPortfolios() {
+    _portfolioSubscription?.cancel();
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      if (!mounted) {
+        _portfolios = const <_PortfolioInfo>[];
+        _portfoliosReady = true;
+        _portfolioUpdating = false;
+        return;
+      }
+      setState(() {
+        _portfolios = const <_PortfolioInfo>[];
+        _portfoliosReady = true;
+        _portfolioUpdating = false;
+      });
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _portfoliosReady = false;
+      });
+    } else {
+      _portfoliosReady = false;
+    }
+
+    final query = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('portfolios')
+        .orderBy('createdAt', descending: false);
+
+    _portfolioSubscription = query.snapshots().listen(
+      (snapshot) {
+        final items = snapshot.docs.map((doc) {
+          final data = doc.data();
+          final rawName = (data['name'] as String?)?.trim() ?? '';
+          final count = (data['positionsCount'] as num?)?.toInt() ?? 0;
+          return _PortfolioInfo(
+            id: doc.id,
+            name: rawName.isEmpty ? 'Portefeuille' : rawName,
+            positionsCount: count,
+          );
+        }).toList();
+
+        if (!mounted) return;
+        setState(() {
+          _portfolios = items;
+          _portfoliosReady = true;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _portfoliosReady = true;
+        });
+      },
+    );
+  }
+
+  void _ensureFavoriteListener() {
+    final symbol = _ticker?.trim();
+
+    if (symbol == null || symbol.isEmpty) {
+      _favoriteSubscription?.cancel();
+      _favoriteSubscription = null;
+      if (!mounted) {
+        _favoriteStatusReady = false;
+        _isFavorite = false;
+        _favoriteUpdating = false;
+        _favoriteListenSymbol = null;
+        return;
+      }
+      setState(() {
+        _favoriteStatusReady = false;
+        _isFavorite = false;
+        _favoriteUpdating = false;
+        _favoriteListenSymbol = null;
+      });
+      return;
+    }
+
+    if (_favoriteListenSymbol == symbol) {
+      return;
+    }
+
+    _favoriteSubscription?.cancel();
+    _favoriteSubscription = null;
+    _favoriteListenSymbol = symbol;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) {
+        _favoriteStatusReady = true;
+        _isFavorite = false;
+        _favoriteUpdating = false;
+        return;
+      }
+      setState(() {
+        _favoriteStatusReady = true;
+        _isFavorite = false;
+        _favoriteUpdating = false;
+      });
+      return;
+    }
+
+    if (!mounted) {
+      _favoriteStatusReady = false;
+      _favoriteUpdating = false;
+    } else {
+      setState(() {
+        _favoriteStatusReady = false;
+        _favoriteUpdating = false;
+      });
+    }
+
+    final docRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('favoris')
+        .doc(symbol);
+
+    _favoriteSubscription = docRef.snapshots().listen(
+      (snapshot) {
+        if (!mounted) return;
+        setState(() {
+          _favoriteStatusReady = true;
+          _isFavorite = snapshot.exists;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _favoriteStatusReady = true;
+        });
+      },
+    );
+  }
+
+  Future<void> _toggleFavorite() async {
+    final symbol = _ticker?.trim();
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (symbol == null || symbol.isEmpty) {
+      return;
+    }
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connectez-vous pour gérer vos favoris.')),
+      );
+      return;
+    }
+    if (!_favoriteStatusReady || _favoriteUpdating) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _favoriteUpdating = true;
+      });
+    } else {
+      _favoriteUpdating = true;
+    }
+
+    final docRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('favoris')
+        .doc(symbol);
+
+    try {
+      if (_isFavorite) {
+        await docRef.delete();
+      } else {
+        final data = <String, dynamic>{
+          'symbol': symbol,
+          'name': _displayName ??
+              _quote?.longName ??
+              _quote?.shortName ??
+              symbol,
+          'exchange': _exchange ??
+              _quote?.fullExchangeName ??
+              _quote?.exchange ??
+              '',
+          'currency': _currency ?? _quote?.currency ?? '',
+          'quoteType': _quoteType ?? _quote?.quoteType ?? 'UNKNOWN',
+          'addedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        await docRef.set(data, SetOptions(merge: true));
+      }
+    } on FirebaseException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Impossible de mettre à jour les favoris (${e.message ?? e.code}).',
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la mise à jour des favoris.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _favoriteUpdating = false;
+        });
+      } else {
+        _favoriteUpdating = false;
+      }
+    }
+  }
+
+  Widget _buildFavoriteButton(ThemeData theme) {
+    final user = FirebaseAuth.instance.currentUser;
+    final bool hasTicker = _ticker != null && _ticker!.trim().isNotEmpty;
+    final bool isLoading = !_favoriteStatusReady || _favoriteUpdating;
+    final bool selected = _isFavorite && _favoriteStatusReady;
+    final Color iconColor =
+        selected
+            ? Colors.redAccent
+            : theme.textTheme.bodyMedium?.color?.withOpacity(0.65) ?? Colors.black54;
+    final bool enabled = user != null && hasTicker && !isLoading;
+
+    final Widget visual =
+        isLoading
+            ? SizedBox(
+                key: const ValueKey<String>('favorite-loading'),
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+                ),
+              )
+            : Icon(
+                selected ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
+                key: ValueKey<bool>(selected),
+                color: iconColor,
+                size: 22,
+              );
+
+    final tooltip =
+        user == null
+            ? 'Connectez-vous pour gérer vos favoris'
+            : selected
+                ? 'Retirer des favoris'
+                : 'Ajouter aux favoris';
+
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 600),
+      child: InkWell(
+        onTap: enabled ? _toggleFavorite : null,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color:
+                selected
+                    ? Colors.redAccent.withOpacity(0.12)
+                    : Colors.black.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color:
+                  selected
+                      ? Colors.redAccent.withOpacity(0.4)
+                      : Colors.black.withOpacity(0.05),
+            ),
+          ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+            child: visual,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _withPortfolioUpdating(Future<void> Function() task) async {
+    if (mounted) {
+      setState(() {
+        _portfolioUpdating = true;
+      });
+    } else {
+      _portfolioUpdating = true;
+    }
+
+    try {
+      await task();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _portfolioUpdating = false;
+        });
+      } else {
+        _portfolioUpdating = false;
+      }
+    }
+  }
+
+  Future<void> _addSymbolToPortfolio(String portfolioId, String portfolioName) async {
+    final symbol = _ticker?.trim();
+    if (symbol == null || symbol.isEmpty) {
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Connectez-vous pour gérer vos portefeuilles.')),
+        );
+      }
+      return;
+    }
+
+    final quote = _quote;
+    final currentPrice = quote?.regularMarketPrice ?? quote?.previousClose;
+    final positionDetails = await _promptPositionDetails(currentPrice: currentPrice);
+    if (positionDetails == null) {
+      return;
+    }
+
+    await _withPortfolioUpdating(
+      () => _addSymbolToPortfolioInternal(
+        portfolioId,
+        portfolioName,
+        positionDetails,
+      ),
+    );
+  }
+
+  Future<void> _addSymbolToPortfolioInternal(
+    String portfolioId,
+    String portfolioName,
+    _PositionFormResult details,
+  ) async {
+    final symbol = _ticker?.trim();
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (symbol == null || symbol.isEmpty) {
+      return;
+    }
+
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connectez-vous pour gérer vos portefeuilles.')),
+      );
+      return;
+    }
+
+    final quote = _quote;
+    final displayName = _displayName ??
+        quote?.longName ??
+        quote?.shortName ??
+        symbol;
+
+    final data = <String, dynamic>{
+      'symbol': symbol,
+      'displayName': displayName,
+      'exchange': _exchange ?? quote?.fullExchangeName ?? quote?.exchange ?? '',
+      'currency': _currency ?? quote?.currency ?? '',
+      'regularMarketPrice': quote?.regularMarketPrice,
+      'regularMarketChange': quote?.regularMarketChange,
+      'regularMarketChangePercent': quote?.regularMarketChangePercent,
+      'previousClose': quote?.previousClose,
+      'quantity': details.quantity,
+      'quoteType': _quoteType ?? quote?.quoteType ?? 'UNKNOWN',
+    };
+
+    final costBasis =
+        details.costBasis ?? quote?.regularMarketPrice ?? quote?.previousClose;
+    if (costBasis != null) {
+      data['costBasis'] = costBasis;
+    }
+
+    try {
+      await PortfolioService.addPosition(
+        uid: user.uid,
+        portfolioId: portfolioId,
+        data: data,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ajouté à "$portfolioName".')),
+      );
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible d’ajouter au portefeuille (${e.message ?? e.code}).',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Erreur lors de l’ajout au portefeuille.')),
+      );
+    }
+  }
+
+  Future<void> _handleCreatePortfolio() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connectez-vous pour créer un portefeuille.')),
+      );
+      return;
+    }
+
+    final name = await showCreatePortfolioDialog(context);
+    if (name == null) {
+      return;
+    }
+
+    String? newPortfolioId;
+    await _withPortfolioUpdating(() async {
+      newPortfolioId = await PortfolioService.createPortfolio(uid: user.uid, name: name);
+    });
+
+    if (!mounted || newPortfolioId == null) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Portefeuille "$name" créé.')),
+    );
+
+    final quote = _quote;
+    final currentPrice = quote?.regularMarketPrice ?? quote?.previousClose;
+    final positionDetails = await _promptPositionDetails(currentPrice: currentPrice);
+    if (positionDetails == null) {
+      return;
+    }
+
+    await _withPortfolioUpdating(
+      () => _addSymbolToPortfolioInternal(
+        newPortfolioId!,
+        name,
+        positionDetails,
+      ),
+    );
+  }
+
+  Future<_PositionFormResult?> _promptPositionDetails({double? currentPrice}) async {
+    final quantityController = TextEditingController(text: '1');
+    final costController = TextEditingController(
+      text: currentPrice != null ? currentPrice.toStringAsFixed(2) : '',
+    );
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<_PositionFormResult>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Ajouter au portefeuille'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: quantityController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  decoration: const InputDecoration(
+                    labelText: 'Quantité',
+                    hintText: 'Ex: 12.5',
+                  ),
+                  validator: (value) {
+                    final parsed = _parseNumericInput(value);
+                    if (parsed == null) {
+                      return 'Indiquez une quantité valide.';
+                    }
+                    if (parsed <= 0) {
+                      return 'La quantité doit être positive.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: costController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  decoration: InputDecoration(
+                    labelText: 'PRU (optionnel)',
+                    hintText: currentPrice != null ? currentPrice.toStringAsFixed(2) : null,
+                  ),
+                  validator: (value) {
+                    final trimmed = value?.trim() ?? '';
+                    if (trimmed.isEmpty) return null;
+                    final parsed = _parseNumericInput(trimmed);
+                    if (parsed == null) {
+                      return 'Entrez un PRU valide.';
+                    }
+                    if (parsed <= 0) {
+                      return 'Le PRU doit être positif.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (!(formKey.currentState?.validate() ?? false)) {
+                  return;
+                }
+                final quantity = _parseNumericInput(quantityController.text.trim())!;
+                final costBasis = _parseNumericInput(costController.text.trim());
+                Navigator.of(dialogContext).pop(
+                  _PositionFormResult(quantity: quantity, costBasis: costBasis),
+                );
+              },
+              child: const Text('Ajouter'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  double? _parseNumericInput(String? raw) {
+    if (raw == null) return null;
+    final normalized = raw.trim().replaceAll(' ', '').replaceAll(',', '.');
+    if (normalized.isEmpty) return null;
+    return double.tryParse(normalized);
+  }
+
+  List<PopupMenuEntry<_PortfolioMenuOption>> _buildPortfolioMenuEntries(ThemeData theme) {
+    final entries = <PopupMenuEntry<_PortfolioMenuOption>>[];
+
+    if (_portfolios.isEmpty) {
+      entries.add(
+        const PopupMenuItem<_PortfolioMenuOption>(
+          enabled: false,
+          child: Text('Aucun portefeuille.'),
+        ),
+      );
+    } else {
+      for (final portfolio in _portfolios) {
+        entries.add(
+          PopupMenuItem<_PortfolioMenuOption>(
+            value: _PortfolioMenuOption.select(portfolio),
+            child: Row(
+              children: [
+                Icon(Icons.folder_open_rounded, size: 18, color: Colors.black.withOpacity(0.65)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    portfolio.name,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (portfolio.positionsCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${portfolio.positionsCount}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: .4,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }
+      entries.add(const PopupMenuDivider(height: 10));
+    }
+
+    entries.add(
+      PopupMenuItem<_PortfolioMenuOption>(
+        value: const _PortfolioMenuOption.create(),
+        child: const ListTile(
+          dense: true,
+          minLeadingWidth: 0,
+          leading: Icon(Icons.add_rounded),
+          title: Text('Créer un portefeuille'),
+        ),
+      ),
+    );
+
+    return entries;
+  }
+
+  Widget _buildPortfolioButton(ThemeData theme) {
+    final user = FirebaseAuth.instance.currentUser;
+    final bool hasTicker = _ticker != null && _ticker!.trim().isNotEmpty;
+    final bool ready = _portfoliosReady;
+    final bool busy = _portfolioUpdating;
+    final bool showSpinner = busy || !ready;
+    final bool enabled = user != null && hasTicker && ready && !busy;
+
+    final Color iconColor =
+        theme.textTheme.bodyMedium?.color?.withOpacity(0.65) ?? Colors.black54;
+
+    final Widget visual =
+        showSpinner
+            ? SizedBox(
+                key: const ValueKey<String>('portfolio-loading'),
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+                ),
+              )
+            : Icon(
+                Icons.folder_open_rounded,
+                key: const ValueKey<String>('portfolio-icon'),
+                color: iconColor,
+                size: 22,
+              );
+
+    final tooltip =
+        user == null
+            ? 'Connectez-vous pour gérer vos portefeuilles'
+            : 'Ajouter au portefeuille';
+
+    final buttonStyleColor = showSpinner
+        ? Colors.black.withOpacity(0.06)
+        : Colors.black.withOpacity(0.04);
+
+    final borderColor = Colors.black.withOpacity(0.05);
+
+    final button = PopupMenuButton<_PortfolioMenuOption>(
+      enabled: enabled,
+      position: PopupMenuPosition.under,
+      padding: EdgeInsets.zero,
+      tooltip: tooltip,
+      itemBuilder: (context) => _buildPortfolioMenuEntries(theme),
+      onSelected: (option) {
+        if (option.createNew) {
+          _handleCreatePortfolio();
+        } else if (option.portfolioId != null && option.portfolioName != null) {
+          _addSymbolToPortfolio(option.portfolioId!, option.portfolioName!);
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: buttonStyleColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+          child: visual,
+        ),
+      ),
+    );
+
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 600),
+      child: button,
+    );
   }
 
   Future<void> _fetchQuote(String symbol) async {
@@ -275,6 +1013,7 @@ class _InfoPageState extends State<InfoPage> {
         _displayName = _resolveDisplayName(quote);
         _exchange = _resolveExchange(quote);
         _currency = _resolveCurrency(quote);
+        _quoteType = quote.quoteType ?? _quoteType;
         _currentPage = 0;
       });
       if (_pageController.hasClients) {
@@ -414,6 +1153,8 @@ class _InfoPageState extends State<InfoPage> {
         _newsItems = const <FinanceNewsItem>[];
         _newsLoading = false;
         _newsError = 'Aucun ticker fourni.';
+        _newsFavoriteMatches = const <String>{};
+        _newsTickerMatches = const <String>{};
       });
       return;
     }
@@ -425,6 +1166,7 @@ class _InfoPageState extends State<InfoPage> {
     });
 
     try {
+      final favoriteSymbols = await _fetchFavoriteSymbolsForNews();
       final aliasCandidates = <String?>{
         symbol,
         _displayName,
@@ -441,17 +1183,22 @@ class _InfoPageState extends State<InfoPage> {
         symbol,
         aliases: aliases,
       );
+      final prioritized = _prioritizeNewsItems(items, favoriteSymbols, symbol);
+      final favoriteMatches = _extractFavoriteMatches(prioritized, favoriteSymbols);
+      final tickerMatches = _extractTickerMatches(prioritized, symbol);
       assert(() {
         debugPrint(
-          '[InfoPage] Received ${items.length} news item(s) for ' + symbol,
+          '[InfoPage] Received ${prioritized.length} news item(s) for ' + symbol,
         );
         return true;
       }());
       if (!mounted || requestId != _newsRequestId) return;
       setState(() {
-        _newsItems = items;
+        _newsItems = prioritized;
         _newsLoading = false;
         _newsError = null;
+        _newsFavoriteMatches = favoriteMatches;
+        _newsTickerMatches = tickerMatches;
       });
     } on FinanceRequestException catch (e) {
       if (!mounted || requestId != _newsRequestId) return;
@@ -459,6 +1206,8 @@ class _InfoPageState extends State<InfoPage> {
         _newsLoading = false;
         _newsError = e.message;
         _newsItems = const <FinanceNewsItem>[];
+        _newsFavoriteMatches = const <String>{};
+        _newsTickerMatches = const <String>{};
       });
     } catch (e) {
       if (!mounted || requestId != _newsRequestId) return;
@@ -466,8 +1215,73 @@ class _InfoPageState extends State<InfoPage> {
         _newsLoading = false;
         _newsError = 'Erreur actualités: ${e.toString()}';
         _newsItems = const <FinanceNewsItem>[];
+        _newsFavoriteMatches = const <String>{};
+        _newsTickerMatches = const <String>{};
       });
     }
+  }
+
+  Future<Set<String>> _fetchFavoriteSymbolsForNews() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const <String>{};
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('favoris')
+          .get();
+      final symbols = snap.docs.map((doc) {
+        final data = doc.data();
+        final symbol = (data['symbol'] as String? ?? doc.id).trim();
+        return symbol.toUpperCase();
+      }).where((symbol) => symbol.isNotEmpty).toSet();
+      return symbols;
+    } catch (_) {
+      return const <String>{};
+    }
+  }
+
+  List<FinanceNewsItem> _prioritizeNewsItems(
+    List<FinanceNewsItem> items,
+    Set<String> favorites,
+    String symbol,
+  ) {
+    final favs = favorites.map((e) => e.toUpperCase()).toSet();
+    final symbolUpper = symbol.toUpperCase();
+    final scored = items.asMap().entries.map((entry) {
+      final item = entry.value;
+      final tickers = item.relatedTickers.map((t) => t.toUpperCase()).toSet();
+      final matchesSymbol = tickers.contains(symbolUpper);
+      final matchesFavorite = favs.isNotEmpty && tickers.any(favs.contains);
+      final score = (matchesSymbol ? 2 : 0) + (matchesFavorite ? 1 : 0);
+      return (_NewsRanking(item, score, entry.key));
+    }).toList();
+    scored.sort((a, b) {
+      final scoreCompare = b.score.compareTo(a.score);
+      if (scoreCompare != 0) return scoreCompare;
+      return a.index.compareTo(b.index);
+    });
+    return scored.map((entry) => entry.item).toList();
+  }
+
+  Set<String> _extractFavoriteMatches(
+    List<FinanceNewsItem> items,
+    Set<String> favorites,
+  ) {
+    if (favorites.isEmpty) return const <String>{};
+    final favs = favorites.map((e) => e.toUpperCase()).toSet();
+    return items
+        .where((item) => item.relatedTickers.any((ticker) => favs.contains(ticker.toUpperCase())))
+        .map((item) => item.id)
+        .toSet();
+  }
+
+  Set<String> _extractTickerMatches(List<FinanceNewsItem> items, String symbol) {
+    final upper = symbol.toUpperCase();
+    return items
+        .where((item) => item.relatedTickers.any((ticker) => ticker.toUpperCase() == upper))
+        .map((item) => item.id)
+        .toSet();
   }
 
   @override
@@ -542,12 +1356,15 @@ class _InfoPageState extends State<InfoPage> {
     final lastUpdate = _formatDateTime(quote?.regularMarketTime);
 
     final metrics = quote == null ? <_MetricEntry>[] : _buildMetrics(quote);
-    const essentialTitles = <String>{
-      'Capitalisation',
-      'PER (TTM)',
+    final isEtf = (_quoteType ?? quote?.quoteType)?.toUpperCase() == 'ETF';
+    final essentialTitles = <String>{
+      'Devise',
+      if (isEtf) 'Actifs nets' else 'Capitalisation',
+      if (!isEtf) 'PER (TTM)',
       'Volume',
       'Rdt dividende',
-      'Devise',
+      if (isEtf) 'Frais annuels',
+      if (isEtf) 'Perf. YTD',
     };
     final essentialMetrics = <_MetricEntry>[];
     final complementaryMetrics = <_MetricEntry>[];
@@ -563,6 +1380,8 @@ class _InfoPageState extends State<InfoPage> {
     final decisionIndicators =
         buildDecisionIndicators(quote, _financialSnapshot);
 
+    final highlights = _buildHighlights(quote);
+
     final overview = _buildEssentialPage(
       theme: theme,
       priceText: priceText,
@@ -572,6 +1391,7 @@ class _InfoPageState extends State<InfoPage> {
       periodLabel: periodLabel,
       lastUpdate: lastUpdate,
       essentialMetrics: essentialMetrics,
+      highlights: highlights,
     );
 
     final extraPage = _buildExtraIndicatorsPage(
@@ -807,6 +1627,8 @@ class _InfoPageState extends State<InfoPage> {
               ? item.publisher
               : '${item.publisher} • $published',
           onTap: () => _openNewsLink(item.url),
+          highlightPrimary: _newsTickerMatches.contains(item.id),
+          highlightFavorite: _newsFavoriteMatches.contains(item.id),
         );
       },
     );
@@ -849,6 +1671,8 @@ class _InfoPageState extends State<InfoPage> {
   }
 
   List<_MetricEntry> _buildMetrics(QuoteDetail quote) {
+    final isEtf = (_quoteType ?? quote.quoteType)?.toUpperCase() == 'ETF';
+    final snapshot = _financialSnapshot;
     final metrics = <_MetricEntry?>[
       if (_currency != null && _currency!.isNotEmpty)
         _MetricEntry('Devise', _currency!),
@@ -894,17 +1718,32 @@ class _InfoPageState extends State<InfoPage> {
           _formatLargeNumber(quote.averageDailyVolume3Month),
           _formatInteger(quote.averageDailyVolume3Month),
         ),
-      if (quote.trailingPE != null)
+      if (!isEtf && quote.trailingPE != null)
         _MetricEntry(
           'PER (TTM)',
           _formatNumber(quote.trailingPE, fractionDigits: 2),
         ),
-      if (quote.forwardPE != null)
+      if (!isEtf && quote.forwardPE != null)
         _MetricEntry(
           'PER (forward)',
           _formatNumber(quote.forwardPE, fractionDigits: 2),
         ),
-      if (quote.epsTrailingTwelveMonths != null)
+      if (!isEtf && snapshot?.pegRatio != null)
+        _MetricEntry(
+          'PEG',
+          _formatNumber(snapshot!.pegRatio, fractionDigits: 2),
+        ),
+      if (!isEtf && snapshot?.enterpriseToEbitda != null)
+        _MetricEntry(
+          'EV/EBITDA',
+          _formatNumber(snapshot!.enterpriseToEbitda, fractionDigits: 2),
+        ),
+      if (!isEtf && snapshot?.enterpriseToRevenue != null)
+        _MetricEntry(
+          'EV/CA',
+          _formatNumber(snapshot!.enterpriseToRevenue, fractionDigits: 2),
+        ),
+      if (!isEtf && quote.epsTrailingTwelveMonths != null)
         _MetricEntry(
           'BPA (TTM)',
           _formatCurrency(quote.epsTrailingTwelveMonths),
@@ -914,9 +1753,120 @@ class _InfoPageState extends State<InfoPage> {
           'Rdt dividende',
           _formatPercent(quote.dividendYield! * 100),
         ),
+      if (isEtf && snapshot?.netAssets != null)
+        _MetricEntry(
+          'Actifs nets',
+          _formatLargeNumber(snapshot!.netAssets!),
+          _formatCurrency(snapshot.netAssets, withSeparators: true),
+        ),
+      if (isEtf && snapshot?.expenseRatio != null)
+        _MetricEntry(
+          'Frais annuels',
+          _formatPercent(snapshot!.expenseRatio! * 100),
+        ),
+      if (isEtf && snapshot?.ytdReturn != null)
+        _MetricEntry(
+          'Perf. YTD',
+          _formatPercent(snapshot!.ytdReturn! * 100),
+        ),
+      if (isEtf && snapshot?.threeYearAverageReturn != null)
+        _MetricEntry(
+          'Perf. 3 ans',
+          _formatPercent(snapshot!.threeYearAverageReturn! * 100),
+        ),
+      if (isEtf && snapshot?.betaThreeYear != null)
+        _MetricEntry(
+          'Bêta 3 ans',
+          _formatNumber(snapshot!.betaThreeYear!, fractionDigits: 2),
+        ),
+      if (isEtf && snapshot?.fundCategory != null && snapshot!.fundCategory!.isNotEmpty)
+        _MetricEntry('Catégorie', snapshot.fundCategory!),
+      if (!isEtf && snapshot?.returnOnEquity != null)
+        _MetricEntry('ROE', _formatPercent(snapshot!.returnOnEquity! * 100)),
+      if (!isEtf && snapshot?.returnOnAssets != null)
+        _MetricEntry('ROA', _formatPercent(snapshot!.returnOnAssets! * 100)),
+      if (!isEtf && snapshot?.operatingMargin != null)
+        _MetricEntry('Marge op.', _formatPercent(snapshot!.operatingMargin! * 100)),
+      if (!isEtf && snapshot?.netMargin != null)
+        _MetricEntry('Marge nette', _formatPercent(snapshot!.netMargin! * 100)),
+      if (!isEtf && snapshot?.revenueGrowth != null)
+        _MetricEntry('Croissance CA', _formatPercent(snapshot!.revenueGrowth! * 100)),
+      if (!isEtf && snapshot?.earningsGrowth != null)
+        _MetricEntry('Croissance BPA', _formatPercent(snapshot!.earningsGrowth! * 100)),
+      if (!isEtf && snapshot?.freeCashflowYield != null)
+        _MetricEntry('FCF yield', _formatPercent(snapshot!.freeCashflowYield! * 100)),
+      if (!isEtf && snapshot?.capexToRevenue != null)
+        _MetricEntry('Capex/CA', _formatPercent(snapshot!.capexToRevenue! * 100)),
+      if (quote.averageDailyVolume3Month != null)
+        _MetricEntry('ADV 3m', _formatLargeNumber(quote.averageDailyVolume3Month), _formatInteger(quote.averageDailyVolume3Month)),
+      if (quote.regularMarketVolume != null && quote.averageDailyVolume3Month != null && quote.averageDailyVolume3Month! > 0)
+        _MetricEntry(
+          'Turnover',
+          '${(quote.regularMarketVolume! / quote.averageDailyVolume3Month! * 100).toStringAsFixed(1)} %',
+          'vs moy. 3m',
+        ),
     ];
 
     return metrics.whereType<_MetricEntry>().toList();
+  }
+
+  List<_InsightHighlight> _buildHighlights(QuoteDetail? quote) {
+    final highlights = <_InsightHighlight>[];
+    if (quote == null) return highlights;
+
+    final changePercent = quote.regularMarketChangePercent;
+    if (changePercent != null) {
+      highlights.add(
+        _InsightHighlight(
+          label: 'Momentum',
+          value: _formatPercent(changePercent) ?? '—',
+          icon: changePercent >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+          color: changePercent >= 0 ? Colors.green.shade600 : Colors.red.shade600,
+        ),
+      );
+    }
+
+    if (quote.regularMarketVolume != null && quote.averageDailyVolume3Month != null && quote.averageDailyVolume3Month! > 0) {
+      final ratio = quote.regularMarketVolume! / quote.averageDailyVolume3Month!;
+      highlights.add(
+        _InsightHighlight(
+          label: 'Volume',
+          value: '${ratio.toStringAsFixed(2)}x moy.',
+          icon: Icons.area_chart_rounded,
+          color: ratio >= 1 ? Colors.blueAccent : Colors.blueGrey,
+        ),
+      );
+    }
+
+    if (quote.dividendYield != null) {
+      highlights.add(
+        _InsightHighlight(
+          label: 'Dividende',
+          value: _formatPercent(quote.dividendYield!) ?? '—',
+          icon: Icons.savings_rounded,
+          color: Colors.orange.shade700,
+        ),
+      );
+    }
+
+    if (quote.regularMarketPrice != null && quote.fiftyTwoWeekHigh != null && quote.fiftyTwoWeekLow != null) {
+      final price = quote.regularMarketPrice!;
+      final low = quote.fiftyTwoWeekLow!;
+      final high = quote.fiftyTwoWeekHigh!;
+      if (high > low) {
+        final normalized = ((price - low) / (high - low)).clamp(0, 1);
+        highlights.add(
+          _InsightHighlight(
+            label: '52 sem.',
+            value: '${(normalized * 100).toStringAsFixed(0)}% du canal',
+            icon: Icons.timelapse_rounded,
+            color: Colors.purple.shade600,
+          ),
+        );
+      }
+    }
+
+    return highlights;
   }
 
   String? _formatCurrency(double? value, {bool withSeparators = false}) {
@@ -1214,6 +2164,80 @@ class _QuoteChartSection extends StatelessWidget {
   }
 }
 
+class _InsightHighlight {
+  const _InsightHighlight({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+}
+
+class _InsightHighlightRow extends StatelessWidget {
+  const _InsightHighlightRow({required this.highlights});
+
+  final List<_InsightHighlight> highlights;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: highlights.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final highlight = highlights[index];
+          return Container(
+            width: 140,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(highlight.icon, color: highlight.color, size: 20),
+                const SizedBox(height: 6),
+                Text(
+                  highlight.label,
+                  style: TextStyle(fontSize: _infoScaledFont(context, 12), color: Colors.black54, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  highlight.value,
+                  style: TextStyle(fontSize: _infoScaledFont(context, 15), fontWeight: FontWeight.w700, color: highlight.color),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+double _infoScaledFont(BuildContext context, double size) {
+  final width = MediaQuery.sizeOf(context).width;
+  final factor = (width / 390).clamp(0.85, 1.2);
+  final base = size * factor;
+  return MediaQuery.textScalerOf(context).scale(base);
+}
+
 class _ChartLegend extends StatelessWidget {
   const _ChartLegend({
     required this.label,
@@ -1435,11 +2459,15 @@ class _NewsArticleCard extends StatelessWidget {
     required this.article,
     required this.subtitle,
     required this.onTap,
+    this.highlightPrimary = false,
+    this.highlightFavorite = false,
   });
 
   final FinanceNewsItem article;
   final String subtitle;
   final VoidCallback onTap;
+  final bool highlightPrimary;
+  final bool highlightFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -1485,12 +2513,25 @@ class _NewsArticleCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      subtitle,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (highlightPrimary)
+                    _NewsChip(label: 'Suivi', color: Colors.green.shade600),
+                  if (highlightFavorite)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: _NewsChip(label: 'Favori lié', color: Colors.blueAccent),
+                    ),
+                ],
               ),
               if (article.summary != null) ...[
                 const SizedBox(height: 10),
@@ -1515,6 +2556,40 @@ class _NewsArticleCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _NewsChip extends StatelessWidget {
+  const _NewsChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsRanking {
+  const _NewsRanking(this.item, this.score, this.index);
+
+  final FinanceNewsItem item;
+  final int score;
+  final int index;
 }
 
 class _PeriodDelta {
@@ -1696,6 +2771,55 @@ class _DecisionIndicatorCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PortfolioInfo {
+  const _PortfolioInfo({
+    required this.id,
+    required this.name,
+    required this.positionsCount,
+  });
+
+  final String id;
+  final String name;
+  final int positionsCount;
+}
+
+class _PositionFormResult {
+  const _PositionFormResult({
+    required this.quantity,
+    this.costBasis,
+  });
+
+  final double quantity;
+  final double? costBasis;
+}
+
+class _PortfolioMenuOption {
+  const _PortfolioMenuOption._({
+    this.portfolioId,
+    this.portfolioName,
+    this.createNew = false,
+  });
+
+  factory _PortfolioMenuOption.select(_PortfolioInfo info) {
+    return _PortfolioMenuOption._(
+      portfolioId: info.id,
+      portfolioName: info.name,
+      createNew: false,
+    );
+  }
+
+  const _PortfolioMenuOption.create()
+      : this._(
+          portfolioId: null,
+          portfolioName: null,
+          createNew: true,
+        );
+
+  final String? portfolioId;
+  final String? portfolioName;
+  final bool createNew;
 }
 
 class _ErrorView extends StatelessWidget {

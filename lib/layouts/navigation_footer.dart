@@ -9,10 +9,10 @@ import 'package:flutter/material.dart';
 /// control the selected index from your parent widget.
 class NavigationFooter extends StatefulWidget {
   const NavigationFooter({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   /// The selected tab index (0..4)
   final int currentIndex;
@@ -165,10 +165,10 @@ class _AnimatedBar extends StatelessWidget {
         Icons.home_rounded,
         Icons.dashboard_rounded,
         Icons.favorite_rounded,
-        Icons.bar_chart_rounded,
-        Icons.calculate_rounded,
+        Icons.groups_rounded,
+        Icons.book,
       ][i];
-  String _labelFor(int i) => const ['Home', 'Dashboard', 'Favoris', 'Stats', 'Calculs'][i];
+  String _labelFor(int i) => const ['Home', 'Dashboard', 'Favoris', 'Communauté', 'Learn'][i];
 }
 
 class _FooterItem extends StatelessWidget {
@@ -253,7 +253,7 @@ class _NavigationFooterDemoState extends State<NavigationFooterDemo> {
       backgroundColor: const Color(0xFFF3E5F5),
       body: Center(
         child: Text(
-          'Onglet sélectionné: ${['Home', 'Dashboard', 'Favoris', 'Stats', 'Calculs'][_index]}',
+          'Onglet sélectionné: ${['Home', 'Dashboard', 'Favoris', 'Communauté', 'Calculs'][_index]}',
           style: const TextStyle(fontFamily: 'Geo', fontSize: 18),
         ),
       ),

@@ -1,0 +1,12 @@
+{
+  "name": "community-settle-worker",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "settle": "node scripts/settle_games.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

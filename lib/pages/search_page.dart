@@ -1,11 +1,21 @@
-import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import '../layouts/navigation_footer.dart';
 import '../services/yahoo_finance_service.dart';
+import 'favorites_page.dart';
 import 'info_page.dart';
+import 'dividend_calendar_sheet.dart';
+import 'portfolio_dashboard_page.dart';
+import 'learn_page.dart';
+import 'login_page.dart';
+import 'community_page.dart';
+
+enum _ProfileAction { logout }
 
 /// Page de recherche – UI modernisée (noir / blanc / gris) + micro-animations
 /// - Nouvelle typographie (sans-serif moderne via TextTheme Roboto par défaut)
@@ -23,7 +33,9 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   final FocusNode _focusNode = FocusNode();
   final List<TickerSearchResult> _suggestions = [];
   Timer? _debounce;
-  String _pseudo = '';
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userDocSubscription;
+  String? _displayName;
+  bool _loadingName = true;
   int _currentIndex = 0; // Footer selected tab
   TickerSearchResult? _selectedSuggestion;
   String? _suggestionMessage;
@@ -77,29 +89,71 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     _titleCtrl.forward();
 
     _focusNode.addListener(() => setState(() {}));
-    _loadPseudo().then((_) {
-      if (_pseudo.isEmpty) _showPseudoDialog();
-    });
+    _listenToUserProfile();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _userDocSubscription?.cancel();
     _searchController.dispose();
     _focusNode.dispose();
     _titleCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadPseudo() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() => _pseudo = prefs.getString('pseudo') ?? '');
+  void _listenToUserProfile() {
+    _userDocSubscription?.cancel();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() {
+        _displayName = null;
+        _loadingName = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _loadingName = true;
+    });
+
+    _userDocSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      final data = snapshot.data();
+      final name = data?['Name'] as String?;
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _displayName = (name != null && name.trim().isNotEmpty) ? name.trim() : null;
+        _loadingName = false;
+      });
+    }, onError: (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingName = false;
+      });
+    });
   }
 
-  Future<void> _setPseudo(String pseudo) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('pseudo', pseudo);
-    setState(() => _pseudo = pseudo);
+  Future<void> _logout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Déconnexion impossible. Réessayez.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   void _goToInfo(TickerSearchResult suggestion) async {
@@ -112,6 +166,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           initialName: suggestion.displayName,
           initialExchange: suggestion.exchange,
           initialCurrency: suggestion.currency,
+          initialQuoteType: suggestion.quoteType,
         ),
       );
     } catch (_) {
@@ -121,31 +176,98 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     }
   }
 
-  Future<void> _showPseudoDialog() async {
-    final controller = TextEditingController();
-    await showDialog(
+  Future<void> _openDividendCalendar() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connectez-vous pour consulter le calendrier des dividendes.')),
+      );
+      return;
+    }
+
+    try {
+      await showCupertinoModalBottomSheet(
+        context: context,
+        expand: true,
+        builder: (ctx) => DividendCalendarSheet(userId: user.uid),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'afficher le calendrier des dividendes.')),
+      );
+    }
+  }
+
+  Future<void> _showNameDialog() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return;
+    }
+    final controller = TextEditingController(text: _displayName ?? '');
+    final formKey = GlobalKey<FormState>();
+    final result = await showDialog<String>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Votre nom d'utilisateur"),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Entrez un nom (≥ 3 caractères)'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
-          TextButton(
-            onPressed: () async {
-              final v = controller.text.trim();
-              if (v.length >= 3) {
-                await _setPseudo(v);
-                if (mounted) Navigator.pop(context);
-              }
-            },
-            child: const Text('Confirmer'),
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Modifier votre nom'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Nom',
+                hintText: 'Entrez votre nom',
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Indiquez votre nom.';
+                }
+                if (value.trim().length < 2) {
+                  return 'Nom trop court.';
+                }
+                return null;
+              },
+            ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.of(context).pop(controller.text.trim());
+                }
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        );
+      },
     );
+
+    if (result == null) {
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+        {
+          'Name': result,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de mettre à jour le nom.')),
+      );
+    }
   }
 
   // --- Search logic (placeholder à remplacer par l'API finance) ---
@@ -213,13 +335,14 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final bool focused = _focusNode.hasFocus;
     final bool hasText = _searchController.text.isNotEmpty;
+    final Widget currentTab = _buildCurrentTab(focused, hasText);
 
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
-          child: _currentIndex == 0 ? _buildHome(focused, hasText) : _buildPlaceholderTab(),
+          child: currentTab,
         ),
       ),
       bottomNavigationBar: NavigationFooter(
@@ -229,7 +352,37 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
     );
   }
 
+  Widget _buildCurrentTab(bool focused, bool hasText) {
+    switch (_currentIndex) {
+      case 0:
+        return KeyedSubtree(
+          key: const ValueKey('home-tab'),
+          child: _buildHome(focused, hasText),
+        );
+      case 1:
+        return const PortfolioDashboardPage(key: ValueKey('portfolio-tab'));
+      case 2:
+        return const FavoritesPage(key: ValueKey('favorites-tab'));
+      case 3:
+        return const CommunityPage(key: ValueKey('community-tab'));
+      case 4:
+        return const LearnPage();
+      default:
+        return KeyedSubtree(
+          key: ValueKey('placeholder-$_currentIndex'),
+          child: _buildPlaceholderTab(),
+        );
+    }
+  }
+
   Widget _buildHome(bool focused, bool hasText) {
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = _displayName;
+    final greetingText = _loadingName
+        ? 'Bonjour'
+        : (displayName == null || displayName.isEmpty ? 'Bonjour' : 'Bonjour, $displayName');
+    final canEditName = user != null && !_loadingName;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -238,15 +391,40 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             children: [
-              const CircleAvatar(
-                radius: 18,
-                backgroundColor: Colors.black,
-                child: Icon(Icons.person, color: Colors.white, size: 18),
+              PopupMenuButton<_ProfileAction>(
+                tooltip: 'Profil — appuyez pour vous déconnecter',
+                padding: EdgeInsets.zero,
+                offset: const Offset(0, 12),
+                enabled: user != null,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                onSelected: (action) {
+                  if (action == _ProfileAction.logout) {
+                    _logout();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem<_ProfileAction>(
+                    value: _ProfileAction.logout,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.logout, size: 18, color: Colors.black54),
+                        SizedBox(width: 8),
+                        Text('Se déconnecter'),
+                      ],
+                    ),
+                  ),
+                ],
+                child: const CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.black,
+                  child: Icon(Icons.person, color: Colors.white, size: 18),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _pseudo.isEmpty ? 'Bonjour' : 'Bonjour, $_pseudo',
+                  greetingText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: _ink),
@@ -254,7 +432,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               ),
               IconButton(
                 tooltip: 'Changer de nom',
-                onPressed: _showPseudoDialog,
+                onPressed: canEditName ? _showNameDialog : null,
                 icon: const Icon(Icons.edit, color: _muted),
               )
             ],
@@ -291,7 +469,7 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
               boxShadow: [
                 if (focused || hasText)
                   BoxShadow(
-                    color: Colors.black.withOpacity(.06),
+                    color: Colors.black.withValues(alpha: .06),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   )
@@ -361,11 +539,17 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 ),
               ],
             ),
-          ),
         ),
+      ),
 
-        const SizedBox(height: 10),
-        Expanded(
+      const SizedBox(height: 12),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: _DividendCalendarButton(onTap: _openDividendCalendar),
+      ),
+
+      const SizedBox(height: 10),
+      Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: AnimatedSwitcher(
@@ -476,6 +660,55 @@ class _EmptyState extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
       ],
+    );
+  }
+}
+
+class _DividendCalendarButton extends StatelessWidget {
+  const _DividendCalendarButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF101010), Color(0xFF1E1E1E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: const [
+            Icon(Icons.calendar_month_rounded, color: Colors.white),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Calendrier des dividendes',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: Colors.white70),
+          ],
+        ),
+      ),
     );
   }
 }
