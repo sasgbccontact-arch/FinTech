@@ -37,6 +37,13 @@
 	<string>Nous avons besoin de votre localisation même en arrière-plan pour fournir un meilleur service.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Nous avons besoin de votre localisation pour fournir un meilleur service.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>L’accès au réseau local est utilisé pour les fonctionnalités de découverte locale et le débogage.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_dartobservatory._tcp</string>
+		<string>_flutterobservatory._tcp</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
