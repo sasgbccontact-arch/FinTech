@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
+import 'package:fintech/widgets/wallet_balances.dart';
 
 /// Page Communauté : mini-jeux communautaires basés sur les cours réels.
 /// - Défis “Cible de cours”
@@ -27,9 +28,21 @@ class CommunityPage extends StatefulWidget {
 }
 
 class _CommunityPageState extends State<CommunityPage> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 3, vsync: this);
+  late TabController _tabController;
   final _firestore = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,22 +53,35 @@ class _CommunityPageState extends State<CommunityPage> with SingleTickerProvider
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0.5,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.black,
-          unselectedLabelColor: Colors.black54,
-          tabs: const [
-            Tab(text: 'Cibles de cours'),
-            Tab(text: 'Duels tendance'),
-            Tab(text: 'Volatilité'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(96),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+                child: WalletBalances(
+                  auth: _auth,
+                  compact: true,
+                ),
+              ),
+              TabBar(
+                controller: _tabController,
+                labelColor: Colors.black,
+                unselectedLabelColor: Colors.black54,
+                tabs: const [
+                  Tab(text: 'Cibles de cours'),
+                  Tab(text: 'Volatilité'),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
           _TargetTab(firestore: _firestore, auth: _auth),
-          _DuelTab(firestore: _firestore, auth: _auth),
           _RangeTab(firestore: _firestore, auth: _auth),
         ],
       ),
@@ -188,7 +214,6 @@ class _TargetTabState extends State<_TargetTab> {
         .collection('community_games')
         .where('type', isEqualTo: 'target')
         .where('state', isEqualTo: 'open')
-        .orderBy('createdAt', descending: true)
         .limit(25)
         .snapshots();
   }
@@ -207,6 +232,16 @@ class _TargetTabState extends State<_TargetTab> {
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: _stream(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Impossible de charger les défis (index Firestore manquant ?). '
+                    'Vérifie l’index sur state + type (community_games).',
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                );
+              }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -225,6 +260,8 @@ class _TargetTabState extends State<_TargetTab> {
                     type: _GameType.target,
                     onJoin: (side, stake) => _joinGame(g, side, stake),
                     disableJoin: g.creatorId == widget.auth.currentUser?.uid,
+                    minStake: _minStake,
+                    maxStake: _maxStake,
                     sideLabels: const ['Dans la zone', 'Hors zone'],
                   );
                 },
@@ -256,6 +293,15 @@ class _TargetTabState extends State<_TargetTab> {
     );
     if (created == null) return;
 
+    final totalCost = created.stake + created.creationFee;
+    final coinsOk = await _deductCoins(user.uid, totalCost);
+    if (!coinsOk) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      return;
+    }
+
+    final creatorName = await _fetchUserName(user.uid, fallback: user.displayName);
     final ref = widget.firestore.collection('community_games').doc();
     await ref.set({
       'type': 'target',
@@ -265,7 +311,7 @@ class _TargetTabState extends State<_TargetTab> {
       'bandPct': created.bandPct,
       'horizonDays': created.horizonDays,
       'creatorId': user.uid,
-      'creatorName': user.displayName ?? 'Anonyme',
+      'creatorName': creatorName,
       'createdAt': FieldValue.serverTimestamp(),
       'deadline': DateTime.now().add(Duration(days: created.horizonDays)),
       'longPool': created.stake,
@@ -275,9 +321,10 @@ class _TargetTabState extends State<_TargetTab> {
       'creatorStake': created.stake,
       'entryPrice': created.entryPrice,
     });
+    final userName = creatorName;
     await ref.collection('participants').doc(user.uid).set({
       'userId': user.uid,
-      'userName': user.displayName ?? 'Anonyme',
+      'userName': userName,
       'side': 'long',
       'stake': created.stake,
       'joinedAt': FieldValue.serverTimestamp(),
@@ -301,6 +348,13 @@ class _TargetTabState extends State<_TargetTab> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Déjà inscrit sur ce défi.')));
       return;
     }
+    final coinsOk = await _deductCoins(user.uid, stake);
+    if (!coinsOk) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      return;
+    }
+    final userName = await _fetchUserName(user.uid, fallback: user.displayName);
     await widget.firestore.runTransaction((tx) async {
       final gameRef = widget.firestore.collection('community_games').doc(game.id);
       final snapshot = await tx.get(gameRef);
@@ -316,115 +370,13 @@ class _TargetTabState extends State<_TargetTab> {
       tx.update(gameRef, {'longPool': longPool, 'shortPool': shortPool});
       tx.set(participantRef, {
         'userId': user.uid,
-        'userName': user.displayName ?? 'Anonyme',
+        'userName': userName,
         'side': side == _Side.long ? 'long' : 'short',
         'stake': stake,
         'joinedAt': FieldValue.serverTimestamp(),
       });
     });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inscription enregistrée.')));
-  }
-}
-
-/// -------------- DUELS TAB --------------
-
-class _DuelTab extends StatefulWidget {
-  const _DuelTab({required this.firestore, required this.auth});
-  final FirebaseFirestore firestore;
-  final FirebaseAuth auth;
-
-  @override
-  State<_DuelTab> createState() => _DuelTabState();
-}
-
-class _DuelTabState extends State<_DuelTab> {
-  Stream<QuerySnapshot<Map<String, dynamic>>> _stream() {
-    return widget.firestore
-        .collection('community_games')
-        .where('type', isEqualTo: 'duel')
-        .where('state', isEqualTo: 'open')
-        .orderBy('createdAt', descending: true)
-        .limit(10)
-        .snapshots();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const _HeaderAction(
-          title: 'Duels Tendance',
-          subtitle: 'CAC40 / SBF120 chaque lundi 8h30, durée 5j. Camp Hausse vs Baisse.',
-          buttonLabel: 'Duels auto (pas de création)',
-          onPressed: null,
-        ),
-        Expanded(
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _stream(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final docs = snapshot.data?.docs ?? [];
-              if (docs.isEmpty) {
-                return const Center(child: Text('Aucun duel en cours.'));
-              }
-              final games = docs.map(_CommunityGame.fromDoc).toList();
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                itemCount: games.length,
-                itemBuilder: (context, i) {
-                  final g = games[i];
-                  return _GameCard(
-                    game: g,
-                    type: _GameType.duel,
-                    onJoin: (side, stake) => _join(g, side, stake),
-                    disableJoin: g.creatorId == widget.auth.currentUser?.uid,
-                    sideLabels: const ['Hausse', 'Baisse'],
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _join(_CommunityGame game, _Side side, double stake) async {
-    final user = widget.auth.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connecte-toi pour rejoindre.')));
-      return;
-    }
-    final participantRef = widget.firestore.collection('community_games').doc(game.id).collection('participants').doc(user.uid);
-    final doc = await participantRef.get();
-    if (doc.exists) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Déjà inscrit sur ce duel.')));
-      return;
-    }
-    await widget.firestore.runTransaction((tx) async {
-      final gameRef = widget.firestore.collection('community_games').doc(game.id);
-      final snap = await tx.get(gameRef);
-      if (!snap.exists) return;
-      final data = snap.data() as Map<String, dynamic>;
-      double longPool = (data['longPool'] as num?)?.toDouble() ?? 0;
-      double shortPool = (data['shortPool'] as num?)?.toDouble() ?? 0;
-      if (side == _Side.long) {
-        longPool += stake;
-      } else {
-        shortPool += stake;
-      }
-      tx.update(gameRef, {'longPool': longPool, 'shortPool': shortPool});
-      tx.set(participantRef, {
-        'userId': user.uid,
-        'userName': user.displayName ?? 'Anonyme',
-        'side': side == _Side.long ? 'long' : 'short',
-        'stake': stake,
-        'joinedAt': FieldValue.serverTimestamp(),
-      });
-    });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participation duel enregistrée.')));
   }
 }
 
@@ -449,7 +401,6 @@ class _RangeTabState extends State<_RangeTab> {
         .collection('community_games')
         .where('type', isEqualTo: 'range')
         .where('state', isEqualTo: 'open')
-        .orderBy('createdAt', descending: true)
         .limit(20)
         .snapshots();
   }
@@ -468,6 +419,16 @@ class _RangeTabState extends State<_RangeTab> {
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: _stream(),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Impossible de charger les challenges (index Firestore manquant ?). '
+                    'Vérifie l’index sur state + type (community_games).',
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                );
+              }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
@@ -486,6 +447,8 @@ class _RangeTabState extends State<_RangeTab> {
                     type: _GameType.range,
                     sideLabels: const ['Range', 'Breakout'],
                     disableJoin: g.creatorId == widget.auth.currentUser?.uid,
+                    minStake: _minStake,
+                    maxStake: _maxStake,
                     onJoin: (side, stake) => _join(g, side, stake),
                   );
                 },
@@ -514,6 +477,14 @@ class _RangeTabState extends State<_RangeTab> {
       ),
     );
     if (created == null) return;
+    final totalCost = created.stake + created.creationFee;
+    final coinsOk = await _deductCoins(user.uid, totalCost);
+    if (!coinsOk) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      return;
+    }
+    final creatorName = await _fetchUserName(user.uid, fallback: user.displayName);
     final ref = widget.firestore.collection('community_games').doc();
     await ref.set({
       'type': 'range',
@@ -523,7 +494,7 @@ class _RangeTabState extends State<_RangeTab> {
       'rangeHigh': created.rangeHigh,
       'horizonDays': created.horizonDays,
       'creatorId': user.uid,
-      'creatorName': user.displayName ?? 'Anonyme',
+      'creatorName': creatorName,
       'createdAt': FieldValue.serverTimestamp(),
       'deadline': DateTime.now().add(Duration(days: created.horizonDays)),
       'longPool': created.stake,
@@ -533,9 +504,10 @@ class _RangeTabState extends State<_RangeTab> {
       'creatorStake': created.stake,
       'entryPrice': created.entryPrice,
     });
+    final userName = creatorName;
     await ref.collection('participants').doc(user.uid).set({
       'userId': user.uid,
-      'userName': user.displayName ?? 'Anonyme',
+      'userName': userName,
       'side': 'long',
       'stake': created.stake,
       'joinedAt': FieldValue.serverTimestamp(),
@@ -559,6 +531,13 @@ class _RangeTabState extends State<_RangeTab> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Déjà inscrit sur ce challenge.')));
       return;
     }
+    final coinsOk = await _deductCoins(user.uid, stake);
+    if (!coinsOk) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      return;
+    }
+    final userName = await _fetchUserName(user.uid, fallback: user.displayName);
     await widget.firestore.runTransaction((tx) async {
       final gameRef = widget.firestore.collection('community_games').doc(game.id);
       final snap = await tx.get(gameRef);
@@ -574,7 +553,7 @@ class _RangeTabState extends State<_RangeTab> {
       tx.update(gameRef, {'longPool': longPool, 'shortPool': shortPool});
       tx.set(participantRef, {
         'userId': user.uid,
-        'userName': user.displayName ?? 'Anonyme',
+        'userName': userName,
         'side': side == _Side.long ? 'long' : 'short',
         'stake': stake,
         'joinedAt': FieldValue.serverTimestamp(),
@@ -716,7 +695,7 @@ class _CreateTargetSheetState extends State<_CreateTargetSheet> {
                     const Spacer(),
                     ElevatedButton(
                       onPressed: _loadingQuote ? null : _submit,
-                      child: const Text('Publier'),
+                      child: Text('Publier (${fee.toStringAsFixed(0)} coins)'),
                     ),
                   ],
                 ),
@@ -935,7 +914,7 @@ class _CreateRangeSheetState extends State<_CreateRangeSheet> {
                     const Spacer(),
                     ElevatedButton(
                       onPressed: _loadingQuote ? null : _submit,
-                      child: const Text('Publier'),
+                      child: Text('Publier (${widget.fee.toStringAsFixed(0)} coins)'),
                     ),
                   ],
                 ),
@@ -1077,6 +1056,8 @@ class _GameCard extends StatefulWidget {
     required this.sideLabels,
     required this.onJoin,
     required this.disableJoin,
+    required this.minStake,
+    required this.maxStake,
   });
 
   final _CommunityGame game;
@@ -1084,6 +1065,8 @@ class _GameCard extends StatefulWidget {
   final List<String> sideLabels;
   final bool disableJoin;
   final Future<void> Function(_Side side, double stake) onJoin;
+  final double minStake;
+  final double maxStake;
 
   @override
   State<_GameCard> createState() => _GameCardState();
@@ -1138,19 +1121,35 @@ class _GameCardState extends State<_GameCard> {
           _buildContextLine(),
           const SizedBox(height: 10),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _PoolChip(label: widget.sideLabels[0], value: g.longPool, color: Colors.green),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _PoolChip(label: widget.sideLabels[0], value: g.longPool, color: Colors.green),
+                    _PoolChip(label: widget.sideLabels[1], value: g.shortPool, color: Colors.redAccent),
+                  ],
+                ),
+              ),
               const SizedBox(width: 8),
-              _PoolChip(label: widget.sideLabels[1], value: g.shortPool, color: Colors.redAccent),
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('Cote ${widget.sideLabels[0]}: ${oddsLong.toStringAsFixed(2)}x',
-                      style: const TextStyle(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
-                  Text('Cote ${widget.sideLabels[1]}: ${oddsShort.toStringAsFixed(2)}x',
-                      style: const TextStyle(color: Colors.black54), overflow: TextOverflow.ellipsis),
-                ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Cote ${widget.sideLabels[0]}: ${oddsLong.toStringAsFixed(2)}x',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Cote ${widget.sideLabels[1]}: ${oddsShort.toStringAsFixed(2)}x',
+                      style: const TextStyle(color: Colors.black54),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1182,6 +1181,7 @@ class _GameCardState extends State<_GameCard> {
           Text(
             'Gain potentiel pour 100 coins : ${(oddsLong * 100).toStringAsFixed(0)} / ${(oddsShort * 100).toStringAsFixed(0)}',
             style: const TextStyle(color: Colors.black54),
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -1207,6 +1207,12 @@ class _GameCardState extends State<_GameCard> {
     final stake = double.tryParse(_stakeCtrl.text);
     if (stake == null || stake <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mise invalide')));
+      return;
+    }
+    if (stake < widget.minStake || stake > widget.maxStake) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mise entre ${widget.minStake.toInt()} et ${widget.maxStake.toInt()} coins.')),
+      );
       return;
     }
     await widget.onJoin(side, stake);
@@ -1272,3 +1278,54 @@ class _HeaderAction extends StatelessWidget {
 }
 
 enum _Side { long, short }
+
+/// Débite le solde coins d'un utilisateur dans Firestore de façon atomique.
+/// Retourne false si solde insuffisant ou en cas d'erreur réseau.
+Future<bool> _deductCoins(String uid, double amount) async {
+  if (amount <= 0) return true;
+  final firestore = FirebaseFirestore.instance;
+  try {
+    return await firestore.runTransaction<bool>((tx) async {
+      final userRef = firestore.collection('users').doc(uid);
+      final progressRef = userRef.collection('learning').doc('progress');
+      final progressSnap = await tx.get(progressRef);
+      final userSnap = await tx.get(userRef);
+
+      double? coinsProgress = (progressSnap.data()?['coins'] as num?)?.toDouble();
+      double? coinsUser = (userSnap.data()?['coins'] as num?)?.toDouble();
+      double? coinsSource = coinsProgress ?? coinsUser;
+      if (coinsSource == null) return false;
+      if (coinsSource < amount) return false;
+      final newCoins = coinsSource - amount;
+
+      if (coinsProgress != null) {
+        tx.update(progressRef, {'coins': newCoins});
+      } else {
+        tx.set(progressRef, {'coins': newCoins}, SetOptions(merge: true));
+      }
+
+      if (coinsUser != null) {
+        tx.update(userRef, {'coins': newCoins});
+      } else {
+        tx.set(userRef, {'coins': newCoins}, SetOptions(merge: true));
+      }
+      return true;
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Récupère le pseudo stocké dans `/users/{uid}.Name` avec repli sur displayName.
+Future<String> _fetchUserName(String uid, {String? fallback}) async {
+  final firestore = FirebaseFirestore.instance;
+  try {
+    final snap = await firestore.collection('users').doc(uid).get();
+    final data = snap.data();
+    final name = data?['Name'] as String?;
+    if (name != null && name.trim().isNotEmpty) return name.trim();
+  } catch (_) {
+    // ignore
+  }
+  return (fallback != null && fallback.trim().isNotEmpty) ? fallback.trim() : 'Anonyme';
+}

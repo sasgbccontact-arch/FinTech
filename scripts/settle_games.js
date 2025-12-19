@@ -81,6 +81,7 @@ async function settleGame(doc) {
     id: doc.id,
     type: data.type,
     ticker: data.ticker,
+    creatorId: data.creatorId,
     targetPrice: data.targetPrice,
     bandPct: data.bandPct,
     entryPrice: data.entryPrice,
@@ -110,14 +111,39 @@ async function settleGame(doc) {
   const losers = participants.filter((p) => p.side !== winner);
   const totalPool = (game.longPool || 0) + (game.shortPool || 0);
   const winningStake = winners.reduce((sum, p) => sum + (p.stake || 0), 0);
+  const losingPool = totalPool - winningStake;
+  const creatorParticipant = game.creatorId
+    ? winners.find((p) => p.userId === game.creatorId)
+    : null;
 
   const batch = db.batch();
+  let totalDistributed = 0;
 
   winners.forEach((p) => {
     const stake = p.stake || 0;
     const payout = winningStake > 0 ? (stake / winningStake) * totalPool : 0;
+    totalDistributed += payout;
     batch.set(doc.ref.collection('participants').doc(p.id), { payout, result: 'win' }, { merge: true });
+    if (p.userId) {
+      const userRef = db.collection('users').doc(p.userId);
+      const progressRef = userRef.collection('learning').doc('progress');
+      batch.set(userRef, { coins: admin.firestore.FieldValue.increment(payout) }, { merge: true });
+      batch.set(progressRef, { coins: admin.firestore.FieldValue.increment(payout) }, { merge: true });
+    }
   });
+
+  // Bonus créateur : récupère la totalité des mises perdantes s'il est gagnant.
+  if (creatorParticipant && losingPool > 0) {
+    totalDistributed += losingPool;
+    batch.set(doc.ref.collection('participants').doc(creatorParticipant.id), {
+      bonusCreator: losingPool,
+      payout: (creatorParticipant.payout || 0) + losingPool,
+    }, { merge: true });
+    const userRef = db.collection('users').doc(creatorParticipant.userId);
+    const progressRef = userRef.collection('learning').doc('progress');
+    batch.set(userRef, { coins: admin.firestore.FieldValue.increment(losingPool) }, { merge: true });
+    batch.set(progressRef, { coins: admin.firestore.FieldValue.increment(losingPool) }, { merge: true });
+  }
 
   losers.forEach((p) => {
     batch.set(doc.ref.collection('participants').doc(p.id), { payout: 0, result: 'lose' }, { merge: true });
@@ -129,7 +155,7 @@ async function settleGame(doc) {
     settlementPrice: price,
     winningSide: winner,
     totalPool,
-    totalDistributed: totalPool,
+    totalDistributed,
     losersCount: losers.length,
     winnersCount: winners.length,
   });

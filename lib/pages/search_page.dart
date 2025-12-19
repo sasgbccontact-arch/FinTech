@@ -14,6 +14,7 @@ import 'portfolio_dashboard_page.dart';
 import 'learn_page.dart';
 import 'login_page.dart';
 import 'community_page.dart';
+import '../widgets/wallet_balances.dart';
 
 enum _ProfileAction { logout }
 
@@ -435,7 +436,15 @@ class _SearchPageState extends State<SearchPage> with SingleTickerProviderStateM
                 onPressed: canEditName ? _showNameDialog : null,
                 icon: const Icon(Icons.edit, color: _muted),
               )
-            ],
+        ],
+          ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: WalletBalances(
+            auth: FirebaseAuth.instance,
+            compact: true,
           ),
         ),
 
@@ -649,17 +658,24 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
-        Icon(Icons.search_rounded, size: 40, color: Colors.black54),
-        SizedBox(height: 10),
-        Text(
-          'Tapez un nom ou un ticker pour commencer',
-          style: TextStyle(color: Colors.black54, fontSize: 15),
-          textAlign: TextAlign.center,
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.search_rounded, size: 40, color: Colors.black54),
+            SizedBox(height: 10),
+            Text(
+              'Tapez un nom ou un ticker pour commencer',
+              style: TextStyle(color: Colors.black54, fontSize: 15),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
