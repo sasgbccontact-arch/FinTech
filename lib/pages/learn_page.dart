@@ -71,6 +71,15 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
     _AdUnlockType.scenario: false,
     _AdUnlockType.coins: false,
   };
+  static const List<String> _themeRoadmap = [
+    'fundamentals',
+    'technical',
+    'intuition',
+    'psychology',
+    'esg',
+    'history',
+    'derivatives',
+  ];
 
   final List<_LearningStage> _stages = const [
     _LearningStage(
@@ -79,6 +88,7 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
       subtitle: 'Bilans, valorisation, ratios',
       icon: Icons.stacked_line_chart_rounded,
       accent: Color(0xFF3D82F7),
+      difficulty: 1,
     ),
     _LearningStage(
       id: 'technical',
@@ -86,6 +96,7 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
       subtitle: 'Supports, figures & momentum',
       icon: Icons.timeline_rounded,
       accent: Color(0xFF8F67FF),
+      difficulty: 1,
     ),
     _LearningStage(
       id: 'intuition',
@@ -93,6 +104,7 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
       subtitle: 'Macro, psychologie, news',
       icon: Icons.psychology_rounded,
       accent: Color(0xFFFF9E64),
+      difficulty: 2,
     ),
     _LearningStage(
       id: 'history',
@@ -101,6 +113,7 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
       icon: Icons.history_edu_rounded,
       accent: Color(0xFF00BFA6),
       locked: true,
+      difficulty: 2,
     ),
     _LearningStage(
       id: 'psychology',
@@ -108,6 +121,7 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
       subtitle: 'Discipline, biais, money management',
       icon: Icons.self_improvement_rounded,
       accent: Color(0xFFD65DB1),
+      difficulty: 2,
     ),
     _LearningStage(
       id: 'esg',
@@ -115,6 +129,7 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
       subtitle: 'Transition, COP, énergie propre',
       icon: Icons.eco_rounded,
       accent: Color(0xFF4CAF50),
+      difficulty: 2,
     ),
     _LearningStage(
       id: 'derivatives',
@@ -123,6 +138,7 @@ class _LearnPageState extends State<LearnPage> with SingleTickerProviderStateMix
       icon: Icons.multiline_chart_rounded,
       accent: Color(0xFF00BCD4),
       locked: true,
+      difficulty: 3,
     ),
   ];
 
@@ -2352,9 +2368,20 @@ static const List<_PortfolioScenario> _baseScenarios = [
     }
     final done = completed.contains(nextLesson.id);
     final locked = !done && !_hasLessonAllowance(progress);
+    final currentThemeId = _currentThemeId(progress);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _ThemePreview(
+          currentThemeId: currentThemeId,
+          themeRoadmap: _themeRoadmap,
+          stageResolver: _stageById,
+          pendingLessonsResolver: (id) => _pendingLessonsForStage(id, progress),
+          pendingQuizResolver: (id) => _pendingQuizForStage(id, progress),
+          isCompleteResolver: (id) => _isStageComplete(id, progress),
+          difficultyLabelResolver: _difficultyLabel,
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Text('Petites leçons', style: TextStyle(fontSize: _scaledFont(context, 18), fontWeight: FontWeight.w700, color: _learnInk)),
@@ -2381,6 +2408,9 @@ static const List<_PortfolioScenario> _baseScenarios = [
   }
 
   _MiniLesson? _nextLessonForUser(LearningProgress progress) {
+    final currentTheme = _currentThemeId(progress);
+    final pendingCurrent = _lessons.where((l) => l.stageId == currentTheme && !progress.completedLessonIds.contains(l.id)).toList();
+    if (pendingCurrent.isNotEmpty) return pendingCurrent.first;
     final pending = _lessons.where((l) => !progress.completedLessonIds.contains(l.id)).toList();
     if (pending.isNotEmpty) return pending.first;
     return _lessons.isNotEmpty ? _lessons.first : null;
@@ -2435,11 +2465,21 @@ static const List<_PortfolioScenario> _baseScenarios = [
     final userHash = FirebaseAuth.instance.currentUser?.uid.hashCode ?? 0;
     final seed = day.millisecondsSinceEpoch ^ userHash ^ progress.completedQuizIds.length.hashCode ^ progress.completedLessonIds.length.hashCode;
     final random = math.Random(seed);
-    final pending = _quiz.where((q) => !progress.completedQuizIds.contains(q.id)).toList()
+    final themeId = _currentThemeId(progress);
+    final themePending = _quiz.where((q) => q.stageId == themeId && !progress.completedQuizIds.contains(q.id)).toList()
       ..shuffle(random);
-    final reviewed = _quiz.where((q) => progress.completedQuizIds.contains(q.id)).toList()
+    final themeReviewed = _quiz.where((q) => q.stageId == themeId && progress.completedQuizIds.contains(q.id)).toList()
       ..shuffle(random);
-    final merged = <_QuizCardData>[...pending, ...reviewed];
+    final otherPending = _quiz.where((q) => q.stageId != themeId && !progress.completedQuizIds.contains(q.id)).toList()
+      ..shuffle(random);
+    final otherReviewed = _quiz.where((q) => q.stageId != themeId && progress.completedQuizIds.contains(q.id)).toList()
+      ..shuffle(random);
+    final merged = <_QuizCardData>[
+      ...themePending,
+      ...themeReviewed,
+      ...otherPending,
+      ...otherReviewed,
+    ];
     return merged.take(_dailyQuizCount).toList();
   }
 
@@ -2801,19 +2841,48 @@ static const List<_PortfolioScenario> _baseScenarios = [
   }
 
   Color _stageColor(String stageId) {
-    final match = _stages.firstWhere(
-      (stage) => stage.id == stageId,
-      orElse: () => _stages.first,
-    );
-    return match.accent;
+    return _stageById(stageId).accent;
   }
 
   String _stageLabel(String stageId) {
-    final match = _stages.firstWhere(
+    return _stageById(stageId).title;
+  }
+
+  _LearningStage _stageById(String stageId) {
+    return _stages.firstWhere(
       (stage) => stage.id == stageId,
       orElse: () => _stages.first,
     );
-    return match.title;
+  }
+
+  String _currentThemeId(LearningProgress progress) {
+    for (final id in _themeRoadmap) {
+      if (!_isStageComplete(id, progress)) return id;
+    }
+    return _themeRoadmap.isNotEmpty ? _themeRoadmap.last : _stages.first.id;
+  }
+
+  bool _isStageComplete(String stageId, LearningProgress progress) {
+    return _pendingLessonsForStage(stageId, progress) == 0 && _pendingQuizForStage(stageId, progress) == 0;
+  }
+
+  int _pendingLessonsForStage(String stageId, LearningProgress progress) {
+    return _lessons.where((l) => l.stageId == stageId && !progress.completedLessonIds.contains(l.id)).length;
+  }
+
+  int _pendingQuizForStage(String stageId, LearningProgress progress) {
+    return _quiz.where((q) => q.stageId == stageId && !progress.completedQuizIds.contains(q.id)).length;
+  }
+
+  String _difficultyLabel(int level) {
+    switch (level) {
+      case 1:
+        return 'Débutant';
+      case 2:
+        return 'Intermédiaire';
+      default:
+        return 'Avancé';
+    }
   }
 
   Future<void> _openLesson(_MiniLesson lesson, bool completed) async {
@@ -3004,6 +3073,101 @@ class _MiniLessonCard extends StatelessWidget {
             )
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ThemePreview extends StatelessWidget {
+  const _ThemePreview({
+    required this.currentThemeId,
+    required this.themeRoadmap,
+    required this.stageResolver,
+    required this.pendingLessonsResolver,
+    required this.pendingQuizResolver,
+    required this.isCompleteResolver,
+    required this.difficultyLabelResolver,
+  });
+
+  final String currentThemeId;
+  final List<String> themeRoadmap;
+  final _LearningStage Function(String id) stageResolver;
+  final int Function(String id) pendingLessonsResolver;
+  final int Function(String id) pendingQuizResolver;
+  final bool Function(String id) isCompleteResolver;
+  final String Function(int) difficultyLabelResolver;
+
+  @override
+  Widget build(BuildContext context) {
+    if (themeRoadmap.isEmpty) return const SizedBox.shrink();
+    final currentIndex = themeRoadmap.indexOf(currentThemeId).clamp(0, themeRoadmap.length - 1);
+    final chips = <Widget>[];
+    for (var i = 0; i < themeRoadmap.length; i++) {
+      final id = themeRoadmap[i];
+      final status = i == currentIndex
+          ? 'En cours'
+          : i < currentIndex
+              ? 'Passé'
+              : 'Prochain';
+      chips.add(_buildChip(
+        context,
+        id,
+        status: status,
+        muted: i != currentIndex,
+      ));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Parcours', style: TextStyle(fontWeight: FontWeight.w700, fontSize: _scaledFont(context, 16))),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              const SizedBox(width: 2),
+              ...chips.expand((w) => [w, const SizedBox(width: 8)]),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChip(BuildContext context, String stageId, {required String status, bool muted = false}) {
+    final stage = stageResolver(stageId);
+    final pendingLessons = pendingLessonsResolver(stageId);
+    final pendingQuiz = pendingQuizResolver(stageId);
+    final totalPending = pendingLessons + pendingQuiz;
+    final done = isCompleteResolver(stageId);
+    final labelDifficulty = difficultyLabelResolver(stage.difficulty);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: (muted ? Colors.black12 : stage.accent.withOpacity(0.12)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: muted ? Colors.black12 : stage.accent.withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(stage.icon, color: muted ? Colors.black54 : stage.accent, size: 18),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(stage.title, style: TextStyle(fontWeight: FontWeight.w800, fontSize: _scaledFont(context, 13), color: muted ? Colors.black87 : stage.accent)),
+              Text(
+                '$status • $labelDifficulty',
+                style: TextStyle(color: muted ? Colors.black54 : Colors.black87, fontSize: _scaledFont(context, 11), fontWeight: FontWeight.w600),
+              ),
+              Text(
+                done ? 'Terminé' : '$totalPending à venir',
+                style: TextStyle(color: Colors.black54, fontSize: _scaledFont(context, 11)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -5762,6 +5926,7 @@ class _LearningStage {
     required this.icon,
     required this.accent,
     this.locked = false,
+    this.difficulty = 2,
   });
 
   final String id;
@@ -5770,6 +5935,7 @@ class _LearningStage {
   final IconData icon;
   final Color accent;
   final bool locked;
+  final int difficulty; // 1 = débutant, 2 = intermédiaire, 3 = avancé
 }
 
 class _MiniLesson {
@@ -6611,6 +6777,211 @@ const List<_LessonTemplateData> _lessonTemplates = [
       'Afrique du Sud',
     ],
   ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_allocation_core_satellite',
+    stageId: 'fundamentals',
+    titlePattern: 'Portefeuille cœur/satellite – {topic}',
+    summaryPattern: 'Structurer le cœur long terme et le satellite pour {topic}.',
+    duration: '5 min',
+    rewardXp: 9,
+    icon: Icons.hub_rounded,
+    bulletPatterns: [
+      'Définis un cœur global diversifié pour {topic}.',
+      'Limite le satellite tactique à un % fixe de {topic}.',
+      'Planifie un rebalancing périodique de {topic}.',
+    ],
+    topics: [
+      'un profil prudent',
+      'un profil équilibré',
+      'un profil dynamique',
+      'une thématique tech',
+      'une thématique climat',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_valuation',
+    stageId: 'fundamentals',
+    titlePattern: 'Valorisation rapide – {topic}',
+    summaryPattern: 'Choisir le bon multiple pour {topic}.',
+    duration: '5 min',
+    rewardXp: 9,
+    icon: Icons.calculate_rounded,
+    bulletPatterns: [
+      'Compare EV/EBITDA pour {topic} si la structure de capital varie.',
+      'Utilise P/S si {topic} est pré-profit mais avec croissance saine.',
+      'Croise FCF yield et PER pour vérifier la cohérence de {topic}.',
+    ],
+    topics: [
+      'une biotech en croissance',
+      'une banque mature',
+      'une valeur de luxe',
+      'un éditeur SaaS',
+      'un opérateur télécom',
+      'une foncière cotée',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_tax',
+    stageId: 'intuition',
+    titlePattern: 'Fiscalité pratique – {topic}',
+    summaryPattern: 'Optimiser la fiscalité pour {topic}.',
+    duration: '4 min',
+    rewardXp: 8,
+    icon: Icons.receipt_long_rounded,
+    bulletPatterns: [
+      'Anticipe les retenues à la source sur {topic}.',
+      'Compare PFU vs barème pour {topic}.',
+      'Planifie les dates ex-dividende de {topic}.',
+    ],
+    topics: [
+      'un ETF américain',
+      'un dividende français',
+      'un titre UK en PEA',
+      'un ADR émergent',
+      'une foncière US',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_rebalance',
+    stageId: 'psychology',
+    titlePattern: 'Rebalancing discipliné – {topic}',
+    summaryPattern: 'Créer une routine de rebalancing pour {topic}.',
+    duration: '4 min',
+    rewardXp: 7,
+    icon: Icons.sync_rounded,
+    bulletPatterns: [
+      'Choisis un seuil ou une fréquence fixe pour {topic}.',
+      'Utilise les dividendes/flux pour rééquilibrer {topic}.',
+      'Journalise chaque rebalancing pour {topic}.',
+    ],
+    topics: [
+      'un portefeuille multi-ETF',
+      'une poche actions US',
+      'un portefeuille PEA',
+      'une poche thematic',
+      'un portefeuille défensif',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_history_case',
+    stageId: 'history',
+    titlePattern: 'Étude de crise – {topic}',
+    summaryPattern: 'Ce que la crise de {topic} a changé pour les investisseurs.',
+    duration: '5 min',
+    rewardXp: 9,
+    icon: Icons.history_edu_rounded,
+    bulletPatterns: [
+      'Identifie les signaux avant-coureurs de {topic}.',
+      'Note les politiques monétaires/fiscales mises en place.',
+      'Retire une règle de gestion du risque appliquée à ton portefeuille.',
+    ],
+    topics: [
+      'la bulle des tulipes',
+      'la crise asiatique 1997',
+      'la crise des subprimes 2008',
+      'le krach Covid 2020',
+      'la crise de la dette grecque',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_history_playbook',
+    stageId: 'history',
+    titlePattern: 'Playbook post-crise – {topic}',
+    summaryPattern: 'Comment les marchés se sont redressés après {topic}.',
+    duration: '5 min',
+    rewardXp: 8,
+    icon: Icons.restart_alt_rounded,
+    bulletPatterns: [
+      'Analyse la vitesse de reprise après {topic}.',
+      'Quelles classes d’actifs ont mené le rebond ?',
+      'Note les erreurs à éviter lors de la phase de reprise.',
+    ],
+    topics: [
+      'le krach dotcom',
+      'le Lundi noir 1987',
+      'la crise énergétique 2022',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_tech_risk',
+    stageId: 'technical',
+    titlePattern: 'Gestion du risque – {topic}',
+    summaryPattern: 'Intégrer stops et tailles de position sur {topic}.',
+    duration: '5 min',
+    rewardXp: 8,
+    icon: Icons.rule_folder_rounded,
+    bulletPatterns: [
+      'Définis un stop cohérent avec la volatilité de {topic}.',
+      'Ajuste la taille de position selon le risque par trade.',
+      'Mets à jour ton plan si la volatilité de {topic} change.',
+    ],
+    topics: [
+      'un swing trade',
+      'une tendance longue',
+      'un range',
+      'un breakout',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_tech_indicators',
+    stageId: 'technical',
+    titlePattern: 'Indicateurs techniques – {topic}',
+    summaryPattern: 'Quand utiliser {topic} et quand l’éviter.',
+    duration: '5 min',
+    rewardXp: 8,
+    icon: Icons.monitor_heart_rounded,
+    bulletPatterns: [
+      'Interprète {topic} selon le contexte de tendance.',
+      'Combine {topic} avec volumes pour limiter les faux signaux.',
+      'Ne multiplie pas les indicateurs corrélés.',
+    ],
+    topics: [
+      'RSI',
+      'MACD',
+      'Bandes de Bollinger',
+      'Ichimoku',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_esg_reg',
+    stageId: 'esg',
+    titlePattern: 'Cadre ESG – {topic}',
+    summaryPattern: 'Comprendre les règles pour {topic}.',
+    duration: '5 min',
+    rewardXp: 8,
+    icon: Icons.gavel_rounded,
+    bulletPatterns: [
+      'Identifie les obligations de reporting liées à {topic}.',
+      'Mesure l’impact sur les coûts et marges.',
+      'Repère les opportunités pour les acteurs conformes.',
+    ],
+    topics: [
+      'la taxonomie européenne',
+      'la CSRD',
+      'les standards ISSB',
+      'les labels verts nationaux',
+    ],
+  ),
+  _LessonTemplateData(
+    idPrefix: 'lesson_deriv_risk',
+    stageId: 'derivatives',
+    titlePattern: 'Risques des dérivés – {topic}',
+    summaryPattern: 'Identifier les limites de {topic}.',
+    duration: '5 min',
+    rewardXp: 9,
+    icon: Icons.error_outline_rounded,
+    bulletPatterns: [
+      'Mesure le gamma/vega pour {topic}.',
+      'Calcule l’impact d’une variation de volatilité.',
+      'Définis un budget de perte maximal pour {topic}.',
+    ],
+    topics: [
+      'un straddle',
+      'un spread baissier',
+      'un butterfly',
+      'un short put cash-secured',
+    ],
+  ),
 ];
 
 const List<String> _quizSectorTopics = [
@@ -6968,6 +7339,228 @@ const List<_QuizTemplateData> _quizTemplates = [
     ],
     correctIndex: 0,
     explanationPattern: 'Les contraintes logistiques poussent les coûts de {topic} à la hausse et nourrissent l’inflation.',
+    topics: _quizSectorTopics,
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_history_signal',
+    stageId: 'history',
+    category: 'Histoire',
+    rewardXp: 18,
+    questionPattern: 'Quel signal a précédé la crise de {topic} ?',
+    options: [
+      'Un accès au crédit excessif et un levier élevé',
+      'Une baisse des taux longs',
+      'Une hausse des dividendes',
+      'Une stabilité parfaite des prix',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'La crise de {topic} a été amplifiée par le levier et l’excès de crédit.',
+    topics: [
+      'la bulle des tulipes',
+      'la crise asiatique 1997',
+      'la crise des subprimes 2008',
+      'le krach Covid 2020',
+      'la crise de la dette grecque',
+    ],
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_history_playbook',
+    stageId: 'history',
+    category: 'Histoire',
+    rewardXp: 17,
+    questionPattern: 'Après {topic}, quel actif a le plus rebondi ?',
+    options: [
+      'Les actions qualité / large caps',
+      'Les obligations court terme',
+      'Le cash',
+      'Rien du tout',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'Les phases post {topic} voient souvent un rebond mené par des leaders qualité/large caps.',
+    topics: [
+      'le krach dotcom',
+      'le Lundi noir 1987',
+      'la crise énergétique 2022',
+    ],
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_tech_risk',
+    stageId: 'technical',
+    category: 'Technique',
+    rewardXp: 17,
+    questionPattern: 'Sur {topic}, quel stop est cohérent ?',
+    options: [
+      'Un stop aligné sur la volatilité (ATR) et la structure de prix',
+      'Aucun stop',
+      'Un stop à 0,1% de distance',
+      'Un stop au hasard',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'On calibre le stop de {topic} sur la volatilité et le pattern (ATR, supports).',
+    topics: [
+      'un swing trade',
+      'une tendance longue',
+      'un range',
+      'un breakout',
+    ],
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_tech_indicators',
+    stageId: 'technical',
+    category: 'Technique',
+    rewardXp: 16,
+    questionPattern: 'Quand utiliser {topic} ?',
+    options: [
+      'En confirmant la tendance et les volumes',
+      'Toujours, sans contexte',
+      'Jamais',
+      'Uniquement en intraday',
+    ],
+    correctIndex: 0,
+    explanationPattern: '{topic} gagne en pertinence quand il est combiné au contexte de tendance et aux volumes.',
+    topics: [
+      'le RSI',
+      'le MACD',
+      'les Bandes de Bollinger',
+      'l’Ichimoku',
+    ],
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_esg_reg',
+    stageId: 'esg',
+    category: 'ESG',
+    rewardXp: 17,
+    questionPattern: 'La conformité à {topic} implique…',
+    options: [
+      'Un reporting et des critères techniques précis',
+      'Aucune obligation',
+      'Une interdiction de communiquer',
+      'Une baisse automatique des coûts',
+    ],
+    correctIndex: 0,
+    explanationPattern: '{topic} demande un cadre et un reporting clair (taxonomie, CSRD, ISSB…).',
+    topics: [
+      'la taxonomie européenne',
+      'la CSRD',
+      'les standards ISSB',
+      'les labels verts nationaux',
+    ],
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_deriv_risk',
+    stageId: 'derivatives',
+    category: 'Dérivés',
+    rewardXp: 18,
+    questionPattern: 'Le principal risque de {topic} vient de…',
+    options: [
+      'La sensibilité delta/gamma/vega et le coût de portage',
+      'L’absence totale de volatilité',
+      'Le nombre de followers',
+      'Le prix du café',
+    ],
+    correctIndex: 0,
+    explanationPattern: '{topic} expose au risque de volatilité et d’effet de levier (greeks).',
+    topics: [
+      'un straddle',
+      'un spread baissier',
+      'un butterfly',
+      'un short put cash-secured',
+    ],
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_allocation_core',
+    stageId: 'fundamentals',
+    category: 'Allocation',
+    rewardXp: 17,
+    questionPattern: 'Dans un portefeuille cœur/satellite pour {topic}, le cœur représente…',
+    options: [
+      'La part stable et diversifiée long terme',
+      'La part spéculative courte',
+      'Uniquement des options',
+      'Uniquement du cash',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'Le cœur constitue l’ossature long terme de {topic}, le satellite est tactique.',
+    topics: _quizSectorTopics,
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_factor',
+    stageId: 'fundamentals',
+    category: 'Facteurs',
+    rewardXp: 18,
+    questionPattern: 'Le facteur Value pour {topic} est souvent mesuré par…',
+    options: [
+      'Un ratio prix/valeur comptable ou prix/bénéfices bas',
+      'Le nombre de followers',
+      'La météo',
+      'Le volume TikTok',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'Les facteurs value regardent les multiples bas de {topic} par rapport aux fondamentaux.',
+    topics: _quizSectorTopics,
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_rebalance',
+    stageId: 'psychology',
+    category: 'Gestion',
+    rewardXp: 17,
+    questionPattern: 'Pourquoi fixer une règle de rebalancing pour {topic} ?',
+    options: [
+      'Pour limiter les décisions émotionnelles',
+      'Pour suivre la météo',
+      'Pour augmenter les frais',
+      'Pour supprimer les stops',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'Un rebalancing planifié évite les actions impulsives sur {topic}.',
+    topics: _quizSectorTopics,
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_tax',
+    stageId: 'intuition',
+    category: 'Fiscalité',
+    rewardXp: 18,
+    questionPattern: 'Pour {topic}, la retenue à la source impacte surtout…',
+    options: [
+      'Le dividende net perçu',
+      'Le nombre d’actions',
+      'Le RSI',
+      'La durée de vie du produit',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'Les dividendes de {topic} peuvent être amputés avant crédit d’impôt.',
+    topics: _quizEsgTopics,
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_option_usage',
+    stageId: 'derivatives',
+    category: 'Dérivés',
+    rewardXp: 18,
+    questionPattern: 'Un covered call sur {topic} sert à…',
+    options: [
+      'Générer du revenu en gardant le sous-jacent',
+      'Supprimer toute perte',
+      'Doubler la taille de position',
+      'Éliminer la volatilité',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'Le covered call encaisse une prime sur {topic} en échange d’un plafond de gains.',
+    topics: _quizSectorTopics,
+  ),
+  _QuizTemplateData(
+    idPrefix: 'quiz_earnings_prep',
+    stageId: 'fundamentals',
+    category: 'Résultats',
+    rewardXp: 17,
+    questionPattern: 'Avant les earnings de {topic}, tu dois vérifier…',
+    options: [
+      'Consensus revenus/EPS et guidance précédente',
+      'Le nombre de like LinkedIn',
+      'La couleur du logo',
+      'La météo',
+    ],
+    correctIndex: 0,
+    explanationPattern: 'Comparer consensus et guidances aide à estimer la probabilité de surprise sur {topic}.',
     topics: _quizSectorTopics,
   ),
 ];

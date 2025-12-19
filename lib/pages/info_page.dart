@@ -2106,7 +2106,7 @@ class _QuoteChartSection extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           SizedBox(
-            height: 200,
+            height: 220,
             child:
                 loading
                     ? const Center(
@@ -2127,10 +2127,13 @@ class _QuoteChartSection extends StatelessWidget {
                     : hasData
                     ? Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: _MinimalLineChart(
+                      child: _InteractiveLineChart(
                         points: points,
                         lineColor: lineColor,
                         fillColor: fillColor,
+                        currencyFormatter: currencyFormatter,
+                        labelBuilder: labelBuilder,
+                        interval: interval,
                       ),
                     )
                     : Center(
@@ -2274,29 +2277,175 @@ class _ChartLegend extends StatelessWidget {
   }
 }
 
-class _MinimalLineChart extends StatelessWidget {
-  const _MinimalLineChart({
+/// Version interactive: grid verticale, touche/drag pour voir le prix et la date.
+class _InteractiveLineChart extends StatefulWidget {
+  const _InteractiveLineChart({
     required this.points,
     required this.lineColor,
     required this.fillColor,
+    required this.currencyFormatter,
+    required this.labelBuilder,
+    required this.interval,
   });
 
   final List<HistoricalPoint> points;
   final Color lineColor;
   final Color fillColor;
+  final String? Function(double?) currencyFormatter;
+  final String Function(DateTime, ChartInterval) labelBuilder;
+  final ChartInterval interval;
+
+  @override
+  State<_InteractiveLineChart> createState() => _InteractiveLineChartState();
+}
+
+class _InteractiveLineChartState extends State<_InteractiveLineChart> {
+  int? _hoverIndex;
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _MinimalLineChartPainter(
-        points: points,
-        lineColor: lineColor,
-        fillColor: fillColor,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onPanDown: (d) => _onTouch(d.localPosition, context.size?.width ?? 0),
+      onPanUpdate: (d) => _onTouch(d.localPosition, context.size?.width ?? 0),
+      onPanEnd: (_) => setState(() => _hoverIndex = null),
+      onTapUp: (_) => setState(() => _hoverIndex = null),
+      child: Stack(
+        children: [
+          CustomPaint(
+            painter: _MinimalLineChartPainter(
+              points: widget.points,
+              lineColor: widget.lineColor,
+              fillColor: widget.fillColor,
+              showHorizontalGrid: true,
+              verticalLineX: _hoverIndex != null ? _xForIndex(_hoverIndex!) : null,
+            ),
+            child: const SizedBox.expand(),
+          ),
+          if (_hoverIndex != null)
+            Positioned.fill(
+              child: _TooltipOverlay(
+                point: widget.points[_hoverIndex!],
+                x: _xForIndex(_hoverIndex!),
+                currencyFormatter: widget.currencyFormatter,
+                labelBuilder: widget.labelBuilder,
+                interval: widget.interval,
+              ),
+            ),
+        ],
       ),
-      // SizedBox.expand ensures the painter receives the full allocated space.
-      child: const SizedBox.expand(),
     );
   }
+
+  void _onTouch(Offset localPosition, double width) {
+    _updateHover(localPosition.dx, width);
+  }
+
+  void _updateHover(double dx, double width) {
+    if (widget.points.isEmpty || width <= 0) return;
+    final clampedX = dx.clamp(0, width);
+    final idx = ((clampedX / width) * (widget.points.length - 1)).round();
+    setState(() => _hoverIndex = idx.clamp(0, widget.points.length - 1));
+  }
+
+  double _xForIndex(int index) {
+    if (widget.points.length <= 1) return 0;
+    final fraction = index / (widget.points.length - 1);
+    return fraction;
+  }
+}
+
+class _TooltipOverlay extends StatelessWidget {
+  const _TooltipOverlay({
+    required this.point,
+    required this.x,
+    required this.currencyFormatter,
+    required this.labelBuilder,
+    required this.interval,
+  });
+
+  final HistoricalPoint point;
+  /// x fraction [0,1] of the chart width.
+  final double x;
+  final String? Function(double?) currencyFormatter;
+  final String Function(DateTime, ChartInterval) labelBuilder;
+  final ChartInterval interval;
+
+  @override
+  Widget build(BuildContext context) {
+    final price = currencyFormatter(point.close) ?? point.close.toStringAsFixed(2);
+    final dateLabel = labelBuilder(point.time, interval);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final px = x * constraints.maxWidth;
+        final tooltipWidth = 140.0;
+        final left = (px - tooltipWidth / 2).clamp(8.0, constraints.maxWidth - tooltipWidth - 8);
+
+        return Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              child: CustomPaint(
+                size: Size(constraints.maxWidth, constraints.maxHeight),
+                painter: _VerticalCursorPainter(px: px),
+              ),
+            ),
+            Positioned(
+              left: left,
+              top: 8,
+              child: Container(
+                width: tooltipWidth,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      price,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      dateLabel,
+                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _VerticalCursorPainter extends CustomPainter {
+  const _VerticalCursorPainter({required this.px});
+  final double px;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = Colors.black.withOpacity(0.25)
+      ..strokeWidth = 1.2;
+    canvas.drawLine(Offset(px, 0), Offset(px, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _VerticalCursorPainter oldDelegate) => oldDelegate.px != px;
 }
 
 class _MinimalLineChartPainter extends CustomPainter {
@@ -2304,11 +2453,16 @@ class _MinimalLineChartPainter extends CustomPainter {
     required this.points,
     required this.lineColor,
     required this.fillColor,
+    this.showHorizontalGrid = true,
+    this.verticalLineX,
   });
 
   final List<HistoricalPoint> points;
   final Color lineColor;
   final Color fillColor;
+  final bool showHorizontalGrid;
+  /// If provided, draw a vertical line at this fraction [0,1] of width.
+  final double? verticalLineX;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2365,9 +2519,11 @@ class _MinimalLineChartPainter extends CustomPainter {
         Paint()
           ..color = lineColor.withOpacity(0.08)
           ..strokeWidth = 1;
-    for (final double fraction in <double>[0.25, 0.5, 0.75]) {
-      final double y = size.height * fraction;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    if (showHorizontalGrid) {
+      for (final double fraction in <double>[0.25, 0.5, 0.75]) {
+        final double y = size.height * fraction;
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+      }
     }
 
     final Paint fillPaint =
@@ -2388,6 +2544,18 @@ class _MinimalLineChartPainter extends CustomPainter {
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(linePath, strokePaint);
+
+    if (verticalLineX != null) {
+      final double x = verticalLineX!.clamp(0, 1) * size.width;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        Paint()
+          ..color = lineColor.withOpacity(0.2)
+          ..strokeWidth = 1.5
+          ..style = PaintingStyle.stroke,
+      );
+    }
 
     if (lastPoint != null) {
       canvas.drawCircle(
