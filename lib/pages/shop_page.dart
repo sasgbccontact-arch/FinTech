@@ -113,6 +113,10 @@ class _ShopPageState extends State<ShopPage> {
                         const Text("Ressources", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         _buildExchangeSection(context, user.uid, gems),
+                        const SizedBox(height: 24),
+                        const Text("Boosts", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        _buildBoostsSection(context, user.uid, gems),
                       ],
                     );
                   }
@@ -376,7 +380,7 @@ class _ShopPageState extends State<ShopPage> {
                 const Text("Code Secret", style: TextStyle(color: Colors.purple, fontWeight: FontWeight.bold, fontSize: 12))
               else
                 ElevatedButton(
-                  onPressed: canBuy ? () => _confirmPurchase(context, uid, id, price, currency, item['name'] as String) : null,
+                  onPressed: canBuy ? () => _confirmPurchase(context, uid, id, price, currency, item['name'] as String, isAvatar: true) : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -421,6 +425,41 @@ class _ShopPageState extends State<ShopPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
             child: const Text("10 💎"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBoostsSection(BuildContext context, String uid, int currentGems) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(backgroundColor: Colors.blueAccent, child: Icon(Icons.flash_on_rounded, color: Colors.white)),
+          const SizedBox(width: 16),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("0% de frais (12h)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text("Aucun frais sur vos ordres", style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: currentGems >= 20 ? () => _confirmPurchase(context, uid, 'boost_zero_fees', 20, 'gems', 'Boost 0% Frais', isAvatar: false) : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            ),
+            child: const Text("20 💎"),
           ),
         ],
       ),
@@ -475,12 +514,12 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
-  Future<void> _confirmPurchase(BuildContext context, String uid, String itemId, int price, String currency, String itemName) async {
+  Future<void> _confirmPurchase(BuildContext context, String uid, String itemId, int price, String currency, String itemName, {required bool isAvatar}) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Confirmer l'achat"),
-        content: Text("Voulez-vous acheter l'avatar \"$itemName\" pour $price ${currency == 'gems' ? 'Gemmes' : 'Pièces'} ?"),
+        content: Text("Voulez-vous acheter \"$itemName\" pour $price ${currency == 'gems' ? 'Gemmes' : 'Pièces'} ?"),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
@@ -501,7 +540,7 @@ class _ShopPageState extends State<ShopPage> {
     );
 
     if (confirmed == true && context.mounted) {
-      _buyItem(context, uid, itemId, price, isAvatar: true, currency: currency);
+      _buyItem(context, uid, itemId, price, isAvatar: isAvatar, currency: currency);
     }
   }
 
@@ -520,28 +559,29 @@ class _ShopPageState extends State<ShopPage> {
         final updates = <String, dynamic>{};
 
         if (currency == 'gems') {
-          if (currentGems < price) return;
+          if (currentGems < price) throw Exception("Pas assez de gemmes");
           updates['gems'] = currentGems - price;
-          transaction.update(userDocRef, {'gems': currentGems - price});
         } else {
-          if (currentCoins < price) return;
-          // Update coins on user doc
-          transaction.update(userDocRef, {'coins': currentCoins - price});
+          if (currentCoins < price) throw Exception("Pas assez de pièces");
+          updates['coins'] = currentCoins - price;
         }
 
         if (isAvatar) {
           transaction.update(progressRef, {'inventory': FieldValue.arrayUnion([itemId])});
-        } else {
-          // Achat de pièces
-          // updates['coins'] = currentCoins + 500; // This logic was for buying coins with gems
-          // If buying coins pack (with gems):
-          transaction.update(userDocRef, {'coins': FieldValue.increment(500)});
+        } else if (itemId == 'coins_pack') {
+          updates['coins'] = FieldValue.increment(500);
+        } else if (itemId == 'boost_zero_fees') {
+          updates['boost_zero_fees_count'] = FieldValue.increment(1);
+        }
+
+        if (updates.isNotEmpty) {
+          transaction.update(userDocRef, updates);
         }
       });
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(isAvatar ? "Avatar acheté !" : "Pièces obtenues !")),
+          SnackBar(content: Text(isAvatar ? "Avatar acheté !" : (itemId == 'boost_zero_fees' ? "Boost ajouté à l'inventaire !" : "Pièces obtenues !"))),
         );
       }
     } catch (e) {

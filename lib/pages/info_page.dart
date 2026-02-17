@@ -205,19 +205,16 @@ class _InfoPageState extends State<InfoPage> {
           ],
         ),
         const SizedBox(height: 20),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              priceText ?? '—',
-              style: theme.textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+        Center(
+          child: Text(
+            priceText ?? '—',
+            style: theme.textTheme.displaySmall?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-            const Spacer(),
-            _buildTradeButtons(theme),
-          ],
+          ),
         ),
+        const SizedBox(height: 16),
+        Center(child: _buildTradeButtons(theme)),
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 14),
           _InsightHighlightRow(highlights: highlights),
@@ -1074,10 +1071,38 @@ class _InfoPageState extends State<InfoPage> {
 
   Widget _buildTradeButtons(ThemeData theme) {
     final bool canTrade = _quote?.regularMarketPrice != null;
+    final user = FirebaseAuth.instance.currentUser;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (user != null)
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+            builder: (context, snapshot) {
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final zeroFeesUntil = data?['zero_fees_until'] as Timestamp?;
+              final boostCount = (data?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
+              
+              final bool isActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+              
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  onPressed: () => _showBoostInventory(context, isActive, boostCount, zeroFeesUntil?.toDate()),
+                  icon: Icon(
+                    Icons.flash_on_rounded,
+                    color: isActive ? Colors.green : (boostCount > 0 ? Colors.amber : Colors.grey.shade300),
+                  ),
+                  style: IconButton.styleFrom(
+                    backgroundColor: isActive ? Colors.green.withOpacity(0.1) : (boostCount > 0 ? Colors.amber.withOpacity(0.1) : Colors.grey.shade100),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  tooltip: "Boosts & Bonus",
+                ),
+              );
+            },
+          ),
         ElevatedButton(
           onPressed: canTrade ? () => _showTradeDialog(isBuy: true) : null,
           style: ElevatedButton.styleFrom(
@@ -1107,6 +1132,97 @@ class _InfoPageState extends State<InfoPage> {
         ),
       ],
     );
+  }
+
+  void _showBoostInventory(BuildContext context, bool isActive, int count, DateTime? expiry) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Inventaire de Boosts", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isActive ? Colors.green : Colors.grey.shade200),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: isActive ? Colors.green : Colors.blueAccent,
+                      child: const Icon(Icons.flash_on_rounded, color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("0% de Frais (12h)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          if (isActive)
+                            Text("Actif jusqu'à ${_formatDateTime(expiry)}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))
+                          else
+                            Text("En stock : $count", style: const TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    if (!isActive)
+                      ElevatedButton(
+                        onPressed: count > 0 ? () {
+                          Navigator.pop(context);
+                          _activateBoost();
+                        } : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text("Activer"),
+                      )
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _activateBoost() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        final snapshot = await transaction.get(userRef);
+        final count = (snapshot.data()?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
+
+        if (count > 0) {
+          final now = DateTime.now();
+          final expiry = now.add(const Duration(hours: 12));
+          
+          transaction.update(userRef, {
+            'boost_zero_fees_count': FieldValue.increment(-1),
+            'zero_fees_until': Timestamp.fromDate(expiry),
+          });
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Boost activé ! Profitez de 0% de frais."), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      debugPrint("Erreur activation boost: $e");
+    }
   }
 
   Future<void> _showTradeDialog({required bool isBuy}) async {
@@ -1165,6 +1281,13 @@ class _InfoPageState extends State<InfoPage> {
     showDialog(
       context: context,
       builder: (context) => StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+        builder: (context, userSnapshot) {
+          final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+          final zeroFeesUntil = userData?['zero_fees_until'] as Timestamp?;
+          final bool isBoostActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+
+          return StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -1214,7 +1337,7 @@ class _InfoPageState extends State<InfoPage> {
                 valueListenable: qtyNotifier,
                 builder: (context, qty, child) {
                   final double rawTotal = price * qty;
-                  final double fees = rawTotal * 0.005; // 0.5% frais
+                  final double fees = isBoostActive ? 0.0 : rawTotal * 0.005; // 0.5% frais ou 0% si boost
                   final double total = isBuy ? rawTotal + fees : rawTotal - fees;
 
                   return Container(
@@ -1237,8 +1360,8 @@ class _InfoPageState extends State<InfoPage> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text("Frais (0.5%) :", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            Text(_formatCurrency(fees) ?? "", style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(isBoostActive ? "Frais (0% - Boost) :" : "Frais (0.5%) :", style: TextStyle(fontSize: 12, color: isBoostActive ? Colors.green : Colors.grey)),
+                            Text(_formatCurrency(fees) ?? "", style: TextStyle(fontSize: 12, color: isBoostActive ? Colors.green : Colors.grey)),
                           ],
                         ),
                         const Divider(),
@@ -1292,6 +1415,8 @@ class _InfoPageState extends State<InfoPage> {
           ],
         );
         },
+      );
+        }
       ),
     );
   }
@@ -1304,14 +1429,18 @@ class _InfoPageState extends State<InfoPage> {
         .collection('positions')
         .doc(_ticker);
 
-    final double rawTotal = price * qty;
-    final double fees = rawTotal * 0.005;
-    final double totalAmount = isBuy ? rawTotal + fees : rawTotal - fees;
-
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
         final portfolioDoc = await transaction.get(portfolioRef);
+
+        // Vérification Boost
+        final zeroFeesUntil = userDoc.data()?['zero_fees_until'] as Timestamp?;
+        final bool isBoostActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+
+        final double rawTotal = price * qty;
+        final double fees = isBoostActive ? 0.0 : rawTotal * 0.005;
+        final double totalAmount = isBuy ? rawTotal + fees : rawTotal - fees;
 
         final int currentCoins = (userDoc.data()?['coins'] as num?)?.toInt() ?? 0;
         final int currentQty = (portfolioDoc.data()?['quantity'] as num?)?.toInt() ?? 0;
@@ -1351,7 +1480,7 @@ class _InfoPageState extends State<InfoPage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Ordre exécuté ! ${isBuy ? '-' : '+'}${totalAmount.toInt()} coins"), backgroundColor: Colors.green),
+        const SnackBar(content: Text("Ordre exécuté !"), backgroundColor: Colors.green),
       );
 
       // --- Mise à jour Quête Quotidienne (Trade) ---
