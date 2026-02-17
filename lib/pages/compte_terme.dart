@@ -190,9 +190,27 @@ class _TermDepositSectionState extends State<TermDepositSection> {
     // Vérification Cooldown
     if (!await _checkCooldown(user.uid)) return;
 
-    // Calcul Limite 10%
-    final portfolioValue = await _calculatePortfolioValue(user.uid);
-    final maxAmount = (portfolioValue * 0.10).floor();
+    // Récupération infos utilisateur pour déterminer la limite
+    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    final userData = userDoc.data();
+    final unlockedAvatars = List<String>.from(userData?['unlocked_avatars'] ?? []);
+    final bool isAdmin = userData?['isAdmin'] ?? false;
+    // '_student' débloqué = Chapitre 1 validé
+    final bool isPortfolioUnlocked = isAdmin || unlockedAvatars.contains('_student');
+
+    int maxAmount;
+    String helperText;
+
+    if (isPortfolioUnlocked) {
+      // Calcul Limite 20%
+      final portfolioValue = await _calculatePortfolioValue(user.uid);
+      maxAmount = (portfolioValue * 0.20).floor();
+      helperText = "Max 20% de la valeur de votre portefeuille de jeu";
+    } else {
+      // Limite fixe 500
+      maxAmount = 500;
+      helperText = "Max 500 (Portefeuille non débloqué)";
+    }
 
     if (!mounted) return;
 
@@ -203,6 +221,7 @@ class _TermDepositSectionState extends State<TermDepositSection> {
       builder: (context) => _CreateDepositSheet(
         offers: _depositOffers,
         maxAmount: maxAmount,
+        helperText: helperText,
         onSubmit: _createDeposit,
       ),
     );
@@ -410,9 +429,10 @@ class _TermDepositSectionState extends State<TermDepositSection> {
 class _CreateDepositSheet extends StatefulWidget {
   final List<Map<String, dynamic>> offers;
   final int maxAmount;
+  final String helperText;
   final Function(String type, int amount, int days, double rate) onSubmit;
 
-  const _CreateDepositSheet({required this.offers, required this.maxAmount, required this.onSubmit});
+  const _CreateDepositSheet({required this.offers, required this.maxAmount, required this.helperText, required this.onSubmit});
 
   @override
   State<_CreateDepositSheet> createState() => _CreateDepositSheetState();
@@ -508,7 +528,7 @@ class _CreateDepositSheetState extends State<_CreateDepositSheet> {
             decoration: InputDecoration(
               labelText: _selectedType == 'coins' ? "Montant (Max: ${widget.maxAmount})" : "Montant",
               suffixText: _selectedType == 'coins' ? 'Pièces' : 'Gemmes',
-              helperText: _selectedType == 'coins' ? "Max 10% de la valeur de votre portefeuille de jeu" : null,
+              helperText: _selectedType == 'coins' ? widget.helperText : null,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
@@ -524,7 +544,7 @@ class _CreateDepositSheetState extends State<_CreateDepositSheet> {
 
                 if (_selectedType == 'coins' && amount > widget.maxAmount) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Le montant dépasse la limite de 10% (${widget.maxAmount})"), backgroundColor: Colors.red),
+                    SnackBar(content: Text("Le montant dépasse la limite (${widget.maxAmount})"), backgroundColor: Colors.red),
                   );
                   return;
                 }
