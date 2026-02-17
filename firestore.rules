@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      // Everyone can read user profiles (same behavior as before)
+      allow read: if true;
+
+      // Only the authenticated user can create/update/delete their own user doc
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+
+      // Favorites subcollection (users/{userId}/favoris)
+      match /favoris/{favoriteId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Portfolios subcollection (users/{userId}/portfolios)
+      match /portfolios/{portfolioId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        // Nested positions (users/{userId}/portfolios/{portfolioId}/positions)
+        match /positions/{positionId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+    }
+
+    // Default deny for any other collection
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

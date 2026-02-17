@@ -1,0 +1,887 @@
+[
+  {
+    "id": "scenario_green_energy",
+    "title": "Portefeuille énergie verte",
+    "description": "50 k€ répartis sur 3 ETF propres et 2 valeurs climat. Hausse de 20% du pétrole : comment sécurises-tu la performance ? ",
+    "focus": "Transition",
+    "risk": "Volatilité élevée",
+    "stageId": "intuition",
+    "rewardXp": 18,
+    "prompts": [
+      "Réévalue l’arbitrage entre pure players et majors hybrides.",
+      "Couverture possible via ventes à terme ou ETF inverse énergie classique."
+    ],
+    "config": {
+      "headline": "Transition énergétique : arbitrage fossile vs renouvelable.",
+      "periodLabel": "Choc de transition",
+      "durationLabel": "6 semaines",
+      "stepLabel": "1 semaine par pas",
+      "initialCash": 50000,
+      "playbackMs": 900,
+      "assets": [
+        { "id": "clean_energy", "label": "ETF Clean Energy (ICLN)", "prices": [100, 105, 112, 110, 115, 120], "role": "Pure players" },
+        { "id": "oil_majors", "label": "Majors pétrolières", "prices": [100, 98, 96, 95, 94, 93], "role": "Transition lente" },
+        { "id": "carbon", "label": "Crédits carbone", "prices": [100, 102, 104, 106, 108, 110], "role": "Régulation" },
+        { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Liquidités" }
+      ],
+      "cues": ["Le pétrole baisse, le vert monte."],
+      "suggestedAllocation": {
+        "clean_energy": 40,
+        "oil_majors": 20,
+        "carbon": 20,
+        "cash": 20
+      }
+    }
+  },
+  {
+    "id": "scenario_defensive",
+    "title": "Allocation défensive",
+    "description": "25 k€ mêlant dividendes aristocrates et cash. Un secteur défensif perd -8% en 2 semaines.",
+    "focus": "Income",
+    "risk": "Risque modéré",
+    "stageId": "fundamentals",
+    "rewardXp": 16,
+    "prompts": [
+      "Tes dividendes sont-ils couverts par les cash-flows ?",
+      "Faut-il renforcer ou conserver du cash pour d’éventuelles opportunités ?"
+    ],
+    "config": {
+        "headline": "Stratégie de rendement face à une correction sectorielle.",
+        "periodLabel": "Correction technique",
+        "durationLabel": "6 pas (~6 semaines)",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 25000,
+        "playbackMs": 800,
+        "assets": [
+          { "id": "aristocrats", "label": "Dividendes Aristocrates (NOBL)", "prices": [100, 99, 98, 98, 99, 100], "role": "Rendement stable" },
+          { "id": "staples", "label": "Conso de base (XLP)", "prices": [100, 101, 102, 101, 102, 103], "role": "Défensif pur" },
+          { "id": "pharma", "label": "Santé / Pharma", "prices": [100, 96, 92, 92, 93, 94], "role": "Secteur touché (-8%)" },
+          { "id": "reits", "label": "Immobilier coté (REITs)", "prices": [100, 98, 97, 96, 97, 98], "role": "Sensible taux" },
+          { "id": "bonds", "label": "Obligations Corp IG", "prices": [100, 100, 101, 101, 101, 102], "role": "Sécurité" },
+          { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Liquidités" }
+        ],
+        "cues": [
+          "Le secteur Pharma corrige violemment (-8%).",
+          "Les biens de consommation (Staples) jouent leur rôle de valeur refuge.",
+          "Les dividendes aristocrates amortissent la baisse."
+        ],
+        "suggestedAllocation": {
+          "aristocrats": 30,
+          "staples": 20,
+          "pharma": 15,
+          "reits": 10,
+          "bonds": 10,
+          "cash": 15
+        }
+    }
+  },
+  {
+    "id": "scenario_growth",
+    "title": "Hypercroissance en repli",
+    "description": "Portefeuille fictif 40 k€ orienté SaaS. Le Nasdaq décroche -12% après guidance prudente d’un leader.",
+    "focus": "Croissance",
+    "risk": "Elevé",
+    "stageId": "technical",
+    "rewardXp": 18,
+    "prompts": [
+      "Identifier les zones techniques clefs pour renforcer.",
+      "Réduire ou couvrir les positions beta>1 via options/ETF inverses."
+    ],
+    "config": {
+        "headline": "Krach éclair sur la Tech : panique ou opportunité ?",
+        "periodLabel": "Saison des résultats (Earnings)",
+        "durationLabel": "6 pas (~6 semaines)",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 40000,
+        "playbackMs": 800,
+        "assets": [
+          { "id": "saas", "label": "Cloud & SaaS (WCLD)", "prices": [100, 92, 85, 82, 86, 88], "role": "Hypercroissance (Beta ++)" },
+          { "id": "nasdaq", "label": "Nasdaq 100 (QQQ)", "prices": [100, 95, 90, 88, 91, 93], "role": "Indice de référence" },
+          { "id": "semis", "label": "Semi-conducteurs", "prices": [100, 94, 88, 87, 92, 95], "role": "Cyclique Tech" },
+          { "id": "bigtech", "label": "Big Tech (GAFAM)", "prices": [100, 97, 94, 93, 95, 97], "role": "Croissance résiliente" },
+          { "id": "inverse", "label": "Short Nasdaq (PSQ)", "prices": [100, 105, 110, 112, 109, 107], "role": "Couverture (Inverse)" },
+          { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Poudre sèche" }
+        ],
+        "cues": [
+          "Le Cloud dévisse de près de 18% au creux de la vague.",
+          "Le Nasdaq perd 12% avant un rebond technique.",
+          "L'ETF inverse (Short) est le seul actif dans le vert."
+        ],
+        "suggestedAllocation": {
+          "saas": 25,
+          "nasdaq": 20,
+          "semis": 15,
+          "bigtech": 20,
+          "inverse": 10,
+          "cash": 10
+        }
+    }
+  },
+  {
+    "id": "scenario_emerging",
+    "title": "Marchés émergents",
+    "description": "Allocation Asie 30 k€. Une banque centrale surprise par une dévaluation.",
+    "focus": "Macro",
+    "risk": "FX",
+    "stageId": "intuition",
+    "rewardXp": 20,
+    "prompts": [
+      "Gérer le risque devise (couverture, diversification multi-zone).",
+      "Prioriser les sociétés exportatrices vs. importatrices nettes."
+    ],
+    "config": {
+        "headline": "Choc monétaire en Asie : impact sur les importateurs vs exportateurs.",
+        "periodLabel": "Crise de change",
+        "durationLabel": "6 pas (~6 semaines)",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 30000,
+        "playbackMs": 800,
+        "assets": [
+          { "id": "asia_ex_japan", "label": "Actions Asie (AAXJ)", "prices": [100, 95, 90, 89, 91, 92], "role": "Marché large" },
+          { "id": "local_bonds", "label": "Oblig. Locales (EMLC)", "prices": [100, 92, 88, 87, 88, 89], "role": "Sensible Devise" },
+          { "id": "tech_asia", "label": "Tech Asie (Tencent/TSMC)", "prices": [100, 96, 94, 93, 95, 97], "role": "Exportateur (Hedge)" },
+          { "id": "india", "label": "Actions Inde (INDA)", "prices": [100, 99, 98, 99, 100, 102], "role": "Diversification" },
+          { "id": "dollar_cash", "label": "Cash (USD)", "prices": [1, 1.02, 1.05, 1.04, 1.03, 1.02], "role": "Refuge devise" }
+        ],
+        "cues": [
+          "La devise locale s'effondre, pénalisant les obligations locales.",
+          "Les exportateurs tech résistent grâce à leurs revenus en dollars.",
+          "Le cash en USD s'apprécie face au panier d'actifs."
+        ],
+        "suggestedAllocation": {
+          "asia_ex_japan": 20,
+          "local_bonds": 10,
+          "tech_asia": 30,
+          "india": 20,
+          "dollar_cash": 20
+        }
+    }
+  },
+  {
+    "id": "scenario_energy_shock",
+    "title": "Choc énergétique",
+    "description": "Le pétrole bondit à 120$ suite à une tension géopolitique.",
+    "focus": "Commodities",
+    "risk": "Inflation",
+    "stageId": "esg",
+    "rewardXp": 19,
+    "prompts": [
+      "Surpondérer les producteurs intégrés, couvrir les secteurs énergivores.",
+      "Analyser l’impact sur les marges des industries consommatrices de pétrole."
+    ],
+    "config": {
+      "headline": "Choc pétrolier : teste une allocation entre majors, énergies propres et valeurs sensibles.",
+      "periodLabel": "Printemps 2022 — tension géopolitique",
+      "durationLabel": "6 semaines de stress",
+      "stepLabel": "1 semaine par pas",
+      "initialCash": 20000,
+      "playbackMs": 900,
+      "assets": [
+        { "id": "majors", "label": "ETF majors pétrolières (XLE)", "prices": [100, 114, 130, 118, 112, 110], "role": "Énergie intégrée" },
+        { "id": "renew", "label": "Énergies renouvelables (ICLN)", "prices": [100, 92, 85, 88, 94, 98], "role": "Transition verte" },
+        { "id": "airlines", "label": "Compagnies aériennes (JETS)", "prices": [100, 78, 62, 58, 62, 66], "role": "Consommation pétrole" },
+        { "id": "chemicals", "label": "Chimie / plastiques (BASF/LYB)", "prices": [100, 94, 88, 86, 88, 90], "role": "Industries énergivores" },
+        { "id": "utilities", "label": "Utilities (XLU)", "prices": [100, 101, 102, 103, 103, 104], "role": "Défensif dividende" },
+        { "id": "tankers", "label": "Transport pétrolier (STNG/EURN)", "prices": [100, 120, 140, 138, 135, 132], "role": "Logistique pétrole" },
+        { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Liquidités" }
+      ],
+      "cues": [
+        "Les majors explosent mais deviennent volatiles.",
+        "Les valeurs vertes souffrent puis rebondissent avec les plans de subventions.",
+        "Les secteurs gourmands en pétrole se compressent.",
+        "Les transporteurs de brut profitent de la tension logistique."
+      ],
+      "suggestedAllocation": {
+        "majors": 25,
+        "renew": 18,
+        "airlines": 8,
+        "chemicals": 8,
+        "utilities": 16,
+        "tankers": 10,
+        "cash": 15
+      }
+    }
+  },
+  {
+    "id": "scenario_rate_hike",
+    "title": "Choc Inflation & Taux",
+    "description": "L'inflation dépasse 5%. Les banques centrales montent les taux brutalement. Arbitrage Tech vs Banques.",
+    "focus": "Macro",
+    "risk": "Taux d'intérêt",
+    "stageId": "fundamentals",
+    "rewardXp": 22,
+    "prompts": [
+      "Pourquoi la Tech souffre-t-elle quand les taux montent (actualisation des flux) ?",
+      "Le cash devient-il une classe d'actif viable à court terme ?"
+    ],
+    "config": {
+      "headline": "Hausse des taux directeurs : Rotation sectorielle violente.",
+      "periodLabel": "Cycle de resserrement",
+      "durationLabel": "6 mois simulés",
+      "stepLabel": "1 mois par pas",
+      "initialCash": 35000,
+      "playbackMs": 900,
+      "assets": [
+        { "id": "tech_growth", "label": "Tech Hyper-croissance (ARKK)", "prices": [100, 90, 82, 75, 70, 68], "role": "Sensible aux taux" },
+        { "id": "banks", "label": "Banques (KBE)", "prices": [100, 102, 105, 108, 110, 112], "role": "Marge d'intérêt" },
+        { "id": "long_bonds", "label": "Obligations 20 ans+ (TLT)", "prices": [100, 95, 90, 88, 85, 84], "role": "Duration longue (Danger)" },
+        { "id": "short_bonds", "label": "Bons du Trésor Court (SHV)", "prices": [100, 100.2, 100.5, 100.8, 101.2, 101.5], "role": "Cash rémunéré" },
+        { "id": "value", "label": "Value (VTV)", "prices": [100, 99, 98, 99, 100, 101], "role": "Stabilité relative" },
+        { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Liquidités" }
+      ],
+      "cues": [
+        "La Tech s'effondre car ses profits futurs valent moins aujourd'hui.",
+        "Les obligations longues (TLT) perdent de la valeur mécaniquement.",
+        "Les banques profitent de l'écart de taux."
+      ],
+      "suggestedAllocation": {
+        "tech_growth": 10,
+        "banks": 30,
+        "long_bonds": 0,
+        "short_bonds": 30,
+        "value": 20,
+        "cash": 10
+      }
+    }
+  },
+  {
+    "id": "scenario_recession",
+    "title": "Récession (Hard Landing)",
+    "description": "Le chômage augmente, la consommation cale. Faut-il tout vendre ou se réfugier dans la qualité ?",
+    "focus": "Défensif",
+    "risk": "Crédit",
+    "stageId": "technical",
+    "rewardXp": 25,
+    "prompts": [
+      "Distinguer les obligations d'État (refuge) des obligations d'entreprise (risque de faillite).",
+      "L'or joue-t-il son rôle de valeur refuge ?"
+    ],
+    "config": {
+      "headline": "Récession confirmée : Fuite vers la qualité (Flight to Quality).",
+      "periodLabel": "Crise économique",
+      "durationLabel": "6 mois simulés",
+      "stepLabel": "1 mois par pas",
+      "initialCash": 40000,
+      "playbackMs": 850,
+      "assets": [
+        { "id": "cyclicals", "label": "Conso Discrétionnaire (XLY)", "prices": [100, 95, 90, 85, 82, 80], "role": "Sensible éco" },
+        { "id": "staples", "label": "Conso de Base (XLP)", "prices": [100, 101, 102, 102, 103, 104], "role": "Besoins vitaux" },
+        { "id": "gov_bonds", "label": "Obligations d'État (GOVT)", "prices": [100, 102, 104, 105, 106, 107], "role": "Refuge absolu" },
+        { "id": "junk_bonds", "label": "Obligations High Yield (HYG)", "prices": [100, 98, 95, 92, 90, 88], "role": "Risque défaut" },
+        { "id": "gold", "label": "Or (GLD)", "prices": [100, 101, 103, 105, 106, 108], "role": "Protection peur" },
+        { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Liquidités" }
+      ],
+      "cues": [
+        "Les valeurs cycliques (luxe, auto, voyage) souffrent de la baisse de demande.",
+        "Le High Yield chute car le risque de faillite augmente.",
+        "L'État et l'Or servent de parachute."
+      ],
+      "suggestedAllocation": {
+        "cyclicals": 5,
+        "staples": 30,
+        "gov_bonds": 30,
+        "junk_bonds": 0,
+        "gold": 20,
+        "cash": 15
+      }
+    }
+  },
+  {
+    "id": "scenario_ai_bubble",
+    "title": "L'éclatement de la Bulle IA",
+    "description": "L'euphorie IA retombe. Les valorisations sont intenables et les régulateurs s'en mêlent.",
+    "focus": "Tech/Momentum",
+    "risk": "Valorisation",
+    "stageId": "psychology",
+    "rewardXp": 24,
+    "prompts": [
+        "Distinguer les fournisseurs d'infrastructure (picks & shovels) des applications sans douves.",
+        "Faut-il shorter le secteur ou attendre un point d'entrée bas ?"
+    ],
+    "config": {
+        "headline": "Correction violente sur l'IA : tri sélectif brutal.",
+        "periodLabel": "Correction de valorisation",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 45000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "ai_pure", "label": "Pure IA & Robotics (BOTZ)", "prices": [100, 110, 115, 95, 80, 75], "role": "Spéculatif" },
+            { "id": "semis_infra", "label": "Semiconducteurs (SOXX)", "prices": [100, 105, 102, 98, 90, 92], "role": "Infra critique" },
+            { "id": "old_tech", "label": "Value Tech (Legacy)", "prices": [100, 98, 99, 100, 101, 102], "role": "Refuge Tech" },
+            { "id": "short_tech", "label": "Short Nasdaq 3x (SQQQ)", "prices": [100, 90, 85, 110, 130, 135], "role": "Couverture Agressive" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Liquidités" }
+        ],
+        "cues": ["Les petites valeurs IA perdent 40% en un mois.", "Les géants des puces résistent mieux mais corrigent.", "Le short Nasdaq devient l'actif le plus performant."],
+        "suggestedAllocation": { "ai_pure": 5, "semis_infra": 25, "old_tech": 30, "short_tech": 15, "cash": 25 }
+    }
+  },
+  {
+    "id": "scenario_commercial_re",
+    "title": "Crise de l'Immobilier Commercial",
+    "description": "Le télétravail vide les bureaux. Les taux élevés empêchent le refinancement des tours.",
+    "focus": "Real Estate",
+    "risk": "Liquidité & Taux",
+    "stageId": "fundamentals",
+    "rewardXp": 20,
+    "prompts": [
+        "L'immobilier résidentiel est-il contagieux ?",
+        "Les banques régionales exposées aux crédits immo vont-elles tenir ?"
+    ],
+    "config": {
+        "headline": "Défauts de paiement sur les bureaux : contagion bancaire ?",
+        "periodLabel": "Crise de crédit immo",
+        "durationLabel": "6 mois simulés",
+        "stepLabel": "1 mois par pas",
+        "initialCash": 30000,
+        "playbackMs": 900,
+        "assets": [
+            { "id": "office_reit", "label": "REIT Bureaux", "prices": [100, 92, 85, 75, 70, 65], "role": "Actif toxique" },
+            { "id": "residential_reit", "label": "REIT Résidentiel", "prices": [100, 98, 97, 96, 98, 99], "role": "Défensif Immo" },
+            { "id": "regional_banks", "label": "Banques Régionales (KRE)", "prices": [100, 90, 80, 75, 78, 80], "role": "Exposition crédit" },
+            { "id": "construction", "label": "Construction & BTP", "prices": [100, 95, 90, 88, 85, 82], "role": "Cyclique" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Sécurité" }
+        ],
+        "cues": ["Les REITs de bureaux s'effondrent.", "Les banques régionales chutent par crainte de défauts.", "Le résidentiel tient bon grâce à la demande locative."],
+        "suggestedAllocation": { "office_reit": 0, "residential_reit": 30, "regional_banks": 10, "construction": 10, "cash": 50 }
+    }
+  },
+  {
+    "id": "scenario_trade_war",
+    "title": "Guerre Commerciale Mondiale",
+    "description": "Nouvelles barrières douanières entre blocs Est et Ouest. Les chaînes d'approvisionnement se brisent.",
+    "focus": "Géopolitique",
+    "risk": "Politique",
+    "stageId": "intuition",
+    "rewardXp": 22,
+    "prompts": [
+        "Privilégier les entreprises domestiques (Small Caps) non exposées à l'export.",
+        "Le secteur de la défense profite-t-il des tensions ?"
+    ],
+    "config": {
+        "headline": "Tarifs douaniers punitifs : qui survit ?",
+        "periodLabel": "Escalade tarifaire",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 35000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "global_exporters", "label": "Multinationales Export (Indus)", "prices": [100, 95, 90, 88, 85, 87], "role": "Victime tarifs" },
+            { "id": "domestic_small", "label": "Small Caps Domestiques (IWM)", "prices": [100, 101, 102, 103, 102, 104], "role": "Insensible Export" },
+            { "id": "defense", "label": "Défense & Aéro (ITA)", "prices": [100, 105, 110, 112, 115, 118], "role": "Valeur Refuge Géopol" },
+            { "id": "shipping", "label": "Fret Maritime (BOAT)", "prices": [100, 110, 120, 115, 100, 90], "role": "Volatilité Logistique" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Attente" }
+        ],
+        "cues": ["Les exportateurs souffrent des taxes.", "La défense grimpe avec les tensions.", "Les petites caps locales surperforment les multinationales."],
+        "suggestedAllocation": { "global_exporters": 10, "domestic_small": 40, "defense": 30, "shipping": 10, "cash": 10 }
+    }
+  },
+  {
+    "id": "scenario_stagflation",
+    "title": "Le Piège de la Stagflation",
+    "description": "Croissance nulle + Inflation élevée. Le cauchemar des banques centrales.",
+    "focus": "Macro",
+    "risk": "Pouvoir d'achat",
+    "stageId": "fundamentals",
+    "rewardXp": 26,
+    "prompts": [
+        "Les actions et obligations chutent en même temps.",
+        "Seules les matières premières et le pricing power protègent."
+    ],
+    "config": {
+        "headline": "Inflation tenace et économie à l'arrêt.",
+        "periodLabel": "Années 70 style",
+        "durationLabel": "6 mois simulés",
+        "stepLabel": "1 mois par pas",
+        "initialCash": 40000,
+        "playbackMs": 900,
+        "assets": [
+            { "id": "sp500", "label": "S&P 500", "prices": [100, 95, 92, 90, 88, 85], "role": "Market Beta" },
+            { "id": "bonds_agg", "label": "Obligations (AGG)", "prices": [100, 96, 94, 92, 90, 89], "role": "Perte réelle" },
+            { "id": "energy", "label": "Énergie & Pétrole", "prices": [100, 105, 110, 115, 118, 120], "role": "Inflation Hedge" },
+            { "id": "gold", "label": "Or Physique", "prices": [100, 102, 105, 108, 110, 112], "role": "Store of Value" },
+            { "id": "cash", "label": "Cash", "prices": [1, 0.99, 0.98, 0.97, 0.96, 0.95], "role": "Perte pouvoir d'achat" }
+        ],
+        "cues": ["Actions et obligations baissent de concert.", "L'énergie est le seul moteur de performance.", "Le cash perd de sa valeur réelle (inflation)."],
+        "suggestedAllocation": { "sp500": 10, "bonds_agg": 0, "energy": 40, "gold": 40, "cash": 10 }
+    }
+  },
+  {
+    "id": "scenario_short_squeeze",
+    "title": "Attaque Spéculative (Short Squeeze)",
+    "description": "Des investisseurs retail s'attaquent à un fonds spéculatif vendeur à découvert.",
+    "focus": "Psychologie",
+    "risk": "Volatilité Extrême",
+    "stageId": "technical",
+    "rewardXp": 30,
+    "prompts": [
+        "Savoir prendre ses profits avant l'effondrement inévitable.",
+        "La volatilité (VIX) explose."
+    ],
+    "config": {
+        "headline": "David contre Goliath : l'action s'envole sans raison fondamentale.",
+        "periodLabel": "Squeeze Gamma",
+        "durationLabel": "6 jours simulés",
+        "stepLabel": "1 jour par pas",
+        "initialCash": 10000,
+        "playbackMs": 700,
+        "assets": [
+            { "id": "meme_stock", "label": "Action 'Meme' (GME-like)", "prices": [100, 150, 300, 500, 250, 120], "role": "Casino" },
+            { "id": "hedge_fund", "label": "Fonds Long/Short", "prices": [100, 95, 90, 85, 88, 90], "role": "Victime collatérale" },
+            { "id": "vix", "label": "Volatilité (VIX)", "prices": [20, 30, 50, 80, 40, 25], "role": "Indice de peur" },
+            { "id": "broad_mkt", "label": "Marché (SPY)", "prices": [100, 99, 98, 97, 99, 100], "role": "Spectateur" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Sécurité" }
+        ],
+        "cues": ["L'action Meme fait x5 puis s'effondre.", "Le VIX spike violemment.", "Le marché large baisse légèrement par contagion."],
+        "suggestedAllocation": { "meme_stock": 10, "hedge_fund": 0, "vix": 20, "broad_mkt": 20, "cash": 50 }
+    }
+  },
+  {
+    "id": "scenario_crypto_winter",
+    "title": "Hiver Crypto & Régulation",
+    "description": "Scandale sur un exchange majeur + régulation stricte. Le Bitcoin plonge.",
+    "focus": "Alternatifs",
+    "risk": "Régulatoire",
+    "stageId": "intuition",
+    "rewardXp": 25,
+    "prompts": [
+        "Le 'Cold Storage' (auto-garde) devient vital.",
+        "Distinguer Bitcoin (réserve) des Altcoins (tech/scam)."
+    ],
+    "config": {
+        "headline": "Panique sur les exchanges : Bank Run numérique.",
+        "periodLabel": "Crash Crypto",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 20000,
+        "playbackMs": 800,
+        "assets": [
+            { "id": "bitcoin", "label": "Bitcoin (BTC)", "prices": [100, 80, 70, 65, 70, 75], "role": "Digital Gold ?" },
+            { "id": "altcoins", "label": "Altcoins & DeFi", "prices": [100, 60, 40, 30, 35, 40], "role": "High Beta" },
+            { "id": "coinbase", "label": "Exchange Coté (COIN)", "prices": [100, 75, 60, 55, 60, 65], "role": "Infrastructure" },
+            { "id": "gold", "label": "Or Physique", "prices": [100, 102, 103, 104, 105, 106], "role": "Vraie valeur refuge" },
+            { "id": "cash", "label": "US Dollar", "prices": [1, 1, 1, 1, 1, 1], "role": "Sortie de secours" }
+        ],
+        "cues": ["Les Altcoins perdent 60-70%.", "Bitcoin résiste mieux mais souffre.", "L'or profite de la défiance envers la crypto."],
+        "suggestedAllocation": { "bitcoin": 10, "altcoins": 0, "coinbase": 0, "gold": 40, "cash": 50 }
+    }
+  },
+  {
+    "id": "scenario_climate_disaster",
+    "title": "Catastrophe Climatique Majeure",
+    "description": "Un ouragan dévaste une région clé. Impact sur assureurs et infrastructures.",
+    "focus": "ESG/Risque",
+    "risk": "Événementiel",
+    "stageId": "esg",
+    "rewardXp": 21,
+    "prompts": [
+        "Les assureurs plongent (coûts d'indemnisation).",
+        "Les matériaux de construction et générateurs s'envolent."
+    ],
+    "config": {
+        "headline": "Ouragan de catégorie 5 : reconstruction et pertes.",
+        "periodLabel": "Catastrophe Naturelle",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 30000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "insurance", "label": "Assureurs (KIE)", "prices": [100, 90, 85, 88, 90, 92], "role": "Pertes massives" },
+            { "id": "home_improvement", "label": "Bricolage (HD/LOW)", "prices": [100, 105, 110, 108, 106, 105], "role": "Reconstruction" },
+            { "id": "utilities", "label": "Services Publics (XLU)", "prices": [100, 98, 96, 95, 97, 99], "role": "Infra endommagée" },
+            { "id": "generac", "label": "Générateurs & Urgence", "prices": [100, 120, 130, 125, 120, 115], "role": "Demande immédiate" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Neutre" }
+        ],
+        "cues": ["Les assureurs dévissent.", "Les vendeurs de matériel (Home Depot) et générateurs surperforment."],
+        "suggestedAllocation": { "insurance": 0, "home_improvement": 40, "utilities": 10, "generac": 30, "cash": 20 }
+    }
+  },
+  {
+    "id": "scenario_supply_chain",
+    "title": "Rupture Supply Chain (Puces)",
+    "description": "Un séisme à Taïwan stoppe les usines de puces. L'industrie mondiale se fige.",
+    "focus": "Supply Chain",
+    "risk": "Offre",
+    "stageId": "intuition",
+    "rewardXp": 23,
+    "prompts": [
+        "Sans puces, pas de voitures ni de téléphones.",
+        "Les fabricants d'équipement de production (ASML) deviennent stratégiques."
+    ],
+    "config": {
+        "headline": "Pénurie mondiale de semiconducteurs.",
+        "periodLabel": "Choc d'offre",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 40000,
+        "playbackMs": 900,
+        "assets": [
+            { "id": "auto", "label": "Constructeurs Auto", "prices": [100, 90, 85, 82, 80, 78], "role": "Usines à l'arrêt" },
+            { "id": "foundries", "label": "Fondeurs (TSMC)", "prices": [100, 95, 90, 92, 95, 98], "role": "Site impacté" },
+            { "id": "semi_equip", "label": "Équipementiers (AMAT)", "prices": [100, 102, 105, 108, 110, 112], "role": "Solution à long terme" },
+            { "id": "tech_hardware", "label": "Hardware (Apple)", "prices": [100, 98, 96, 95, 96, 97], "role": "Stocks limités" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Sécurité" }
+        ],
+        "cues": ["L'automobile souffre le plus (pas de stocks).", "Les équipementiers montent car il faut construire des usines ailleurs."],
+        "suggestedAllocation": { "auto": 0, "foundries": 10, "semi_equip": 40, "tech_hardware": 20, "cash": 30 }
+    }
+  },
+  {
+    "id": "scenario_biotech_approval",
+    "title": "Loterie Biotech (FDA)",
+    "description": "Une biotech attend l'approbation FDA de son médicament miracle. C'est quitte ou double.",
+    "focus": "Biotech",
+    "risk": "Binaire",
+    "stageId": "technical",
+    "rewardXp": 28,
+    "prompts": [
+        "Le risque est binaire : -80% ou +200%.",
+        "Faut-il diversifier via un ETF ou parier sur le titre ?"
+    ],
+    "config": {
+        "headline": "Décision FDA imminente : le médicament passe ou casse.",
+        "periodLabel": "Annonce Clinique",
+        "durationLabel": "6 jours simulés",
+        "stepLabel": "1 jour par pas",
+        "initialCash": 15000,
+        "playbackMs": 700,
+        "assets": [
+            { "id": "small_bio", "label": "Biotech (Small Cap)", "prices": [100, 105, 110, 100, 50, 40], "role": "Risque total (Refus)" },
+            { "id": "big_pharma", "label": "Big Pharma (PFE/MRK)", "prices": [100, 100, 101, 101, 102, 102], "role": "Stabilité" },
+            { "id": "biotech_etf", "label": "ETF Biotech (XBI)", "prices": [100, 101, 102, 100, 95, 94], "role": "Dilution du risque" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Sécurité" }
+        ],
+        "cues": ["La petite biotech s'effondre après le refus de la FDA.", "L'ETF baisse modérément.", "La Big Pharma ne bouge pas."],
+        "suggestedAllocation": { "small_bio": 5, "big_pharma": 40, "biotech_etf": 30, "cash": 25 }
+    }
+  },
+  {
+    "id": "scenario_luxury_slowdown",
+    "title": "Le Luxe en Berne",
+    "description": "La Chine ralentit fortement. Les géants du luxe voient leurs ventes chuter.",
+    "focus": "Conso Discrétionnaire",
+    "risk": "Marché Chinois",
+    "stageId": "fundamentals",
+    "rewardXp": 19,
+    "prompts": [
+        "Le luxe n'est pas immunisé aux crises graves.",
+        "Distinguer le 'Hard Luxury' (montres) du 'Soft Luxury' (sacs)."
+    ],
+    "config": {
+        "headline": "Fin de l'euphorie post-covid sur le luxe.",
+        "periodLabel": "Ralentissement Asie",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 30000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "luxury_holding", "label": "LVMH / Kering", "prices": [100, 95, 90, 88, 85, 86], "role": "Forte expo Chine" },
+            { "id": "mass_market", "label": "Fast Fashion (Inditex)", "prices": [100, 101, 102, 103, 104, 105], "role": "Résilience prix" },
+            { "id": "cosmetics", "label": "Cosmétiques (L'Oréal)", "prices": [100, 98, 97, 98, 99, 100], "role": "Effet Lipstick" },
+            { "id": "china_etf", "label": "ETF Chine (MCHI)", "prices": [100, 94, 88, 85, 82, 80], "role": "Source du problème" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Sécurité" }
+        ],
+        "cues": ["Les géants du luxe corrigent.", "La cosmétique résiste (petits plaisirs).", "La Fast Fashion profite de la descente en gamme."],
+        "suggestedAllocation": { "luxury_holding": 10, "mass_market": 30, "cosmetics": 40, "china_etf": 0, "cash": 20 }
+    }
+  },
+  {
+    "id": "scenario_cybersecurity",
+    "title": "Cyberattaque Mondiale",
+    "description": "Une faille majeure paralyse les banques et hôpitaux. La cybersécurité devient priorité nationale.",
+    "focus": "Thématique",
+    "risk": "Sécurité",
+    "stageId": "intuition",
+    "rewardXp": 20,
+    "prompts": [
+        "La peur fait vendre des solutions de sécurité.",
+        "Les valeurs victimes chutent, les sauveurs montent."
+    ],
+    "config": {
+        "headline": "Ransomware géant : qui paye, qui protège ?",
+        "periodLabel": "Crise Cyber",
+        "durationLabel": "6 jours simulés",
+        "stepLabel": "1 jour par pas",
+        "initialCash": 25000,
+        "playbackMs": 800,
+        "assets": [
+            { "id": "cyber_stocks", "label": "Cybersécurité (CIBR)", "prices": [100, 105, 110, 115, 112, 114], "role": "Solution" },
+            { "id": "banks", "label": "Banques (KBE)", "prices": [100, 98, 95, 92, 90, 91], "role": "Victime / Cible" },
+            { "id": "cloud", "label": "Cloud Computing (SKYY)", "prices": [100, 101, 102, 103, 104, 105], "role": "Besoin de sécurité" },
+            { "id": "insurance", "label": "Assureurs", "prices": [100, 99, 98, 97, 96, 95], "role": "Risque indemnisation" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Neutre" }
+        ],
+        "cues": ["Les valeurs Cyber explosent à la hausse.", "Les banques et assureurs sont sous pression."],
+        "suggestedAllocation": { "cyber_stocks": 50, "banks": 0, "cloud": 30, "insurance": 0, "cash": 20 }
+    }
+  },
+  {
+    "id": "scenario_deflation",
+    "title": "Spirale Déflationniste",
+    "description": "Les prix baissent, les consommateurs reportent leurs achats. Le Japon des années 90.",
+    "focus": "Macro",
+    "risk": "Déflation",
+    "stageId": "fundamentals",
+    "rewardXp": 24,
+    "prompts": [
+        "Le cash gagne du pouvoir d'achat.",
+        "Les dettes deviennent plus lourdes à rembourser (éviter les endettés)."
+    ],
+    "config": {
+        "headline": "Baisse des prix généralisée : le cash est roi.",
+        "periodLabel": "Déflation",
+        "durationLabel": "6 mois simulés",
+        "stepLabel": "1 mois par pas",
+        "initialCash": 35000,
+        "playbackMs": 900,
+        "assets": [
+            { "id": "long_bonds", "label": "Obligations 20 ans+ (TLT)", "prices": [100, 105, 110, 115, 118, 120], "role": "Gagnant (Taux bas)" },
+            { "id": "growth_tech", "label": "Tech Innovante", "prices": [100, 102, 104, 106, 108, 110], "role": "Croissance rare" },
+            { "id": "cyclicals", "label": "Cycliques / Indus", "prices": [100, 95, 90, 88, 85, 82], "role": "Perdant (Pricing)" },
+            { "id": "banks", "label": "Banques", "prices": [100, 95, 90, 85, 80, 78], "role": "Marges écrasées" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1.01, 1.02, 1.03, 1.04, 1.05], "role": "Pouvoir achat up" }
+        ],
+        "cues": ["Les taux chutent, faisant bondir les obligations longues.", "Les banques souffrent de taux trop bas.", "Le cash est une valeur sûre."],
+        "suggestedAllocation": { "long_bonds": 40, "growth_tech": 20, "cyclicals": 0, "banks": 0, "cash": 40 }
+    }
+  },
+  {
+    "id": "scenario_politics",
+    "title": "Incertitude Politique / Élections",
+    "description": "Élections contestées dans une grande démocratie. Le marché déteste l'incertitude.",
+    "focus": "Politique",
+    "risk": "Législatif",
+    "stageId": "psychology",
+    "rewardXp": 18,
+    "prompts": [
+        "Secteurs réglementés (Santé, Énergie) sont les plus volatils.",
+        "La Défense est souvent bipartisan."
+    ],
+    "config": {
+        "headline": "Sondages serrés et risque de blocage institutionnel.",
+        "periodLabel": "Mois électoral",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 30000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "healthcare", "label": "Santé (XLV)", "prices": [100, 95, 92, 90, 95, 98], "role": "Cible réformes" },
+            { "id": "energy", "label": "Énergie Fossile", "prices": [100, 98, 105, 102, 98, 95], "role": "Enjeu électoral" },
+            { "id": "defense", "label": "Défense", "prices": [100, 101, 102, 103, 104, 105], "role": "Consensus" },
+            { "id": "gold", "label": "Or", "prices": [100, 102, 104, 105, 103, 102], "role": "Hedge Incertitude" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Attente" }
+        ],
+        "cues": ["La santé oscille au gré des sondages.", "La défense monte doucement peu importe le vainqueur.", "L'or monte avant le vote puis se calme."],
+        "suggestedAllocation": { "healthcare": 0, "energy": 10, "defense": 40, "gold": 20, "cash": 30 }
+    }
+  },
+  {
+    "id": "scenario_bank_run",
+    "title": "Faillite Bancaire (Type SVB)",
+    "description": "Une banque mal gérée fait faillite. La peur se propage aux autres établissements.",
+    "focus": "Finance",
+    "risk": "Systémique",
+    "stageId": "fundamentals",
+    "rewardXp": 27,
+    "prompts": [
+        "Flight to quality : fuite vers les 'Too Big To Fail'.",
+        "Les obligations d'État (Treasuries) servent de refuge."
+    ],
+    "config": {
+        "headline": "Panique bancaire : risque de contagion.",
+        "periodLabel": "Crise de liquidité",
+        "durationLabel": "6 jours simulés",
+        "stepLabel": "1 jour par pas",
+        "initialCash": 50000,
+        "playbackMs": 800,
+        "assets": [
+            { "id": "regional_banks", "label": "Banques Régionales", "prices": [100, 80, 60, 50, 55, 58], "role": "Cible Panique" },
+            { "id": "mega_banks", "label": "Mégabanques (JPM)", "prices": [100, 98, 99, 100, 101, 102], "role": "Refuge Sectoriel" },
+            { "id": "treasuries", "label": "Bons du Trésor (SHV)", "prices": [100, 100.5, 101, 101.2, 101.5, 101.8], "role": "Sécurité Absolue" },
+            { "id": "crypto", "label": "Bitcoin", "prices": [100, 105, 110, 115, 112, 110], "role": "Alternative System" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Liquidité" }
+        ],
+        "cues": ["Les régionales s'effondrent.", "Les 'Too Big To Fail' et les Bons du Trésor récupèrent les dépôts.", "Bitcoin monte comme alternative."],
+        "suggestedAllocation": { "regional_banks": 0, "mega_banks": 30, "treasuries": 40, "crypto": 10, "cash": 20 }
+    }
+  },
+  {
+    "id": "scenario_ipo_fever",
+    "title": "Folie des IPO",
+    "description": "Le marché est euphorique, tout ce qui s'introduit en bourse double le premier jour. Gare au retour de bâton.",
+    "focus": "Marché Primaire",
+    "risk": "Valorisation",
+    "stageId": "psychology",
+    "rewardXp": 17,
+    "prompts": [
+        "Acheter la rumeur, vendre la nouvelle.",
+        "Les sociétés non rentables sont les plus risquées."
+    ],
+    "config": {
+        "headline": "IPO Mania : des valorisations déconnectées du réel.",
+        "periodLabel": "Bulle IPO",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 20000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "ipo_etf", "label": "ETF IPO (IPO)", "prices": [100, 110, 120, 125, 115, 105], "role": "Spéculation" },
+            { "id": "private_equity", "label": "Private Equity Listed", "prices": [100, 105, 108, 110, 108, 106], "role": "Vendeur (Gagnant)" },
+            { "id": "value_stocks", "label": "Value Stocks", "prices": [100, 99, 98, 99, 100, 101], "role": "Délaissé" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Patience" }
+        ],
+        "cues": ["L'ETF IPO flambe puis corrige brutalement.", "Le Private Equity profite des sorties.", "La Value est stable."],
+        "suggestedAllocation": { "ipo_etf": 20, "private_equity": 30, "value_stocks": 20, "cash": 30 }
+    }
+  },
+  {
+    "id": "scenario_gold_rush",
+    "title": "Ruée sur l'Or",
+    "description": "Défiance envers les monnaies fiduciaires. Les banques centrales achètent de l'or massivement.",
+    "focus": "Matières Premières",
+    "risk": "Monétaire",
+    "stageId": "intuition",
+    "rewardXp": 21,
+    "prompts": [
+        "Les mineurs d'or offrent un effet de levier sur le cours du métal.",
+        "L'argent métal suit souvent l'or avec plus de volatilité."
+    ],
+    "config": {
+        "headline": "L'once d'or atteint des sommets historiques.",
+        "periodLabel": "Bull Run Métaux",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 30000,
+        "playbackMs": 900,
+        "assets": [
+            { "id": "gold_miners", "label": "Mineurs d'Or (GDX)", "prices": [100, 110, 120, 125, 130, 135], "role": "Levier opérationnel" },
+            { "id": "physical_gold", "label": "Or Physique (GLD)", "prices": [100, 105, 110, 112, 115, 118], "role": "Sous-jacent" },
+            { "id": "silver", "label": "Argent (SLV)", "prices": [100, 108, 115, 122, 128, 140], "role": "Volatilité max" },
+            { "id": "dollar", "label": "Dollar Index (UUP)", "prices": [100, 98, 96, 95, 94, 93], "role": "Corrélation inverse" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Neutre" }
+        ],
+        "cues": ["Les mineurs surperforment le métal.", "L'argent explose à la hausse.", "Le dollar faiblit."],
+        "suggestedAllocation": { "gold_miners": 30, "physical_gold": 20, "silver": 20, "dollar": 0, "cash": 30 }
+    }
+  },
+  {
+    "id": "scenario_retail_apocalypse",
+    "title": "Retail vs E-commerce",
+    "description": "Les centres commerciaux se vident au profit de la logistique et du e-commerce.",
+    "focus": "Disruption",
+    "risk": "Structurel",
+    "stageId": "fundamentals",
+    "rewardXp": 19,
+    "prompts": [
+        "L'immobilier commercial de détail (Malls) est en danger.",
+        "Les entrepôts logistiques sont les nouveaux magasins."
+    ],
+    "config": {
+        "headline": "Transformation du commerce : briques vs clics.",
+        "periodLabel": "Mutation Sectorielle",
+        "durationLabel": "6 mois simulés",
+        "stepLabel": "1 mois par pas",
+        "initialCash": 25000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "malls", "label": "Centres Commerciaux (Simon)", "prices": [100, 95, 90, 88, 85, 82], "role": "Déclin" },
+            { "id": "ecommerce", "label": "E-commerce (AMZN/SHOP)", "prices": [100, 105, 110, 115, 118, 120], "role": "Gagnant" },
+            { "id": "logistics_reit", "label": "REIT Logistique (Prologis)", "prices": [100, 102, 105, 108, 110, 112], "role": "Infra essentielle" },
+            { "id": "staples_retail", "label": "Supermarchés (Walmart)", "prices": [100, 101, 102, 103, 104, 105], "role": "Résilience Omnicanal" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Neutre" }
+        ],
+        "cues": ["L'e-commerce et la logistique montent.", "Les centres commerciaux baissent.", "Les supermarchés qui s'adaptent (Walmart) résistent."],
+        "suggestedAllocation": { "malls": 0, "ecommerce": 40, "logistics_reit": 30, "staples_retail": 20, "cash": 10 }
+    }
+  },
+  {
+    "id": "scenario_infrastructure_plan",
+    "title": "Grand Plan d'Infrastructures",
+    "description": "Le gouvernement vote un plan de 2000 milliards pour les routes, ponts et énergie.",
+    "focus": "Politique Budgétaire",
+    "risk": "Exécution",
+    "stageId": "intuition",
+    "rewardXp": 20,
+    "prompts": [
+        "Qui vend le ciment et l'acier ?",
+        "Les sociétés d'ingénierie remplissent leurs carnets de commandes."
+    ],
+    "config": {
+        "headline": "Relance budgétaire massive : BTP et Industrie à l'honneur.",
+        "periodLabel": "Boom Construction",
+        "durationLabel": "6 mois simulés",
+        "stepLabel": "1 mois par pas",
+        "initialCash": 40000,
+        "playbackMs": 900,
+        "assets": [
+            { "id": "materials", "label": "Matériaux (XLB)", "prices": [100, 105, 108, 112, 115, 118], "role": "Béton/Acier" },
+            { "id": "engineering", "label": "Ingénierie (Jacobs)", "prices": [100, 102, 106, 110, 114, 116], "role": "Services" },
+            { "id": "industrials", "label": "Industriels (XLI)", "prices": [100, 103, 105, 108, 110, 112], "role": "Machinerie" },
+            { "id": "tech", "label": "Tech Software", "prices": [100, 99, 98, 99, 100, 100], "role": "Spectateur" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Neutre" }
+        ],
+        "cues": ["Les matériaux de base et l'ingénierie surperforment.", "La Tech est en retrait face à la 'Old Economy'."],
+        "suggestedAllocation": { "materials": 30, "engineering": 30, "industrials": 20, "tech": 0, "cash": 20 }
+    }
+  },
+  {
+    "id": "scenario_ev_price_war",
+    "title": "Guerre des Prix (Véhicules Élec.)",
+    "description": "Pour gagner des parts de marché, les constructeurs EV baissent leurs prix. Les marges s'effondrent.",
+    "focus": "Industrie Auto",
+    "risk": "Profitabilité",
+    "stageId": "fundamentals",
+    "rewardXp": 22,
+    "prompts": [
+        "Le volume ne compense pas toujours la perte de marge.",
+        "Les fournisseurs de batteries sont pris en étau."
+    ],
+    "config": {
+        "headline": "Marges en chute libre dans l'auto électrique.",
+        "periodLabel": "Guerre des prix",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 30000,
+        "playbackMs": 850,
+        "assets": [
+            { "id": "ev_pure", "label": "Pure Player EV (TSLA-like)", "prices": [100, 90, 85, 80, 85, 88], "role": "Guerre des marges" },
+            { "id": "legacy_auto", "label": "Constructeurs Historiques", "prices": [100, 95, 92, 90, 88, 86], "role": "Pertes sur l'EV" },
+            { "id": "lithium", "label": "Producteurs Lithium (LIT)", "prices": [100, 98, 96, 94, 92, 90], "role": "Pression sur coûts" },
+            { "id": "auto_parts", "label": "Pièces Auto (Pneus/Verre)", "prices": [100, 100, 101, 101, 102, 102], "role": "Agnostique" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Sécurité" }
+        ],
+        "cues": ["Les constructeurs EV chutent (inquiétude marges).", "Les fournisseurs de pièces détachées génériques résistent."],
+        "suggestedAllocation": { "ev_pure": 10, "legacy_auto": 0, "lithium": 10, "auto_parts": 40, "cash": 40 }
+    }
+  },
+  {
+    "id": "scenario_pandemic_2",
+    "title": "Menace Pandémique (2.0)",
+    "description": "Un nouveau virus émerge. Le marché craint un nouveau confinement.",
+    "focus": "Black Swan",
+    "risk": "Sanitaire",
+    "stageId": "intuition",
+    "rewardXp": 29,
+    "prompts": [
+        "Vendre le tourisme (Aérien, Hôtels).",
+        "Acheter la 'Stay-at-home' economy (Streaming, Visio, Cloud)."
+    ],
+    "config": {
+        "headline": "Rumeurs de confinement : rotation brutale.",
+        "periodLabel": "Peur virale",
+        "durationLabel": "6 semaines",
+        "stepLabel": "1 semaine par pas",
+        "initialCash": 40000,
+        "playbackMs": 800,
+        "assets": [
+            { "id": "airlines", "label": "Compagnies Aériennes (JETS)", "prices": [100, 80, 70, 60, 55, 50], "role": "Zone Rouge" },
+            { "id": "zoom_like", "label": "Visio & Télétravail", "prices": [100, 120, 130, 140, 145, 150], "role": "Gagnant Confinement" },
+            { "id": "vaccine", "label": "Biotech Vaccin (MRNA)", "prices": [100, 110, 130, 140, 130, 125], "role": "Spéculation" },
+            { "id": "restaurants", "label": "Restauration", "prices": [100, 90, 80, 75, 70, 68], "role": "Fermetures" },
+            { "id": "cash", "label": "Cash", "prices": [1, 1, 1, 1, 1, 1], "role": "Optionnalité" }
+        ],
+        "cues": ["Le tourisme et la restauration s'effondrent.", "La Tech de télétravail et les vaccins s'envolent."],
+        "suggestedAllocation": { "airlines": 0, "zoom_like": 40, "vaccine": 30, "restaurants": 0, "cash": 30 }
+    }
+  }
+]

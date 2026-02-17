@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "932337260721",
+    "project_id": "fintech-fb29b",
+    "storage_bucket": "fintech-fb29b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:932337260721:android:85400942a482ede665ea90",
+        "android_client_info": {
+          "package_name": "com.example.railimpact"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDC_5xUS19OmLEMSEvEX9HqlaQNUPL9d4k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

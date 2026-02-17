@@ -1,0 +1,33 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "fintech-fb29b",
+          "appId": "1:932337260721:android:85400942a482ede665ea90",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "fintech-fb29b",
+          "appId": "1:932337260721:ios:57293dd5c337b59965ea90",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "fintech-fb29b",
+          "configurations": {
+            "android": "1:932337260721:android:85400942a482ede665ea90",
+            "ios": "1:932337260721:ios:57293dd5c337b59965ea90"
+          }
+        }
+      }
+    }
+  }
+}

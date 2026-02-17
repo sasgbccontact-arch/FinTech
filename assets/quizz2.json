@@ -1,0 +1,1852 @@
+{
+  "course_title": "Investir en bourse : QCM",
+  "chapters": [
+    {
+      "chapter_title": "Analyse fondamentale",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_2_l1",
+          "lesson_title": "L’analyse fondamentale : comprendre la valeur réelle d’une entreprise",
+          "questions": [
+            {
+              "question": "Quel est l’objectif principal de l’analyse fondamentale ?",
+              "options": [
+                "Prévoir les variations quotidiennes du cours de l’action",
+                "Estimer la valeur réelle d’une entreprise",
+                "Analyser le comportement des investisseurs",
+                "Mesurer la volatilité du marché"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "L’analyse fondamentale permet principalement de déterminer si une action est :",
+              "options": [
+                "Liquide ou illiquide",
+                "Stable ou instable",
+                "Sous-évaluée, correctement valorisée ou surévaluée",
+                "Risquée ou sans risque"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quels documents sont essentiels à l’analyse fondamentale ?",
+              "options": [
+                "Les graphiques boursiers et indicateurs techniques",
+                "Le bilan, le compte de résultat et les flux de trésorerie",
+                "Les prévisions des analystes financiers uniquement",
+                "Les volumes d’échanges en bourse"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "L’analyse fondamentale s’inscrit principalement dans une logique :",
+              "options": [
+                "De court terme",
+                "De très court terme",
+                "De moyen terme",
+                "De long terme"
+              ],
+              "correct_answer_index": 3
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l2",
+          "lesson_title": "Les documents financiers indispensables",
+          "questions": [
+            {
+              "question": "Quel est le rôle principal du bilan comptable ?",
+              "options": [
+                "Mesurer la rentabilité de l’entreprise sur une période donnée",
+                "Présenter la situation patrimoniale de l’entreprise à un instant donné",
+                "Analyser les flux de trésorerie futurs",
+                "Évaluer la valeur boursière de l’entreprise"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le compte de résultat permet principalement de :",
+              "options": [
+                "Distinguer l’actif et le passif de l’entreprise",
+                "Mesurer la capacité de financement à long terme",
+                "Déterminer si l’entreprise est bénéficiaire ou déficitaire",
+                "Calculer la valeur de marché des actions"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Que représentent les flux de trésorerie (cash-flow) ?",
+              "options": [
+                "Les bénéfices comptables de l’entreprise",
+                "Les dettes à long terme de l’entreprise",
+                "La capacité réelle de l’entreprise à générer des liquidités",
+                "Le chiffre d’affaires réalisé sur une période"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi ces documents financiers sont-ils indispensables ?",
+              "options": [
+                "Ils servent uniquement à la communication financière",
+                "Ils permettent d’anticiper les fluctuations boursières à court terme",
+                "Ils constituent la base de calcul des indicateurs fondamentaux",
+                "Ils remplacent l’analyse des indicateurs financiers"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter_title": "Les principaux indicateurs financiers",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_2_l3",
+          "lesson_title": "Les principaux indicateurs de rentabilité",
+          "questions": [
+            {
+              "question": "Quel est l’objectif principal des indicateurs de rentabilité ?",
+              "options": [
+                "Mesurer la valeur boursière de l’entreprise",
+                "Évaluer la capacité de l’entreprise à générer des bénéfices",
+                "Analyser la structure financière de l’entreprise",
+                "Estimer les risques de marché"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Pourquoi le chiffre d’affaires doit-il être analysé sur une longue période ?",
+              "options": [
+                "Pour anticiper les fluctuations quotidiennes du marché",
+                "Pour comparer l’entreprise à ses concurrents à court terme",
+                "Pour apprécier la régularité de son évolution",
+                "Pour calculer directement le bénéfice net"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quelle évolution du chiffre d’affaires est considérée comme la plus souhaitable ?",
+              "options": [
+                "Une croissance forte mais irrégulière",
+                "Une croissance stable et progressive",
+                "Une stagnation sur plusieurs années",
+                "Une baisse suivie d’une forte reprise"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel est le rôle principal du résultat net ?",
+              "options": [
+                "Mesurer le total des ventes de l’entreprise",
+                "Évaluer la rentabilité globale après charges et impôts",
+                "Déterminer la valeur de l’action en bourse",
+                "Calculer les flux de trésorerie disponibles"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "À propos du bénéfice net par action (BNA), quelle affirmation est correcte ?",
+              "options": [
+                "Il correspond au chiffre d’affaires divisé par le nombre d’actions",
+                "Il doit idéalement être inférieur au dividende par action",
+                "Il représente la part du bénéfice attribuable à chaque action",
+                "Il est indépendant du résultat net"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l4",
+          "lesson_title": "Autre indicateur de rentabilité : les marges",
+          "questions": [
+            {
+              "question": "À quoi servent principalement les marges ?",
+              "options": [
+                "À mesurer la valeur boursière de l’entreprise",
+                "À évaluer l’efficacité opérationnelle de l’entreprise",
+                "À estimer le niveau d’endettement",
+                "À prévoir les variations du cours de l’action"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que mesure la marge d’exploitation ?",
+              "options": [
+                "La rentabilité globale après impôts",
+                "La part du chiffre d’affaires redistribuée aux actionnaires",
+                "La rentabilité de l’activité courante de l’entreprise",
+                "La capacité de financement à long terme"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quelle est la formule correcte de la marge d’exploitation ?",
+              "options": [
+                "(Chiffre d'affaires / Résultat d'exploitation) × 100",
+                "(Résultat net / Chiffre d'affaires) × 100",
+                "(Résultat d'exploitation / Chiffre d'affaires) × 100",
+                "(Bénéfice net / Résultat d'exploitation) × 100"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Que représente la marge nette ?",
+              "options": [
+                "Le chiffre d’affaires total de l’entreprise",
+                "La rentabilité de l’activité avant charges financières",
+                "La part du chiffre d’affaires réellement conservée en bénéfice",
+                "Le montant des dividendes versés"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Comment doivent être analysées les marges d’une entreprise ?",
+              "options": [
+                "Uniquement sur une année donnée",
+                "Sans tenir compte du secteur d’activité",
+                "En les comparant dans le temps et avec celles du même secteur",
+                "Seulement lorsque l’entreprise est cotée en bourse"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l5",
+          "lesson_title": "Les indicateurs liés au dividende",
+          "questions": [
+            {
+              "question": "À quoi sert principalement le rendement du dividende ?",
+              "options": [
+                "À mesurer la rentabilité globale de l’entreprise",
+                "À estimer la rentabilité d’un investissement via les dividendes",
+                "À analyser la solidité financière de l’entreprise",
+                "À évaluer la croissance du bénéfice net"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Pourquoi le rendement du dividende est-il insuffisant à lui seul pour justifier un investissement ?",
+              "options": [
+                "Il dépend uniquement du cours de l’action",
+                "Il ne donne aucune information sur les fondamentaux de l’entreprise",
+                "Il ne prend pas en compte le nombre d’actions",
+                "Il est trop volatil à court terme"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que représente le taux de distribution (Pay-Out Ratio) ?",
+              "options": [
+                "La part du chiffre d’affaires versée aux actionnaires",
+                "La part du bénéfice distribuée sous forme de dividendes",
+                "Le montant des réserves de l’entreprise",
+                "Le rendement annuel du dividende"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel niveau de taux de distribution est généralement considéré comme sain ?",
+              "options": [
+                "Supérieur à 70%",
+                "Inférieur à 50%",
+                "Égal à 100%",
+                "Toujours négatif"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que signifie un taux de distribution supérieur à 100% ?",
+              "options": [
+                "L’entreprise est très rentable",
+                "Le dividende est financé par la croissance du chiffre d’affaires",
+                "L’entreprise puise dans ses réserves pour verser le dividende",
+                "Le bénéfice par action est en forte hausse"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi la régularité du dividende est-elle importante ?",
+              "options": [
+                "Elle garantit une hausse du cours de l’action",
+                "Elle permet d’éviter toute baisse des bénéfices",
+                "Elle est un signe de solidité financière et de discipline de gestion",
+                "Elle remplace l’analyse des autres indicateurs financiers"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l6",
+          "lesson_title": "Les indicateurs de valorisation",
+          "questions": [
+            {
+              "question": "Quel est l’objectif principal des indicateurs de valorisation ?",
+              "options": [
+                "Mesurer la rentabilité opérationnelle de l’entreprise",
+                "Évaluer si le prix de l’action est cohérent avec les fondamentaux",
+                "Déterminer le niveau d’endettement",
+                "Analyser la structure des coûts"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que représente le PER (Price Earnings Ratio) ?",
+              "options": [
+                "Le taux de croissance du bénéfice net",
+                "Le nombre d’années nécessaires pour récupérer son investissement via les bénéfices",
+                "La part du bénéfice distribuée aux actionnaires",
+                "La valeur comptable par action"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Comment doit être analysé le PER ?",
+              "options": [
+                "Uniquement sur une année donnée",
+                "Sans comparaison avec d’autres entreprises",
+                "Dans le temps et par comparaison sectorielle",
+                "Seulement lorsque le PER est faible"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Un PER élevé peut indiquer :",
+              "options": [
+                "Une entreprise en difficulté financière",
+                "Une entreprise potentiellement sous-évaluée",
+                "Une entreprise à la mode avec une forte croissance future espérée",
+                "Une absence de croissance future"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quel est le rôle du PEG ?",
+              "options": [
+                "Remplacer le PER dans toute analyse financière",
+                "Comparer le prix de l’action à la valeur comptable",
+                "Affiner le PER en intégrant la croissance future",
+                "Mesurer la rentabilité des capitaux propres"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Que signifie un PEG inférieur à 1 ?",
+              "options": [
+                "L’entreprise est surévaluée",
+                "La croissance future est trop faible",
+                "L’entreprise semble sous-évaluée par rapport à sa croissance",
+                "Le PER est excessivement élevé"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Que représente la valeur comptable (Book Value) ?",
+              "options": [
+                "Le chiffre d’affaires annuel",
+                "Les bénéfices futurs estimés",
+                "Les capitaux restant après règlement des dettes et engagements",
+                "La valeur de marché de l’entreprise"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Que signifie un PBR inférieur à 1 ?",
+              "options": [
+                "L’entreprise est surévaluée par le marché",
+                "L’entreprise est correctement valorisée",
+                "Le marché sous-évalue les actifs de l’entreprise",
+                "La croissance future est trop élevée"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l7",
+          "lesson_title": "Les indicateurs de solidité financière",
+          "questions": [
+            {
+              "question": "Que mesurent les indicateurs de solidité financière ?",
+              "options": [
+                "La rentabilité boursière à court terme",
+                "La capacité de l’entreprise à faire face à ses engagements",
+                "Le potentiel de croissance du chiffre d’affaires",
+                "La politique de distribution des dividendes"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que représentent les capitaux propres d’une entreprise ?",
+              "options": [
+                "Le montant total des dettes financières",
+                "Les liquidités disponibles immédiatement",
+                "L’actif net après déduction des dettes",
+                "Le chiffre d’affaires annuel"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi un niveau élevé et en progression des capitaux propres est-il un signal positif ?",
+              "options": [
+                "Il garantit une hausse du cours de l’action",
+                "Il réduit le risque de faillite",
+                "Il augmente automatiquement le rendement du dividende",
+                "Il élimine tout risque financier"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle situation est généralement considérée comme saine concernant l’endettement ?",
+              "options": [
+                "Une dette supérieure aux capitaux propres",
+                "Une absence totale de dette",
+                "Une dette inférieure aux capitaux propres",
+                "Une dette qui augmente rapidement chaque année"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Que mesure le levier financier (Dettes / EBITDA) ?",
+              "options": [
+                "La rentabilité globale de l’entreprise",
+                "La capacité de l’entreprise à rembourser sa dette grâce à ses résultats opérationnels",
+                "Le niveau de trésorerie disponible",
+                "La valeur comptable par action"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "À partir de quel niveau le levier financier commence-t-il généralement à susciter des inquiétudes ?",
+              "options": [
+                "Supérieur à 1",
+                "Supérieur à 2",
+                "Supérieur à 3",
+                "Supérieur à 5"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi un levier financier excessif est-il problématique ?",
+              "options": [
+                "Il empêche l’entreprise de croître",
+                "Il peut contraindre l’entreprise à réduire ou supprimer le dividende",
+                "Il augmente artificiellement les capitaux propres",
+                "Il améliore la valorisation boursière"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l8",
+          "lesson_title": "ROA (Return On Assets) et ROE (Return On Equity)",
+          "questions": [
+            {
+              "question": "Que mesure le ROA (Return On Assets) ?",
+              "options": [
+                "La rentabilité des capitaux propres",
+                "La capacité de l’entreprise à générer des bénéfices à partir de ses actifs",
+                "Le niveau d’endettement de l’entreprise",
+                "La croissance du chiffre d’affaires"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Pourquoi utilise-t-on parfois le ROAA (Return On Average Assets) ?",
+              "options": [
+                "Pour intégrer l’effet de levier de la dette",
+                "Pour comparer les entreprises de secteurs différents",
+                "Pour lisser les variations des actifs sur l’année",
+                "Pour mesurer la rentabilité par action"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi le ROA doit-il être comparé aux standards du secteur ?",
+              "options": [
+                "Parce qu’il dépend du cours de l’action",
+                "Parce que les niveaux de rentabilité des actifs varient selon les secteurs",
+                "Parce qu’il est identique pour toutes les entreprises",
+                "Parce qu’il remplace le ROE"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que mesure le ROE (Return On Equity) ?",
+              "options": [
+                "La rentabilité des actifs de l’entreprise",
+                "La capacité de l’entreprise à rembourser sa dette",
+                "La rentabilité des capitaux propres pour les actionnaires",
+                "La valeur comptable de l’entreprise"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quelle est la relation entre ROA et ROE en l’absence de dette ?",
+              "options": [
+                "Le ROE est toujours supérieur au ROA",
+                "Le ROA est toujours supérieur au ROE",
+                "Le ROA et le ROE sont égaux",
+                "Le ROE est nul"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi un ROE très élevé peut-il être trompeur ?",
+              "options": [
+                "Il indique toujours une forte croissance",
+                "Il peut résulter d’un endettement excessif",
+                "Il signifie que les actifs sont mal utilisés",
+                "Il implique une baisse du chiffre d’affaires"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l9",
+          "lesson_title": "Avoir une approche globale et cohérente",
+          "questions": [
+            {
+              "question": "Pourquoi aucun indicateur ne doit-il être analysé isolément en analyse fondamentale ?",
+              "options": [
+                "Parce que les indicateurs financiers ne sont pas fiables",
+                "Parce que leur cohérence entre eux est essentielle pour évaluer l’entreprise",
+                "Parce que le marché est toujours imprévisible",
+                "Parce que les ratios sont trop complexes à calculer"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quels sont les principaux axes que l’analyse fondamentale doit vérifier ?",
+              "options": [
+                "Rentabilité, valorisation, solidité financière, qualité du modèle économique",
+                "Chiffre d’affaires, dividendes, trésorerie, levier",
+                "PER, PEG, PBR, BNA",
+                "ROA, ROE, EBITDA, BNA"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Au-delà des chiffres, que doit comprendre l’analyste ?",
+              "options": [
+                "La situation boursière quotidienne",
+                "La psychologie des investisseurs",
+                "L’entreprise, son secteur et son avantage concurrentiel",
+                "Les prévisions exactes du marché"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quel est l’objectif principal d’une bonne analyse fondamentale ?",
+              "options": [
+                "Prédire les mouvements de marché à court terme",
+                "Maximiser le rendement des dividendes",
+                "Réduire les risques sur le long terme",
+                "Trouver uniquement les actions sous-évaluées"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quelle démarche pratique est recommandée pour comprendre l’entreprise ?",
+              "options": [
+                "Observer comment le consommateur perçoit et utilise les produits ou services",
+                "Se concentrer uniquement sur les ratios financiers",
+                "Comparer les cours de bourse d’autres entreprises",
+                "Analyser exclusivement les communiqués de presse"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l10",
+          "lesson_title": "Où retrouver tous ces indicateurs ?",
+          "questions": [
+            {
+              "question": "Quel site est recommandé pour consulter rapidement les principaux indicateurs financiers d’une entreprise cotée ?",
+              "options": [
+                "Interbrand",
+                "ZoneBourse",
+                "Yahoo Finance",
+                "Google Trends"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que permet le site dédié aux investisseurs de chaque entreprise cotée ?",
+              "options": [
+                "Accéder aux résultats des enquêtes clients",
+                "Consulter toutes les informations financières officielles",
+                "Acheter des actions directement",
+                "Comparer les marques concurrentes"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Pourquoi est-il préférable d’analyser les indicateurs sur plusieurs années ?",
+              "options": [
+                "Pour anticiper les fluctuations journalières du marché",
+                "Pour observer la tendance et la régularité des performances",
+                "Pour comparer uniquement avec le secteur financier",
+                "Pour suivre les dividendes uniquement"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel site permet de suivre chaque année l’évolution des plus grandes marques mondiales ?",
+              "options": [
+                "ZoneBourse",
+                "Interbrand",
+                "Bloomberg",
+                "Morningstar"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l11",
+          "lesson_title": "Comment mettre en relief tous ces indicateurs ?",
+          "questions": [
+            {
+              "question": "Pourquoi aucun indicateur ne doit-il être considéré isolément ?",
+              "options": [
+                "Parce que tous les indicateurs financiers sont peu fiables",
+                "Parce qu’il est essentiel d’analyser l’ensemble des critères avant de prendre une décision",
+                "Parce que les marchés suivent toujours des tendances aléatoires",
+                "Parce que les ratios sont difficiles à calculer"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que signifie « comparer ce qui est comparable » ?",
+              "options": [
+                "Comparer uniquement les entreprises d’un même pays",
+                "Comparer des entreprises, secteurs et périodes similaires",
+                "Comparer les entreprises uniquement avec leurs concurrents directs",
+                "Comparer toutes les entreprises cotées au hasard"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Peut-on garantir une performance positive en utilisant tous ces indicateurs ?",
+              "options": [
+                "Oui, à condition de suivre tous les ratios chaque jour",
+                "Non, aucune méthode ne garantit une performance à 100%",
+                "Oui, si l’on combine au moins trois indicateurs",
+                "Non, sauf pour les entreprises très grandes"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que faut-il faire si un critère validé aujourd’hui ne l’est plus demain ?",
+              "options": [
+                "Tout revendre immédiatement",
+                "Peser le pour et le contre avant de décider",
+                "Ignorer le critère",
+                "Ne plus investir dans le secteur"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelles sont les deux plus grosses erreurs à éviter selon le texte ?",
+              "options": [
+                "Ne rien faire et être trop timide sur une entreprise de confiance",
+                "Vendre trop rapidement et acheter trop cher",
+                "Ne pas suivre les ratios et se baser uniquement sur les conseils d’experts",
+                "Suivre uniquement le PER et le ROE"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter_title": "L'analyse graphique",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_2_l12",
+          "lesson_title": "Introduction",
+          "questions": [
+            {
+              "question": "Pour analyser une courbe correctement, la première étape consiste à :",
+              "options": [
+                "Calculer le RSI",
+                "Déterminer une tendance sur un horizon adapté",
+                "Acheter dès que le cours baisse",
+                "Tracer uniquement les volumes"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une résistance est :",
+              "options": [
+                "Un seuil bas où le cours rebondit souvent",
+                "Un seuil haut difficile à franchir",
+                "Une moyenne mobile",
+                "Un indicateur fondamental"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Un support est :",
+              "options": [
+                "Un seuil haut",
+                "Un seuil bas où le cours rebondit souvent",
+                "Une figure de continuation",
+                "Une zone de surachat"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Si une action franchit successivement plusieurs supports, le risque principal est :",
+              "options": [
+                "Une reprise immédiate de la hausse",
+                "Une poursuite de la tendance baissière",
+                "Une stagnation garantie",
+                "Une hausse assurée par effet de levier"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Pourquoi observe-t-on la tendance sur plusieurs mois/années ?",
+              "options": [
+                "Une tendance apparaît rarement sur une semaine",
+                "Les indicateurs n'existent pas sur une semaine",
+                "Les supports disparaissent à court terme",
+                "Les résistances n'existent qu'en long terme"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l13",
+          "lesson_title": "Le tunnel ou canal",
+          "questions": [
+            {
+              "question": "Pour tracer la droite de résistance d'un canal, on relie :",
+              "options": [
+                "Au moins 3 points hauts",
+                "Au moins 3 points bas",
+                "Les cours d'ouverture",
+                "Les volumes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pour tracer la droite de support d'un canal, on relie :",
+              "options": [
+                "Les points hauts",
+                "Les points bas",
+                "Les cours de clôture uniquement",
+                "Les pics de volatilité"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Tant que le cours reste dans le canal, on peut :",
+              "options": [
+                "Interpréter des objectifs de court terme entre support et résistance",
+                "Conclure que le cours est manipulé",
+                "Prédire exactement le prochain sommet",
+                "Ignorer supports et résistances"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Lorsque le cours sort du canal, cela peut :",
+              "options": [
+                "Renforcer la tendance ou l'inverser",
+                "Forcer un retour immédiat dans le canal",
+                "Annuler toute information du graphique",
+                "Garantir une hausse"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Un rectangle correspond à :",
+              "options": [
+                "Deux droites parallèles fortement haussières",
+                "Un canal ni haussier ni baissier (pause)",
+                "Un triangle symétrique",
+                "Une figure de retournement obligatoire"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l14",
+          "lesson_title": "Le triangle",
+          "questions": [
+            {
+              "question": "Un triangle apparaît lorsque :",
+              "options": [
+                "Support et résistance sont parallèles",
+                "Support et résistance ne sont pas parallèles",
+                "Le cours ne varie plus",
+                "Les volumes sont nuls"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le triangle symétrique correspond à :",
+              "options": [
+                "Une résistance horizontale et un support haussier",
+                "Un support horizontal et une résistance baissière",
+                "Deux droites avec une pente comparable (incertitude)",
+                "Deux droites parfaitement horizontales"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Le triangle ascendant est défini par :",
+              "options": [
+                "Résistance horizontale + support haussier",
+                "Support horizontal + résistance baissière",
+                "Deux droites parallèles",
+                "Résistance horizontale + support baissier"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Dans un triangle ascendant, la sortie attendue est :",
+              "options": [
+                "Par le bas",
+                "Par le haut",
+                "Aléatoire à 100%",
+                "Toujours dans le sens inverse"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le triangle descendant est défini par :",
+              "options": [
+                "Résistance horizontale + support haussier",
+                "Support horizontal + résistance descendante",
+                "Deux droites haussières",
+                "Un rectangle"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l15",
+          "lesson_title": "Introduction",
+          "questions": [
+            {
+              "question": "Les figures servent principalement à :",
+              "options": [
+                "Mesurer les flux de trésorerie",
+                "Reconnaître des configurations de tendance/retournement",
+                "Calculer le PER",
+                "Déterminer la valeur comptable"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une tendance claire est idéale mais :",
+              "options": [
+                "Rare en pratique",
+                "Interdite en bourse",
+                "Impossible à trader",
+                "Toujours fausse"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Les figures sont surtout utiles pour :",
+              "options": [
+                "Comprendre la structure des mouvements",
+                "Remplacer toutes les autres analyses",
+                "Garantir un gain",
+                "Éviter de regarder le prix"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Les figures techniques reposent généralement sur :",
+              "options": [
+                "L'évolution des prix (et parfois volumes)",
+                "La fiscalité des dividendes",
+                "Le bilan comptable",
+                "Le taux de distribution"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Une figure peut être :",
+              "options": [
+                "Facile à repérer dès le début",
+                "Parfois difficile à repérer sans expérience",
+                "Impossible à interpréter",
+                "Toujours la même quel que soit le titre"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l16",
+          "lesson_title": "La tête-épaules",
+          "questions": [
+            {
+              "question": "La figure tête-épaules est souvent associée à :",
+              "options": [
+                "Une continuation haussière systématique",
+                "Un retournement après une hausse",
+                "Une absence de volatilité",
+                "Une zone de survente RSI"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "La ligne de cou correspond :",
+              "options": [
+                "Au sommet de la tête",
+                "Au niveau des creux entre épaules et tête",
+                "À la moyenne mobile 200",
+                "À la résistance du canal"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "L'enchaînement typique est :",
+              "options": [
+                "Tête → épaule → épaule",
+                "Épaule → tête → épaule",
+                "Épaule → épaule → tête",
+                "Triangle → rectangle → drapeau"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le signal clé est lorsque le cours :",
+              "options": [
+                "Dépasse la tête",
+                "Franchit la ligne de cou à la baisse",
+                "Devient plat",
+                "Passe sous la MM200 (obligatoirement)"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Parfois, la tête est peu visible et la figure ressemble plutôt à :",
+              "options": [
+                "Un W",
+                "Un M",
+                "Un rectangle",
+                "Une croix d'or"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l17",
+          "lesson_title": "La tête-épaule inversée",
+          "questions": [
+            {
+              "question": "La tête-épaule inversée est généralement associée à :",
+              "options": [
+                "Un retournement haussier après une baisse",
+                "Une continuation baissière",
+                "Un marché sans volume",
+                "Une surévaluation fondamentale"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Dans cette figure, la cassure décisive se fait :",
+              "options": [
+                "Sous la ligne de cou",
+                "Au-dessus de la ligne de cou",
+                "Toujours dans le canal",
+                "Uniquement au contact d'un support"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Lorsque la tête est peu visible, la figure ressemble souvent à :",
+              "options": [
+                "Un M",
+                "Un W",
+                "Un rectangle",
+                "Un triangle descendant"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "L’ordre typique des creux est :",
+              "options": [
+                "Creux modéré → creux plus bas (tête) → creux modéré",
+                "Trois creux égaux",
+                "Un seul creux",
+                "Deux sommets et un creux"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "La ligne de cou est déterminée par :",
+              "options": [
+                "Les plus hauts entre les creux",
+                "Les plus bas",
+                "La moyenne mobile 50",
+                "Le RSI"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l18",
+          "lesson_title": "Le drapeau",
+          "questions": [
+            {
+              "question": "Le drapeau est généralement une figure de :",
+              "options": [
+                "Consolidation",
+                "Faillite",
+                "Valorisation",
+                "Stagnation définitive"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Le mât correspond :",
+              "options": [
+                "À la phase de baisse",
+                "À la hausse initiale",
+                "À la ligne de cou",
+                "À la MM200"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le drapeau lui-même est souvent :",
+              "options": [
+                "Un canal légèrement baissier",
+                "Un triangle descendant",
+                "Un rectangle haussier",
+                "Une résistance horizontale"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Le scénario typique est que le cours :",
+              "options": [
+                "Sorte par le bas",
+                "Sorte par le haut",
+                "Ne sorte jamais",
+                "Retourne obligatoirement au point de départ"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Un drapeau inversé apparaît plutôt dans :",
+              "options": [
+                "Une phase ascendante",
+                "Une phase descendante",
+                "Une phase neutre uniquement",
+                "Un marché sans échange"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l19",
+          "lesson_title": "Le volume de transaction",
+          "questions": [
+            {
+              "question": "Le volume de transaction mesure :",
+              "options": [
+                "Le nombre d’actions échangées",
+                "La valeur comptable",
+                "Le dividende",
+                "Le PER"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "De grands mouvements de cours sont souvent associés à :",
+              "options": [
+                "Des volumes élevés",
+                "Des volumes nuls",
+                "Aucun volume",
+                "Un RSI constant"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Une agitation grandissante sur les volumes peut indiquer :",
+              "options": [
+                "Qu'il va se passer quelque chose sur le titre",
+                "Une absence totale d'intérêt",
+                "Une impossibilité de bouger",
+                "Un signal fondamental"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Le volume est surtout un indicateur :",
+              "options": [
+                "Complémentaire",
+                "Inutile",
+                "Exclusivement fondamental",
+                "Fiscal"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Il est pertinent de coupler le volume avec :",
+              "options": [
+                "Supports/résistances et figures",
+                "Le bilan comptable",
+                "Le payout ratio",
+                "La book value"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l20",
+          "lesson_title": "Introduction",
+          "questions": [
+            {
+              "question": "Le problème d'une courbe « classique » (cours de clôture) est qu'elle :",
+              "options": [
+                "Donne trop d'informations",
+                "Ne donne qu'une information par séance",
+                "Empêche de tracer une tendance",
+                "Ne permet pas de voir les volumes"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les traders veulent souvent connaître :",
+              "options": [
+                "Ouverture, plus haut, plus bas, clôture",
+                "Uniquement la clôture",
+                "Uniquement l’ouverture",
+                "Uniquement le dividende"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Les bar charts et bougies servent à :",
+              "options": [
+                "Résumer une séance en un coup d'œil",
+                "Remplacer les indicateurs",
+                "Calculer le PER",
+                "Mesurer les dettes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Ces représentations sont surtout utiles pour :",
+              "options": [
+                "Les variations intra-séance",
+                "Les rapports annuels",
+                "Les flux de trésorerie",
+                "La valeur comptable"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Elles sont principalement utilisées en :",
+              "options": [
+                "Analyse graphique/technique",
+                "Analyse fondamentale",
+                "Comptabilité générale",
+                "Fiscalité"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l21",
+          "lesson_title": "Les bâtonnets ou bar charts",
+          "questions": [
+            {
+              "question": "Un bâtonnet représente :",
+              "options": [
+                "Un mois",
+                "Une séance de bourse",
+                "Une année",
+                "Un trimestre"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "La barre verticale relie :",
+              "options": [
+                "Ouverture et clôture",
+                "Plus haut et plus bas de la journée",
+                "Deux résistances",
+                "Deux supports"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le cours d’ouverture est indiqué par :",
+              "options": [
+                "Un trait horizontal à droite",
+                "Un trait horizontal à gauche",
+                "Une couleur verte",
+                "Une mèche"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le cours de clôture est indiqué par :",
+              "options": [
+                "Un trait horizontal à gauche",
+                "Un trait horizontal à droite",
+                "Une mèche en haut",
+                "Une mèche en bas"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les bar charts donnent, par séance :",
+              "options": [
+                "2 informations",
+                "3 informations",
+                "4 informations",
+                "5 informations"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l22",
+          "lesson_title": "Les bougies japonaises",
+          "questions": [
+            {
+              "question": "Une bougie japonaise contient :",
+              "options": [
+                "Uniquement la clôture",
+                "Ouverture, clôture, plus haut, plus bas",
+                "Le PER et le PEG",
+                "Les dividendes"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le corps (cylindre) est défini par :",
+              "options": [
+                "Le maximum et le minimum",
+                "L’ouverture et la clôture",
+                "Deux moyennes mobiles",
+                "Deux résistances"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une séance « positive » correspond à :",
+              "options": [
+                "Clôture < ouverture",
+                "Clôture > ouverture",
+                "Maximum = minimum",
+                "Volume nul"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les mèches représentent :",
+              "options": [
+                "Les dividendes",
+                "Les extrêmes (max/min) de la séance",
+                "La volatilité annuelle",
+                "Le taux de distribution"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "L’intérêt principal des bougies par rapport aux bâtonnets est :",
+              "options": [
+                "Une lecture plus visuelle (couleur, forme, mèches)",
+                "La suppression des informations",
+                "Le calcul automatique du RSI",
+                "L’affichage du bilan"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l23",
+          "lesson_title": "Les moyennes mobiles",
+          "questions": [
+            {
+              "question": "Une moyenne mobile sert principalement à :",
+              "options": [
+                "Calculer la valeur comptable",
+                "Lisser les variations et faire apparaître une tendance",
+                "Mesurer le payout ratio",
+                "Remplacer supports et résistances"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "La MM200 correspond à :",
+              "options": [
+                "La moyenne du jour et des 19 jours précédents",
+                "La moyenne du jour et des 199 jours précédents",
+                "La moyenne des volumes",
+                "La moyenne du RSI"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Plus la période de la moyenne mobile est grande, plus elle :",
+              "options": [
+                "Réagit vite",
+                "Est sensible au bruit",
+                "Est lisse et reflète le long terme",
+                "Devient inutilisable"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Une moyenne mobile est utile surtout quand :",
+              "options": [
+                "La courbe est parfaitement linéaire",
+                "La courbe est irrégulière et bruitée",
+                "Le titre ne cote pas",
+                "Le volume est constant"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les moyennes mobiles sont utilisées en :",
+              "options": [
+                "Analyse technique",
+                "Analyse fondamentale",
+                "Comptabilité",
+                "Fiscalité"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l24",
+          "lesson_title": "Croix d'or et Croix de la mort",
+          "questions": [
+            {
+              "question": "Ces signaux reposent sur le croisement entre :",
+              "options": [
+                "RSI et MACD",
+                "MM50 et MM200",
+                "Support et résistance",
+                "PER et PEG"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une croix d'or se produit lorsque :",
+              "options": [
+                "La MM50 passe sous la MM200",
+                "La MM50 passe au-dessus de la MM200",
+                "La MM200 passe au-dessus de la MM50",
+                "Le RSI dépasse 70"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une croix de la mort est interprétée comme :",
+              "options": [
+                "Un signal haussier",
+                "Un signal baissier",
+                "Un signal de dividende",
+                "Un signal fondamental"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Pourquoi faut-il rester prudent ?",
+              "options": [
+                "Ces croisements ne se produisent jamais",
+                "Il peut y avoir de fausses alertes",
+                "Les moyennes sont illégales",
+                "Les supports disparaissent"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Un bon complément à ces signaux est :",
+              "options": [
+                "Les volumes de transactions",
+                "Le bilan comptable",
+                "Le payout ratio",
+                "Le ROE"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l25",
+          "lesson_title": "Les vagues d'Elliott",
+          "questions": [
+            {
+              "question": "Un cycle d'Elliott complet comporte :",
+              "options": [
+                "5 mouvements",
+                "8 mouvements (5 + 3)",
+                "10 mouvements",
+                "3 mouvements"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les 5 mouvements de tendance dans la hausse sont numérotés :",
+              "options": [
+                "A à E",
+                "1 à 5",
+                "0 à 4",
+                "6 à 10"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les 3 mouvements correctifs dans la baisse sont notés :",
+              "options": [
+                "1 à 3",
+                "A à C",
+                "X à Z",
+                "D à F"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "L’idée fractale signifie que :",
+              "options": [
+                "Une vague ne peut pas contenir d'autres vagues",
+                "Chaque vague peut se décomposer en vagues plus petites (et inversement)",
+                "Les vagues ne s'appliquent qu'au CAC 40",
+                "Elles garantissent un prix exact"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "L’intérêt pratique est de :",
+              "options": [
+                "Repérer à quel moment du cycle on se situe (court/moyen/long terme)",
+                "Éliminer tout risque",
+                "Fixer un prix au centime près",
+                "Remplacer les supports et résistances"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l26",
+          "lesson_title": "Les retracements de Fibonacci",
+          "questions": [
+            {
+              "question": "La suite de Fibonacci est définie par :",
+              "options": [
+                "Une suite de nombres premiers",
+                "Chaque terme est la somme des deux précédents",
+                "Chaque terme est multiplié par 2",
+                "Une suite aléatoire"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le nombre d’or est approximativement :",
+              "options": [
+                "0,382",
+                "1,618",
+                "2,000",
+                "3,141"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Parmi ces niveaux, lequel est un retracement classique ?",
+              "options": [
+                "12,5%",
+                "23,6%",
+                "33,3%",
+                "90%"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les niveaux de Fibonacci servent surtout à :",
+              "options": [
+                "Définir des supports/résistances théoriques",
+                "Calculer le dividende",
+                "Mesurer la dette",
+                "Fixer un prix exact garanti"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Un retracement correspond à :",
+              "options": [
+                "Une phase de hausse très rapide",
+                "Une correction qui efface une partie des gains",
+                "Une stagnation sans volume",
+                "Un dividende exceptionnel"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l27",
+          "lesson_title": "L'analyse technique : RSI (Relative Strength Index)",
+          "questions": [
+            {
+              "question": "Le RSI compare principalement :",
+              "options": [
+                "Les volumes d’achat et de vente",
+                "La moyenne des hausses et la moyenne des baisses",
+                "La dette et la trésorerie",
+                "Les marges et le CA"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une valeur de RSI < 30 indique :",
+              "options": [
+                "Surachat",
+                "Survente",
+                "Neutralité",
+                "Absence de tendance"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une valeur de RSI > 70 indique :",
+              "options": [
+                "Survente",
+                "Neutralité",
+                "Surachat",
+                "Résistance cassée"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "La zone de neutralité du RSI est généralement :",
+              "options": [
+                "Entre 0 et 30",
+                "Entre 30 et 70",
+                "Entre 70 et 100",
+                "Entre 20 et 80"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le RSI peut être calculé sur :",
+              "options": [
+                "Une seule durée fixe",
+                "Plusieurs durées (ex. 9, 14, 25 jours)",
+                "Uniquement 200 jours",
+                "Uniquement sur 2 jours"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l28",
+          "lesson_title": "L'analyse technique : stochastique (STS)",
+          "questions": [
+            {
+              "question": "Le STS est :",
+              "options": [
+                "Un indicateur fondamental",
+                "Un oscillateur",
+                "Une moyenne mobile",
+                "Une figure chartiste"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le STS se base sur :",
+              "options": [
+                "Le BNA",
+                "Le cours de clôture comparé à la fourchette des prix",
+                "Les dividendes",
+                "La valeur comptable"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une zone de surachat en STS est souvent :",
+              "options": [
+                "Au-dessus de 80",
+                "Au-dessus de 70",
+                "En dessous de 30",
+                "En dessous de 20"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Une zone de survente en STS est souvent :",
+              "options": [
+                "Au-dessus de 80",
+                "En dessous de 20",
+                "Entre 30 et 70",
+                "À 50 exactement"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "En plus des zones, on observe souvent :",
+              "options": [
+                "Les croisements avec sa moyenne et les divergences",
+                "Le bilan",
+                "Le taux de distribution",
+                "La book value"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l29",
+          "lesson_title": "L'analyse technique : momentum",
+          "questions": [
+            {
+              "question": "Le momentum mesure :",
+              "options": [
+                "La vitesse d’évolution du cours",
+                "La valeur comptable",
+                "Les dividendes",
+                "La marge nette"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Le ROC est :",
+              "options": [
+                "Un autre nom du momentum",
+                "Une figure (triangle)",
+                "Une moyenne mobile",
+                "Un indicateur fondamental"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Un cours qui monte mais un momentum qui faiblit peut signaler :",
+              "options": [
+                "Une hausse accélérée",
+                "Une fin possible de hausse",
+                "Une survente",
+                "Une cassure de support certaine"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Un momentum qui remonte alors que le cours baisse peut indiquer :",
+              "options": [
+                "Un rebond possible",
+                "Une hausse impossible",
+                "Un dividende imminent",
+                "Une baisse assurée"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "L’usage principal du momentum est basé sur :",
+              "options": [
+                "Les divergences",
+                "Les ratios comptables",
+                "Les marges",
+                "Les dettes"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l30",
+          "lesson_title": "L'analyse technique : La Moving Average Convergence Divergence (MACD)",
+          "questions": [
+            {
+              "question": "La MACD utilise généralement :",
+              "options": [
+                "Deux moyennes mobiles exponentielles (12 et 26)",
+                "Deux moyennes simples (50 et 200)",
+                "Deux supports",
+                "Deux RSI"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "La MACD s’appuie sur :",
+              "options": [
+                "La somme des moyennes",
+                "L’écart entre deux moyennes exponentielles",
+                "Le volume moyen",
+                "Le dividende moyen"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "La ligne zéro représente :",
+              "options": [
+                "L’absence de différence entre les deux moyennes",
+                "Une zone de survente",
+                "Le support principal",
+                "Le cours d’ouverture"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "La ligne de signal est souvent une moyenne (en jours) de :",
+              "options": [
+                "200",
+                "50",
+                "9",
+                "2"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Un avantage (mais aussi risque) de la MACD est :",
+              "options": [
+                "Signaux plus précoces mais plus risqués",
+                "Signaux toujours parfaits",
+                "Impossible à interpréter",
+                "Remplace tous les autres indicateurs"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l31",
+          "lesson_title": "Les bandes de Bollinger",
+          "questions": [
+            {
+              "question": "Les bandes de Bollinger reposent sur :",
+              "options": [
+                "2 courbes",
+                "3 courbes (moyenne + 2 bandes)",
+                "5 courbes (vagues d’Elliott)",
+                "1 courbe (clôture)"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les deux bandes sont placées à environ :",
+              "options": [
+                "1 écart-type",
+                "2 écarts-types",
+                "3 écarts-types",
+                "0,5 écart-type"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quand le marché est calme, les bandes sont :",
+              "options": [
+                "Écartées",
+                "Resserées",
+                "Inexistantes",
+                "Toujours identiques"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quand la volatilité augmente, les bandes :",
+              "options": [
+                "Se resserrent",
+                "S’écartent",
+                "Disparaissent",
+                "Deviennent horizontales"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Une phase de resserrement peut signaler :",
+              "options": [
+                "Une future direction du marché",
+                "Une absence totale de mouvement futur",
+                "Un dividende exceptionnel",
+                "Une baisse certaine"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l32",
+          "lesson_title": "Remarques finales",
+          "questions": [
+            {
+              "question": "« Connaître quelques figures ou indicateurs ne suffit pas » signifie que :",
+              "options": [
+                "L’analyse technique est inutile",
+                "Il faut de la pratique/formation/expérience",
+                "Les indicateurs garantissent un gain",
+                "Le RSI remplace tout"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Ces outils sont surtout utilisés pour :",
+              "options": [
+                "L’investissement passif uniquement",
+                "Le trading à court terme",
+                "La comptabilité",
+                "La fiscalité"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Même pour moyen/long terme, l’analyse graphique peut :",
+              "options": [
+                "Être totalement inutile",
+                "Rester utile",
+                "Remplacer les fondamentaux",
+                "Garantir le timing parfait"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Avant d’acheter/vendre, il est pertinent d’observer :",
+              "options": [
+                "La tendance, supports/résistances, signaux",
+                "Uniquement le dividende",
+                "Uniquement le PER",
+                "Uniquement le cours d’ouverture"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Attendre un rebond sur un support ou confirmer une tendance peut :",
+              "options": [
+                "Détériorer la décision",
+                "Améliorer la décision",
+                "Ne rien changer",
+                "Supprimer le risque"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
