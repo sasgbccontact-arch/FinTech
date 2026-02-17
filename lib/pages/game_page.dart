@@ -277,7 +277,7 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
                     builder: (context, progressSnapshot) {
                       final data = progressSnapshot.data?.data() as Map<String, dynamic>?;
                       final xp = data?['xp'] as int? ?? 0;
-                      final level = (xp / 100).floor() + 1;
+                      final level = (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
                       
                       // Récupération des scénarios complétés depuis le stream pour la réactivité
                       final completedSet = (data?['completed_scenarios'] as List?)?.map((e) => e.toString()).toSet() ?? _completedScenarios;
@@ -1735,8 +1735,11 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
 
             if (streak > maxStreak) maxStreak = streak;
 
-            final level = (xp / 100).floor() + 1;
-            final progress = (xp % 100) / 100.0;
+            final level = (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
+            final startXp = 500 * (math.pow(1.2, level - 1) - 1);
+            final nextLevelXp = 500 * (math.pow(1.2, level) - 1);
+            final range = nextLevelXp - startXp;
+            final progress = range > 0 ? (xp - startXp) / range : 0.0;
             final inventory =
                 (data?['inventory'] as List?)
                     ?.map((e) => e.toString())
