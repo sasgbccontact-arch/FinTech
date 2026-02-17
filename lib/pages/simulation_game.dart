@@ -63,20 +63,30 @@ class PortfolioScenario {
 }
 
 class ScenarioCard extends StatelessWidget {
-  const ScenarioCard({super.key, required this.scenario, this.onTap, this.isCompleted = false});
+  const ScenarioCard({
+    super.key,
+    required this.scenario,
+    this.onTap,
+    this.isCompleted = false,
+    this.isLocked = false,
+    this.requiredLevel = 1,
+  });
+
   final PortfolioScenario scenario;
   final VoidCallback? onTap;
   final bool isCompleted;
+  final bool isLocked;
+  final int requiredLevel;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: isLocked ? null : onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isLocked ? Colors.grey.shade100 : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.black.withOpacity(0.06)),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
@@ -88,21 +98,56 @@ class ScenarioCard extends StatelessWidget {
               children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-                  child: Text(scenario.focus, style: TextStyle(color: Colors.blue.shade800, fontSize: 12, fontWeight: FontWeight.bold)),
+                  decoration: BoxDecoration(
+                    color: isLocked ? Colors.grey.shade300 : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    isLocked ? "Verrouillé" : scenario.focus,
+                    style: TextStyle(
+                      color: isLocked ? Colors.grey.shade700 : Colors.blue.shade800,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const Spacer(),
-                if (isCompleted)
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                if (isCompleted)
-                  const SizedBox(width: 8),
-                Text('${scenario.rewardXp} XP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                if (isLocked)
+                  Row(
+                    children: [
+                      const Icon(Icons.lock, size: 16, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text("Niv. $requiredLevel", style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                    ],
+                  )
+                else ...[
+                  if (isCompleted)
+                    const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  if (isCompleted)
+                    const SizedBox(width: 8),
+                  Text('${scenario.rewardXp} XP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                ],
               ],
             ),
             const SizedBox(height: 8),
-            Text(scenario.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            Text(
+              scenario.title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: isLocked ? Colors.grey : Colors.black,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(scenario.description, style: const TextStyle(color: Colors.black54, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+            Text(
+              scenario.description,
+              style: TextStyle(
+                color: isLocked ? Colors.grey.shade400 : Colors.black54,
+                fontSize: 14,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

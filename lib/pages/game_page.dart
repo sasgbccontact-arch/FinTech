@@ -271,6 +271,19 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
               initiallyExpanded: false,
               childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children:
+                  // On enveloppe la liste dans un StreamBuilder pour écouter l'XP et calculer le niveau
+                  [StreamBuilder<DocumentSnapshot>(
+                    stream: user != null ? FirebaseFirestore.instance.collection('users').doc(user.uid).collection('games').doc('progress').snapshots() : null,
+                    builder: (context, progressSnapshot) {
+                      final data = progressSnapshot.data?.data() as Map<String, dynamic>?;
+                      final xp = data?['xp'] as int? ?? 0;
+                      final level = (xp / 100).floor() + 1;
+                      
+                      // Récupération des scénarios complétés depuis le stream pour la réactivité
+                      final completedSet = (data?['completed_scenarios'] as List?)?.map((e) => e.toString()).toSet() ?? _completedScenarios;
+                      
+                      return Column(
+                        children: 
                   _isLoadingScenarios
                       ? const [
                         Center(
@@ -300,33 +313,53 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
                         ),
                       ]
                       : () {
-                        final sortedScenarios = List<PortfolioScenario>.from(
-                          _scenarios,
-                        );
-                        sortedScenarios.sort((a, b) {
-                          final aCompleted = _completedScenarios.contains(a.id);
-                          final bCompleted = _completedScenarios.contains(b.id);
-                          if (aCompleted == bCompleted) return 0;
-                          return aCompleted ? 1 : -1;
+                        // On prépare une liste avec l'index d'origine pour le calcul du niveau
+                        final entries = _scenarios.asMap().entries.toList();
+
+                        // Tri : Non complétés en premier, Complétés en dernier.
+                        // En cas d'égalité, on garde l'ordre d'origine (index).
+                        entries.sort((a, b) {
+                          final aCompleted = completedSet.contains(a.value.id);
+                          final bCompleted = completedSet.contains(b.value.id);
+                          
+                          if (aCompleted != bCompleted) {
+                            return aCompleted ? 1 : -1;
+                          }
+                          return a.key.compareTo(b.key);
                         });
-                        return sortedScenarios.map<Widget>((scenario) {
-                          final isCompleted = _completedScenarios.contains(
-                            scenario.id,
-                          );
+
+                        return entries.map<Widget>((entry) {
+                          final index = entry.key; // Index d'origine
+                          final scenario = entry.value;
+                          final isCompleted = completedSet.contains(scenario.id);
+                          
+                          // Logique : 3 scénarios par niveau.
+                          // Niveau 1 : indices 0, 1, 2 débloqués.
+                          // Niveau 2 : indices 3, 4, 5 débloqués, etc.
+                          final requiredLevel = (index / 3).floor() + 1;
+                          final isLocked = !isAdmin && (level < requiredLevel);
+
                           return Padding(
                             key: ValueKey(scenario.id),
                             padding: const EdgeInsets.only(top: 12),
                             child: ScenarioCard(
                               scenario: scenario,
-                              onTap:
-                                  (isCompleted && !isAdmin)
-                                      ? null
-                                      : () => _openScenario(scenario),
                               isCompleted: isCompleted,
+                              isLocked: isLocked,
+                              requiredLevel: requiredLevel,
+                              onTap:
+                                  isLocked
+                                      ? () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Niveau $requiredLevel requis !")))
+                                      : (isCompleted && !isAdmin)
+                                          ? null
+                                          : () => _openScenario(scenario),
                             ),
                           );
                         }).toList();
                       }(),
+                      );
+                    }
+                  )],
             ),
           ),
         ],
@@ -1131,6 +1164,7 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
   bool _completed = false;
   int _score = 0;
   bool _isRefreshed = false;
+  bool _restoredFromHistory = false;
 
   @override
   void initState() {
@@ -1209,6 +1243,25 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
         // Mélanger et prendre 3 questions (ou moins si pas assez dispo)
         allQuestions.shuffle(random);
         _questions = allQuestions.take(3).toList();
+      }
+
+      if (!refresh && _questions.isNotEmpty) {
+        final today = DateTime.now();
+        final dateStr = "${today.year}-${today.month}-${today.day}";
+        final questDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('quests')
+            .doc('daily')
+            .get();
+
+        if (questDoc.exists && questDoc.data()?['date'] == dateStr) {
+          final int done = (questDoc.data()?['quizzes_done'] as num?)?.toInt() ?? 0;
+          if (done > 0) {
+            _completed = true;
+            _restoredFromHistory = true;
+          }
+        }
       }
     } catch (e) {
       debugPrint('Error loading daily quiz: $e');
@@ -1323,6 +1376,7 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
           _completed = false;
           _score = 0;
           _loading = false;
+          _restoredFromHistory = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1405,7 +1459,9 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
             SizedBox(
               width: double.infinity,
               child: Text(
-                'Quiz terminé ! Score : $_score/${_questions.length}',
+                _restoredFromHistory
+                    ? 'Quiz du jour terminé !'
+                    : 'Quiz terminé ! Score : $_score/${_questions.length}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
