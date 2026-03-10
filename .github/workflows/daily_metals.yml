@@ -1,0 +1,35 @@
+name: Daily Metals Notification
+
+on:
+  schedule:
+    # Deux crons pour couvrir heure d'été (CEST, UTC+2) et hiver (CET, UTC+1)
+    # 7h25 UTC  = 9h25 CEST (été)   → fenêtre valide
+    # 8h25 UTC  = 9h25 CET  (hiver) → fenêtre valide
+    # Le script vérifie lui-même l'heure de Paris et sort silencieusement si hors fenêtre.
+    - cron: "25 7 * * *"
+    - cron: "25 8 * * *"
+  workflow_dispatch: {}   # Déclenchement manuel (tests)
+
+jobs:
+  send-metals-notification:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm install
+
+      - name: Send metals notification
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          # "manual" quand déclenché via workflow_dispatch → ignore la fenêtre horaire
+          TRIGGER: ${{ github.event_name }}
+        run: node scripts/send_metals_notification.js

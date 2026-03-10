@@ -1,11 +1,13 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:fintech/core/constants.dart';
 
-/// Modern animated bottom footer with 5 items:
-/// Home, Dashboard, Favorites, Stats, Calculator.
+/// Modern animated bottom footer with 6 items:
+/// Home, Dashboard, Favoris, Apprendre, Game, Forum.
 ///
-/// Colors: white background, black active accents, grey inactive icons.
-/// Use [NavigationFooter] in your Scaffold bottomNavigationBar and
-/// control the selected index from your parent widget.
+/// Notes:
+/// - The parent widget (AppStructure) controls ALL tabs (0..5) via [onTap].
+/// - NavigationFooter does NOT push routes; it only emits the tapped index.
 class NavigationFooter extends StatefulWidget {
   const NavigationFooter({
     super.key,
@@ -13,7 +15,7 @@ class NavigationFooter extends StatefulWidget {
     required this.onTap,
   });
 
-  /// The selected tab index (0..4)
+  /// The selected tab index (0..5)
   final int currentIndex;
 
   /// Callback when a tab is tapped
@@ -53,9 +55,8 @@ class _NavigationFooterState extends State<NavigationFooter>
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final Color bg = Colors.white;
-    final Color border = Colors.black.withOpacity(0.10);
-    final Color active = Colors.black;
+    final Color border = Colors.black.withValues(alpha: brightness == Brightness.dark ? 0.18 : 0.10);
+    final Color active = textColor;
     final Color inactive = Colors.grey.shade600;
 
     return SafeArea(
@@ -64,26 +65,77 @@ class _NavigationFooterState extends State<NavigationFooter>
         height: 70,
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(18),
+          color: Colors.white.withValues(alpha: brightness == Brightness.dark ? 0.10 : 0.55),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: border, width: 1),
           boxShadow: [
-            // Subtle elevation
             BoxShadow(
-              color: Colors.black.withOpacity(
-                brightness == Brightness.dark ? 0.15 : 0.06,
-              ),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: brightness == Brightness.dark ? 0.18 : 0.08),
+              blurRadius: 22,
+              offset: const Offset(0, 12),
             ),
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: _AnimatedBar(
-          currentIndex: widget.currentIndex,
-          onTap: widget.onTap,
-          active: active,
-          inactive: inactive,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // iOS-style frosted glass blur
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  color: Colors.white.withValues(
+                    alpha: brightness == Brightness.dark ? 0.06 : 0.22,
+                  ),
+                ),
+              ),
+            ),
+
+            // Inner highlight to mimic glass edge
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: Colors.white.withValues(
+                      alpha: brightness == Brightness.dark ? 0.08 : 0.35,
+                    ),
+                    width: 1,
+                  ),
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withValues(alpha: brightness == Brightness.dark ? 0.04 : 0.20),
+                      Colors.white.withValues(alpha: 0.00),
+                    ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
+            ),
+            // Subtle global glow
+            IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      detailsColor1.withValues(alpha: 0.08),
+                      detailsColor2.withValues(alpha: 0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+              ),
+            ),
+            _AnimatedBar(
+              currentIndex: widget.currentIndex,
+              onTap: widget.onTap,
+              active: active,
+              inactive: inactive,
+            ),
+          ],
         ),
       ),
     );
@@ -108,15 +160,19 @@ class _AnimatedBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        const count = 5;
+        final icons = _icons;
+        final labels = _labels;
+        assert(icons.length == labels.length);
+        final count = icons.length;
+
         final itemWidth = width / count;
 
         return Stack(
           alignment: Alignment.centerLeft,
           children: [
-            // Sliding indicator (pill) behind the active icon
+            // Sliding gradient glow behind the active item
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 260),
+              duration: const Duration(milliseconds: 320),
               curve: Curves.easeOutCubic,
               left: currentIndex * itemWidth,
               top: 0,
@@ -124,15 +180,51 @@ class _AnimatedBar extends StatelessWidget {
               child: SizedBox(
                 width: itemWidth,
                 child: Center(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                    width: 44,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Outer glow
+                      Container(
+                        width: 64,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          gradient: const LinearGradient(
+                            colors: [detailsColor1, detailsColor2],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                      // Blur/soften via opacity layers
+                      Container(
+                        width: 64,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          color: Colors.white.withValues(alpha: 0.65),
+                        ),
+                      ),
+                      // Inner pill
+                      Container(
+                        width: 46,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: LinearGradient(
+                            colors: [
+                              detailsColor1.withValues(alpha: 0.18),
+                              detailsColor2.withValues(alpha: 0.18),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(
+                            color: detailsColor2.withValues(alpha: 0.18),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -145,8 +237,8 @@ class _AnimatedBar extends StatelessWidget {
                 return _FooterItem(
                   width: itemWidth,
                   index: i,
-                  icon: _iconFor(i),
-                  label: _labelFor(i),
+                  icon: icons[i],
+                  label: labels[i],
                   selected: selected,
                   active: active,
                   inactive: inactive,
@@ -160,16 +252,23 @@ class _AnimatedBar extends StatelessWidget {
     );
   }
 
-  IconData _iconFor(int i) =>
-      const [
-        Icons.home_rounded,
-        Icons.dashboard_rounded,
-        Icons.favorite_rounded,
-        Icons.groups_rounded,
-        Icons.sports_esports_rounded,
-      ][i];
-  String _labelFor(int i) =>
-      const ['Home', 'Dashboard', 'Favoris', 'Communauté', 'Game'][i];
+  static const List<IconData> _icons = [
+    Icons.home_rounded,
+    Icons.dashboard_rounded,
+    Icons.favorite_rounded,
+    Icons.school_rounded,
+    Icons.sports_esports_rounded,
+    Icons.forum_rounded,
+  ];
+
+  static const List<String> _labels = [
+    'Home',
+    'Dashboard',
+    'Favoris',
+    'Apprendre',
+    'Game',
+    'Forum',
+  ];
 }
 
 class _FooterItem extends StatelessWidget {
@@ -207,8 +306,11 @@ class _FooterItem extends StatelessWidget {
       width: width,
       height: double.infinity,
       child: InkWell(
-        onTap: () => onTap(index),
-        splashColor: Colors.black12,
+        onTap: () {
+          if (selected) return;
+          onTap(index);
+        },
+        splashColor: Colors.black.withValues(alpha: 0.06),
         highlightColor: Colors.transparent,
         child: AnimatedDefaultTextStyle(
           duration: const Duration(milliseconds: 200),
@@ -219,45 +321,22 @@ class _FooterItem extends StatelessWidget {
             children: [
               AnimatedScale(
                 duration: const Duration(milliseconds: 200),
-                scale: selected ? 1.1 : 1.0,
+                scale: selected ? 1.12 : 1.0,
                 curve: Curves.easeOut,
-                child: Icon(icon, color: iconColor, size: selected ? 26 : 24),
+                child: Icon(
+                  icon,
+                  color: selected ? detailsColor2 : iconColor,
+                  size: selected ? 26 : 24,
+                ),
               ),
               const SizedBox(height: 4),
-              Opacity(opacity: selected ? 1.0 : 0.85, child: Text(label)),
+              Opacity(
+                opacity: selected ? 1.0 : 0.78,
+                child: Text(label),
+              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Optional helper: simple demo scaffold showing how to use the footer.
-/// Delete this if you already integrate it in your own pages.
-class NavigationFooterDemo extends StatefulWidget {
-  const NavigationFooterDemo({Key? key}) : super(key: key);
-
-  @override
-  State<NavigationFooterDemo> createState() => _NavigationFooterDemoState();
-}
-
-class _NavigationFooterDemoState extends State<NavigationFooterDemo> {
-  int _index = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3E5F5),
-      body: Center(
-        child: Text(
-          'Onglet sélectionné: ${['Home', 'Dashboard', 'Favoris', 'Communauté', 'Calculs'][_index]}',
-          style: const TextStyle(fontFamily: 'Geo', fontSize: 18),
-        ),
-      ),
-      bottomNavigationBar: NavigationFooter(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
       ),
     );
   }

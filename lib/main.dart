@@ -1,36 +1,46 @@
 import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'services/yahoo_finance_service.dart';
-import 'services/yahoo_consent_page.dart';
-import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
-import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
 import 'package:flutter_inappwebview_android/flutter_inappwebview_android.dart';
 import 'package:flutter_inappwebview_ios/flutter_inappwebview_ios.dart';
-import 'pages/login_page.dart';
+import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../app/app_structure.dart';
+import 'features/notifications/metals_notification_service.dart';
 import 'firebase_options.dart';
-import 'app/app_structure.dart';
+import 'pages/login_page.dart';
+
+import 'services/yahoo_consent_page.dart';
+import 'services/yahoo_finance_service.dart';
+
+
+
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   // Ensure flutter_inappwebview platform implementation is set
   if (defaultTargetPlatform == TargetPlatform.android) {
     InAppWebViewPlatform.instance = AndroidInAppWebViewPlatform();
   } else if (defaultTargetPlatform == TargetPlatform.iOS) {
     InAppWebViewPlatform.instance = IOSInAppWebViewPlatform();
   }
+
   // Hook: quand le service détecte consent_required, ouvrir la WebView et persister le cookie
   YahooFinanceService.onConsentRequired = () async {
     // ignore: avoid_print
     print('[App] onConsentRequired: opening YahooConsentPage');
+
     final ok = await appNavigatorKey.currentState?.push<bool>(
       MaterialPageRoute(builder: (_) => const YahooConsentPage(symbol: 'AAPL')),
     );
+
     if (ok == true) {
       final prefs = await SharedPreferences.getInstance();
       final cookie = YahooFinanceService.currentCookie();
@@ -42,13 +52,36 @@ void main() async {
         );
       }
     }
+
     return ok == true;
   };
+
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initPrefs();
-  runApp(
-    MaterialApp(navigatorKey: appNavigatorKey, home: const LogoSplashScreen()),
-  );
+  await MetalsNotificationService.init();
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      navigatorKey: appNavigatorKey,
+      debugShowCheckedModeBanner: false,
+      home: const LogoSplashScreen(),
+      routes: {
+        '/home': (_) => const AppStructure(initialIndex: 0),
+        '/dashboard': (_) => const AppStructure(initialIndex: 1),
+        '/favorites': (_) => const AppStructure(initialIndex: 2),
+        '/learn': (_) => const AppStructure(initialIndex: 3),
+        '/game': (_) => const AppStructure(initialIndex: 4),
+        '/forum': (_) => const AppStructure(initialIndex: 5),
+      },
+    );
+  }
 }
 
 Future<void> initPrefs() async {
@@ -80,10 +113,11 @@ class _LogoSplashScreenState extends State<LogoSplashScreen> {
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     final user = FirebaseAuth.instance.currentUser;
-    final nextPage = user == null ? const LoginPage() : const AppStructure();
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => nextPage));
+    final nextPage = user == null
+        ? const LoginPage()
+        : const AppStructure(initialIndex: 0);
+    Navigator.of(context)
+        .pushReplacement(MaterialPageRoute(builder: (_) => nextPage));
   }
 
   @override
@@ -128,3 +162,4 @@ class _LogoSplashScreenState extends State<LogoSplashScreen> {
     );
   }
 }
+

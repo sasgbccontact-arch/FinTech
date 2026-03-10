@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
+import 'package:fintech/core/constants.dart';
 
 import '../services/yahoo_finance_service.dart';
 import 'info_page.dart';
@@ -12,13 +13,9 @@ import 'portfolio_dashboard_page.dart';
 import 'learn_page.dart';
 import 'login_page.dart';
 import 'game_page.dart';
-import 'community_page.dart';
+import 'favorites_page.dart';
 import '../widgets/wallet_balances.dart';
 
-/// Page de recherche – UI modernisée (noir / blanc / gris) + micro-animations
-/// - Nouvelle typographie (sans-serif moderne via TextTheme Roboto par défaut)
-/// - Couleurs sobres et cohérentes
-/// - Animations discrètes: focus du champ, apparition des suggestions, scale sur le titre
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
 
@@ -47,12 +44,14 @@ class _SearchPageState extends State<SearchPage>
   late final AnimationController _titleCtrl;
   late final Animation<double> _titleScale;
 
-  // Palette
-  static const Color _bg = Color(0xFFF5F6F7);
-  static const Color _card = Colors.white;
-  static const Color _ink = Colors.black87;
+  // Palette (from core/constants.dart)
+  static const Color _bg = backgroundColor;
+  static const Color _ink = textColor;
   static const Color _muted = Colors.black54;
   static const Color _line = Color(0xFFE6E8EB);
+  static const Color _gold = detailsColor1;
+  static const Color _wine = detailsColor2;
+  static const Color _chipBg = Color(0xFFF0F1F3);
 
   // --- Helpers for search normalization & exchange filtering ---
   // Remove French accents / common diacritics and normalize dashes/spaces
@@ -500,50 +499,6 @@ class _SearchPageState extends State<SearchPage>
           child: currentTab,
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFE6E8EB))),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
-          backgroundColor: Colors.white,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black54,
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 12,
-          ),
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.search_rounded),
-              label: 'Recherche',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.pie_chart_rounded),
-              label: 'Portefeuille',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.groups_rounded),
-              label: 'Communauté',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.school_rounded),
-              label: 'Apprendre',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.sports_esports_rounded),
-              label: 'Game',
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -557,7 +512,7 @@ class _SearchPageState extends State<SearchPage>
       case 1:
         return const PortfolioDashboardPage(key: ValueKey('portfolio-tab'));
       case 2:
-        return const CommunityPage(key: ValueKey('community-tab'));
+        return const FavoritesPage(key: ValueKey('favorites-tab'));
       case 3:
         return const LearnPage(key: ValueKey('learn-tab'));
       case 4:
@@ -591,42 +546,121 @@ class _SearchPageState extends State<SearchPage>
             children: [
               GestureDetector(
                 onTap: () => _showUserProfile(context),
-                child:
-                    _avatarId != null
-                        ? Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [_gold, _wine],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .08),
+                        blurRadius: 14,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2.2),
+                    child: _avatarId != null
+                        ? ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            image: DecorationImage(
-                              image: AssetImage(_getAvatarAsset(_avatarId!)),
+                            child: Image.asset(
+                              _getAvatarAsset(_avatarId!),
                               fit: BoxFit.cover,
                             ),
+                          )
+                        : const DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(10),
+                              ),
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.person_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
                           ),
-                        )
-                        : const CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Colors.black,
-                          child: Icon(Icons.person, color: Colors.white, size: 18),
-                        ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  greetingText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: _ink,
                   ),
                 ),
               ),
-              IconButton(
-                tooltip: 'Changer de nom',
-                onPressed: canEditName ? _showNameDialog : null,
-                icon: const Icon(Icons.edit, color: _muted),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      greetingText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: _ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Rechercher • Favoris • Apprendre',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: _muted.withValues(alpha: .9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Tooltip(
+                message: 'Changer de nom',
+                child: InkWell(
+                  onTap: canEditName ? _showNameDialog : null,
+                  borderRadius: BorderRadius.circular(14),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 150),
+                    opacity: canEditName ? 1 : .5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _chipBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _line),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(
+                            Icons.edit_rounded,
+                            size: 16,
+                            color: _ink,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Nom',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -637,18 +671,37 @@ class _SearchPageState extends State<SearchPage>
           child: WalletBalances(auth: FirebaseAuth.instance, compact: true),
         ),
 
-        const SizedBox(height: 16),
-        Center(
+        const SizedBox(height: 18),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: ScaleTransition(
             scale: _titleScale,
-            child: const Text(
-              'Recherche boursière',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                letterSpacing: .2,
-                color: _ink,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Recherche boursière',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .2,
+                    color: _ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 6,
+                  width: 96,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(99),
+                    gradient: const LinearGradient(
+                      colors: [_gold, _wine],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -659,11 +712,20 @@ class _SearchPageState extends State<SearchPage>
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: _card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _line),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white,
+                  focused || hasText
+                      ? _gold.withValues(alpha: .06)
+                      : _bg.withValues(alpha: .5),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: focused || hasText ? _wine.withValues(alpha: .35) : _line),
               boxShadow: [
                 if (focused || hasText)
                   BoxShadow(
@@ -675,7 +737,10 @@ class _SearchPageState extends State<SearchPage>
             ),
             child: Row(
               children: [
-                const Icon(Icons.search, color: _muted),
+                Icon(
+                  Icons.manage_search_rounded,
+                  color: focused || hasText ? _wine : _muted,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
@@ -722,14 +787,27 @@ class _SearchPageState extends State<SearchPage>
                               onTap: () => _goToInfo(_selectedSuggestion!),
                               borderRadius: BorderRadius.circular(18),
                               child: Container(
-                                width: 32,
-                                height: 32,
-                                decoration: const BoxDecoration(
-                                  color: Colors.black,
-                                  shape: BoxShape.circle,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  gradient: const LinearGradient(
+                                    colors: [_gold, _wine],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: .12),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 10),
+                                    ),
+                                  ],
                                 ),
                                 child: const Icon(
-                                  Icons.search,
+                                  Icons.arrow_forward_rounded,
                                   color: Colors.white,
                                   size: 18,
                                 ),
@@ -751,7 +829,7 @@ class _SearchPageState extends State<SearchPage>
                               _suggestionMessage = null;
                             })
                             : null,
-                    icon: const Icon(Icons.close, color: _muted),
+                    icon: const Icon(Icons.close_rounded, color: _muted),
                   ),
                 ),
               ],
@@ -835,12 +913,20 @@ class _SuggestionList extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: ListView.separated(
           itemCount: suggestions.length,
           separatorBuilder:
-              (_, __) => const Divider(height: 1, color: Color(0xFFE6E8EB)),
+              (_, __) => const Divider(height: 1, color: Color(0xFFF0F1F3)),
           itemBuilder: (context, i) {
             final item = suggestions[i];
             final bool hasDistinctName =
@@ -863,7 +949,7 @@ class _SuggestionList extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.sell_rounded, color: Colors.black54),
+                    const Icon(Icons.trending_up_rounded, color: Colors.black54),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -876,7 +962,7 @@ class _SuggestionList extends StatelessWidget {
                       ),
                     ),
                     const Icon(
-                      Icons.north_east_rounded,
+                      Icons.chevron_right_rounded,
                       color: Colors.black45,
                       size: 18,
                     ),
@@ -904,7 +990,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(Icons.search_rounded, size: 40, color: Colors.black54),
+            Icon(Icons.manage_search_rounded, size: 40, color: Colors.black54),
             SizedBox(height: 10),
             Text(
               'Tapez un nom ou un ticker pour commencer',
@@ -933,7 +1019,7 @@ class _DividendCalendarButton extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           gradient: const LinearGradient(
-            colors: [Color(0xFF101010), Color(0xFF1E1E1E)],
+            colors: [detailsColor1, detailsColor2],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -946,10 +1032,10 @@ class _DividendCalendarButton extends StatelessWidget {
           ],
         ),
         child: Row(
-          children: const [
-            Icon(Icons.calendar_month_rounded, color: Colors.white),
-            SizedBox(width: 12),
-            Expanded(
+          children: [
+            const Icon(Icons.event_available_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            const Expanded(
               child: Text(
                 'Calendrier des dividendes',
                 style: TextStyle(
@@ -959,7 +1045,7 @@ class _DividendCalendarButton extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white70),
+            Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: .85)),
           ],
         ),
       ),
@@ -992,6 +1078,12 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return Center(
+      child: CircularProgressIndicator(
+        color: detailsColor2,
+        backgroundColor: detailsColor1.withValues(alpha: .20),
+        strokeWidth: 3,
+      ),
+    );
   }
 }

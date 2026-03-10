@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:fintech/widgets/wallet_balances.dart';
+import 'package:fintech/core/constants.dart';
 
 /// Page Communauté : mini-jeux communautaires basés sur les cours réels.
 /// - Défis “Cible de cours”
@@ -48,40 +49,113 @@ class _CommunityPageState extends State<CommunityPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F7),
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Communauté'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0.5,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(96),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                child: WalletBalances(auth: _auth, compact: true),
-              ),
-              TabBar(
-                controller: _tabController,
-                labelColor: Colors.black,
-                unselectedLabelColor: Colors.black54,
-                tabs: const [
-                  Tab(text: 'Cibles de cours'),
-                  Tab(text: 'Volatilité'),
-                ],
-              ),
-            ],
+        title: const Text(
+          'Communauté',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: textColor,
+            letterSpacing: .2,
           ),
         ),
+        backgroundColor: backgroundColor,
+        foregroundColor: textColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _TargetTab(firestore: _firestore, auth: _auth),
-          _RangeTab(firestore: _firestore, auth: _auth),
-        ],
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE6E8EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: WalletBalances(auth: _auth, compact: true),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  height: 6,
+                  width: 96,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(99),
+                    gradient: const LinearGradient(
+                      colors: [detailsColor1, detailsColor2],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F1F3),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE6E8EB)),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [detailsColor1, detailsColor2],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .10),
+                        blurRadius: 14,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  dividerColor: Colors.transparent,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.black87,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  tabs: const [
+                    Tab(text: 'Cibles de cours'),
+                    Tab(text: 'Volatilité'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _TargetTab(firestore: _firestore, auth: _auth),
+                  _RangeTab(firestore: _firestore, auth: _auth),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -242,7 +316,13 @@ class _TargetTabState extends State<_TargetTab> {
                 );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+  child: CircularProgressIndicator(
+    color: detailsColor2,
+    backgroundColor: detailsColor1.withValues(alpha: .20),
+    strokeWidth: 3,
+  ),
+);
               }
               final docs = snapshot.data?.docs ?? [];
               if (docs.isEmpty) {
@@ -460,7 +540,13 @@ class _RangeTabState extends State<_RangeTab> {
                 );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+  child: CircularProgressIndicator(
+    color: detailsColor2,
+    backgroundColor: detailsColor1.withValues(alpha: .20),
+    strokeWidth: 3,
+  ),
+);
               }
               final docs = snapshot.data?.docs ?? [];
               if (docs.isEmpty) {
@@ -1165,13 +1251,23 @@ class _TickerSuggestions extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: ListView.separated(
         shrinkWrap: true,
         itemCount: suggestions.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => const Divider(
+          height: 1,
+          color: Color(0xFFF0F1F3),
+        ),
         itemBuilder: (context, index) {
           final s = suggestions[index];
           return ListTile(
@@ -1230,10 +1326,17 @@ class _GameCardState extends State<_GameCard> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(18),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: .06),
+      blurRadius: 18,
+      offset: const Offset(0, 10),
+    ),
+  ],
+),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1255,9 +1358,10 @@ class _GameCardState extends State<_GameCard> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+  color: const Color(0xFFF0F1F3),
+  borderRadius: BorderRadius.circular(12),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+),
                 child: Text(remainingText, overflow: TextOverflow.ellipsis),
               ),
             ],
@@ -1265,7 +1369,7 @@ class _GameCardState extends State<_GameCard> {
           const SizedBox(height: 6),
           Text(
             'Créé par ${g.creatorName}',
-            style: const TextStyle(color: Colors.black54),
+            style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
@@ -1304,7 +1408,7 @@ class _GameCardState extends State<_GameCard> {
                     ),
                     Text(
                       'Cote ${widget.sideLabels[1]}: ${oddsShort.toStringAsFixed(2)}x',
-                      style: const TextStyle(color: Colors.black54),
+                      style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -1329,6 +1433,10 @@ class _GameCardState extends State<_GameCard> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green.shade700,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 child: Text(widget.sideLabels[0]),
               ),
@@ -1339,6 +1447,10 @@ class _GameCardState extends State<_GameCard> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade700,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 child: Text(widget.sideLabels[1]),
               ),
@@ -1347,7 +1459,7 @@ class _GameCardState extends State<_GameCard> {
           const SizedBox(height: 6),
           Text(
             'Gain potentiel pour 100 coins : ${(oddsLong * 100).toStringAsFixed(0)} / ${(oddsShort * 100).toStringAsFixed(0)}',
-            style: const TextStyle(color: Colors.black54),
+            style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -1414,9 +1526,9 @@ class _PoolChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(
       label: Text('$label: ${value.toStringAsFixed(0)}'),
-      backgroundColor: color.withOpacity(0.08),
+      backgroundColor: color.withValues(alpha: 0.08),
       labelStyle: TextStyle(
-        color: color.withOpacity(0.8),
+        color: color.withValues(alpha: 0.85),
         fontWeight: FontWeight.w700,
       ),
     );
@@ -1437,37 +1549,103 @@ class _HeaderAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .10),
+                    blurRadius: 16,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.groups_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: const LinearGradient(
+                    colors: [detailsColor1, detailsColor2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  buttonLabel,
                   style: const TextStyle(
+                    color: Colors.white,
                     fontWeight: FontWeight.w800,
-                    fontSize: 18,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Colors.black54)),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: onPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(buttonLabel),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

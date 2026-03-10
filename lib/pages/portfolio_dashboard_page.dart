@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-
+import 'package:fintech/core/constants.dart';
 import '../models/chart_models.dart';
 import '../services/portfolio_service.dart';
 import '../services/yahoo_finance_service.dart';
@@ -24,8 +24,14 @@ class PortfolioDashboardPage extends StatefulWidget {
 }
 
 class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
-  static const Color _bg = Color(0xFFF5F6F7);
-  static const Color _muted = Colors.black54;
+// Palette (same style as SearchPage)
+static const Color _bg = backgroundColor;
+static const Color _ink = textColor;
+static const Color _muted = Colors.black54;
+static const Color _line = Color(0xFFE6E8EB);
+static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
+static const Color _chipBg = Color(0xFFF0F1F3);
 
   bool _creating = false;
 
@@ -33,24 +39,45 @@ class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return Container(
-        color: _bg,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.lock_outline_rounded, color: _muted, size: 32),
-            SizedBox(height: 12),
-            Text(
-              'Connectez-vous pour gérer vos portefeuilles',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _muted,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+      return Scaffold(
+        backgroundColor: _bg,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: _line),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.lock_outline_rounded, color: _muted, size: 34),
+                    SizedBox(height: 12),
+                    Text(
+                      'Connectez-vous pour gérer vos portefeuilles',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         ),
       );
     }
@@ -63,172 +90,236 @@ class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
             .orderBy('createdAt', descending: false)
             .snapshots();
 
-    return Container(
-      color: _bg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed:
-                      () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const FavoritesPage(),
-                        ),
-                      ),
-                  icon: const Icon(Icons.star_rounded, color: Colors.orange),
-                  tooltip: 'Favoris',
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Tableau de bord',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                          letterSpacing: .2,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Créez et suivez vos portefeuilles d\'actions.',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: _muted,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildCreateButton(),
-              ],
+    return Scaffold(
+      backgroundColor: _bg,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 18),
+            Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20),
+  child: Row(
+    children: [
+      Tooltip(
+        message: 'Favoris',
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FavoritesPage()),
+          ),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _chipBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _line),
+            ),
+            child: const Icon(
+              Icons.star_rounded,
+              color: Colors.orange,
+              size: 20,
             ),
           ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: _GamePortfolioShortcut(uid: user.uid),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: stream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.error_outline_rounded,
-                            color: Colors.black38,
-                            size: 32,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Impossible de charger vos portefeuilles pour le moment.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodyMedium?.copyWith(color: _muted),
-                          ),
-                        ],
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tableau de bord',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: _ink,
+                letterSpacing: .2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 6,
+              width: 96,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                gradient: const LinearGradient(
+                  colors: [_gold, _wine],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Créez et suivez vos portefeuilles d'actions.",
+              style: TextStyle(
+                fontSize: 14,
+                color: _muted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 12),
+      _buildCreateButton(),
+    ],
+  ),
+),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _GamePortfolioShortcut(uid: user.uid),
+            ),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: stream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: _wine,
+                        backgroundColor: _gold.withValues(alpha: .20),
+                        strokeWidth: 3,
                       ),
-                    ),
-                  );
-                }
-
-                final docs =
-                    snapshot.data?.docs ??
-                    <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-                if (docs.isEmpty) {
-                  return _EmptyPortfolioState(
-                    onCreate: _creating ? null : _createPortfolio,
-                  );
-                }
-
-                final portfolios =
-                    docs.map((doc) {
-                      final data = doc.data();
-                      final name = (data['name'] as String? ?? '').trim();
-                      final createdAt = data['createdAt'];
-                      final updatedAt = data['updatedAt'];
-                      final count =
-                          (data['positionsCount'] as num?)?.toInt() ?? 0;
-                      return _PortfolioSummary(
-                        id: doc.id,
-                        ref: doc.reference,
-                        name: name.isEmpty ? 'Portefeuille' : name,
-                        positionsCount: count,
-                        createdAt:
-                            createdAt is Timestamp ? createdAt.toDate() : null,
-                        updatedAt:
-                            updatedAt is Timestamp ? updatedAt.toDate() : null,
-                      );
-                    }).toList();
-
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: portfolios.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final portfolio = portfolios[index];
-                    return _PortfolioCard(
-                      summary: portfolio,
-                      onTap: () => _openPortfolioDetail(portfolio),
-                      onDelete:
-                          () => _deletePortfolio(portfolio.id, portfolio.name),
                     );
-                  },
-                );
-              },
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Colors.black38,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Impossible de charger vos portefeuilles pour le moment.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.copyWith(color: _muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final docs =
+                      snapshot.data?.docs ??
+                      <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                  if (docs.isEmpty) {
+                    return _EmptyPortfolioState(
+                      onCreate: _creating ? null : _createPortfolio,
+                    );
+                  }
+
+                  final portfolios =
+                      docs.map((doc) {
+                        final data = doc.data();
+                        final name = (data['name'] as String? ?? '').trim();
+                        final createdAt = data['createdAt'];
+                        final updatedAt = data['updatedAt'];
+                        final count =
+                            (data['positionsCount'] as num?)?.toInt() ?? 0;
+                        return _PortfolioSummary(
+                          id: doc.id,
+                          ref: doc.reference,
+                          name: name.isEmpty ? 'Portefeuille' : name,
+                          positionsCount: count,
+                          createdAt:
+                              createdAt is Timestamp ? createdAt.toDate() : null,
+                          updatedAt:
+                              updatedAt is Timestamp ? updatedAt.toDate() : null,
+                        );
+                      }).toList();
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: portfolios.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final portfolio = portfolios[index];
+                      return _PortfolioCard(
+                        summary: portfolio,
+                        onTap: () => _openPortfolioDetail(portfolio),
+                        onDelete:
+                            () => _deletePortfolio(portfolio.id, portfolio.name),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCreateButton() {
-    final bool disabled = _creating;
-    return ElevatedButton.icon(
-      onPressed: disabled ? null : _createPortfolio,
-      style: ElevatedButton.styleFrom(
-        elevation: 0,
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
+ Widget _buildCreateButton() {
+  final bool disabled = _creating;
+
+  return InkWell(
+    onTap: disabled ? null : _createPortfolio,
+    borderRadius: BorderRadius.circular(14),
+    child: AnimatedOpacity(
+      duration: const Duration(milliseconds: 150),
+      opacity: disabled ? 0.7 : 1,
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [_gold, _wine],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .12),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            disabled
+                ?  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      color: _wine,
+                      backgroundColor: _gold.withValues(alpha: .20),
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 10),
+            Text(
+              disabled ? 'Création…' : 'Nouveau',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
       ),
-      icon:
-          disabled
-              ? const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-              : const Icon(Icons.add_rounded, size: 18),
-      label: Text(disabled ? 'Création…' : 'Nouveau'),
-    );
-  }
+    ),
+  );
+}
 
   Future<void> _createPortfolio() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -558,12 +649,16 @@ class _PortfolioDetailSheet extends StatefulWidget {
   const _PortfolioDetailSheet({required this.summary});
 
   final _PortfolioSummary summary;
+  
 
   @override
   State<_PortfolioDetailSheet> createState() => _PortfolioDetailSheetState();
 }
 
 class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
+  static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
+
   @override
   Widget build(BuildContext context) {
     final stream =
@@ -581,7 +676,13 @@ class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
           stream: stream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: CircularProgressIndicator(
+                  color: _wine,
+                  backgroundColor: _gold.withValues(alpha: .20),
+                  strokeWidth: 3,
+                ),
+              );
             }
             if (snapshot.hasError) {
               return _PortfolioAnalyticsError(
@@ -708,6 +809,7 @@ class _PortfolioPositionsView extends StatefulWidget {
   final List<_PortfolioPositionSnapshot> positions;
   final _OpenPositionCallback onOpenPosition;
   final _DeletePositionCallback onDeletePosition;
+  
 
   @override
   State<_PortfolioPositionsView> createState() =>
@@ -717,6 +819,8 @@ class _PortfolioPositionsView extends StatefulWidget {
 class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
   Future<_PortfolioAnalytics>? _future;
   String _signature = '';
+  static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
 
   @override
   void initState() {
@@ -753,7 +857,13 @@ class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting ||
             _future == null) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: CircularProgressIndicator(
+              color: _wine,
+              backgroundColor: _gold.withValues(alpha: .20),
+              strokeWidth: 3,
+            ),
+          );
         }
         if (snapshot.hasError) {
           return _PortfolioAnalyticsError(

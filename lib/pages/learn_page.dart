@@ -9,6 +9,7 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import '../widgets/help_fab.dart';
 import 'shop_page.dart';
+import 'package:fintech/core/constants.dart';
 
 // --- Models ---
 
@@ -491,8 +492,17 @@ class _LearnPageState extends State<LearnPage>
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+  return Scaffold(
+    backgroundColor: backgroundColor,
+    body: Center(
+      child: CircularProgressIndicator(
+        color: detailsColor2,
+        backgroundColor: detailsColor1.withValues(alpha: .20),
+        strokeWidth: 3,
+      ),
+    ),
+  );
+}
 
     if (_error != null) {
       return Scaffold(body: Center(child: Text(_error!)));
@@ -506,29 +516,69 @@ class _LearnPageState extends State<LearnPage>
         final bool isAdmin = (snapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ?? false;
 
         return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F7),
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Apprentissage'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.storefront_rounded, color: Colors.black87),
-            onPressed: () {
-              showCupertinoModalBottomSheet(
-                context: context,
-                builder: (context) => const ShopPage(),
-              );
-            },
+  title: const Text(
+    'Apprentissage',
+    style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
+  ),
+  actions: [
+    Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: 'Boutique',
+        child: InkWell(
+          onTap: () {
+            showCupertinoModalBottomSheet(
+              context: context,
+              builder: (context) => const ShopPage(),
+            );
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F1F3),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE6E8EB)),
+            ),
+            child: Icon(Icons.storefront_rounded, color: detailsColor2, size: 20),
           ),
-          const Padding(
-            padding: EdgeInsets.only(right: 16.0),
-            child: _LevelIndicator(),
-          ),
-        ],
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0.5,
-        automaticallyImplyLeading: false,
+        ),
       ),
+    ),
+    const Padding(
+      padding: EdgeInsets.only(right: 16.0),
+      child: _LevelIndicator(),
+    ),
+  ],
+  backgroundColor: backgroundColor,
+  foregroundColor: textColor,
+  surfaceTintColor: Colors.transparent,
+  elevation: 0,
+  automaticallyImplyLeading: false,
+  bottom: PreferredSize(
+    preferredSize: const Size.fromHeight(10),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          height: 6,
+          width: 96,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            gradient: const LinearGradient(
+              colors: [detailsColor1, detailsColor2],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+),
       floatingActionButton: const HelpFab(
         helpText:
             "Bienvenue dans l'espace d'apprentissage ! Suivez les cours chapitre par chapitre, validez les quiz pour gagner de l'XP et maintenez votre série (streak) active.",
@@ -539,33 +589,48 @@ class _LearnPageState extends State<LearnPage>
           _buildStreakWidget(),
           if (_course1 != null)
             Card(
+              color: backgroundColor,
               margin: const EdgeInsets.only(bottom: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               elevation: 2,
               clipBehavior: Clip.antiAlias,
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                title: const Text(
-                  "Chapitre 1 : Investir en bourse",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                ),
-                leading: const CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.black,
-                  child: Icon(
-                    Icons.school_rounded,
-                    color: Colors.white,
-                    size: 22,
+              child: Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
                   ),
+                  childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                  title: const Text(
+                    "Chapitre 1 : Investir en bourse",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  ),
+                  leading: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: [detailsColor1, detailsColor2],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .10),
+                          blurRadius: 16,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
+                  ),
+                  initiallyExpanded: false,
+                  children: _buildChapterContent(_course1!, isAdmin),
                 ),
-                initiallyExpanded: false,
-                children: _buildChapterContent(_course1!, isAdmin),
               ),
             ),
           if (_course2 != null && _course2!.chapters.isNotEmpty)
@@ -577,27 +642,41 @@ class _LearnPageState extends State<LearnPage>
                 ),
                 elevation: 2,
                 clipBehavior: Clip.antiAlias,
-                child: ExpansionTile(
-                  tilePadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                  title: const Text(
-                    "Chapitre 2 : Analyse fondamentale et graphique",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                  ),
-                  leading: const CircleAvatar(
-                    radius: 20,
-                    backgroundColor: Colors.black,
-                    child: Icon(
-                      Icons.trending_up_rounded,
-                      color: Colors.white,
-                      size: 22,
+                child: Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
                     ),
+                    childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                    title: const Text(
+                      "Chapitre 2 : Analyse fondamentale et graphique",
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                    ),
+                    leading: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: const LinearGradient(
+                          colors: [detailsColor1, detailsColor2],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .10),
+                            blurRadius: 16,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 22),
+                    ),
+                    initiallyExpanded: false,
+                    children: _buildChapterContent(_course2!, isAdmin),
                   ),
-                  initiallyExpanded: false,
-                  children: _buildChapterContent(_course2!, isAdmin),
                 ),
               )
             else
@@ -621,18 +700,16 @@ class _LearnPageState extends State<LearnPage>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color:
-              _isStreakActiveToday
-                  ? Colors.orange.withOpacity(0.5)
-                  : Colors.grey.withOpacity(0.2),
-          width: 1.5,
-        ),
+  color: _isStreakActiveToday
+      ? detailsColor1.withValues(alpha: 0.55)
+      : Colors.black.withValues(alpha: 0.06),
+  width: 1.5,
+),
         boxShadow: [
           BoxShadow(
-            color:
-                _isStreakActiveToday
-                    ? Colors.orange.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.03),
+            color: _isStreakActiveToday
+    ? detailsColor1.withValues(alpha: 0.14)
+    : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -646,7 +723,7 @@ class _LearnPageState extends State<LearnPage>
               Icons.local_fire_department_rounded,
               color:
                   _isStreakActiveToday || _streak > 0
-                      ? Colors.orange
+                      ? detailsColor1
                       : Colors.grey.shade300,
               size: 40,
             ),
@@ -662,7 +739,7 @@ class _LearnPageState extends State<LearnPage>
                   fontWeight: FontWeight.bold,
                   color:
                       _isStreakActiveToday || _streak > 0
-                          ? Colors.orange
+                          ? detailsColor1
                           : Colors.black87,
                 ),
               ),
@@ -810,38 +887,47 @@ class _LearnPageState extends State<LearnPage>
       return Card(
         elevation: 0,
         color: const Color(0xFFFAFAFA),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Color(0xFFE6E8EB)),
+        ),
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        child: ExpansionTile(
-          title: Text(
-            chapter.title,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-          ),
-          leading: CircleAvatar(
-            backgroundColor: Colors.black54,
-            foregroundColor: Colors.white,
-            radius: 14,
-            child: Text(
-              '$index',
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: Text(
+              chapter.title,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
+            leading: CircleAvatar(
+              backgroundColor: Colors.black54,
+              foregroundColor: Colors.white,
+              radius: 14,
+              child: Text(
+                '$index',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+            children: children,
           ),
-          children: children,
         ),
       );
     } else {
-      return ExpansionTile(
-        title: Text(
-          chapter.title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      return Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          title: Text(
+            chapter.title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+          ),
+          leading: const Icon(
+            Icons.subdirectory_arrow_right_rounded,
+            size: 20,
+            color: Colors.black54,
+          ),
+          childrenPadding: const EdgeInsets.only(left: 16),
+          children: children,
         ),
-        leading: const Icon(
-          Icons.subdirectory_arrow_right_rounded,
-          size: 20,
-          color: Colors.black54,
-        ),
-        childrenPadding: const EdgeInsets.only(left: 16),
-        children: children,
       );
     }
   }
@@ -849,7 +935,10 @@ class _LearnPageState extends State<LearnPage>
   Widget _buildLockedChapterCard(String title, {bool showSubtitle = true}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+  borderRadius: BorderRadius.circular(18),
+  side: const BorderSide(color: Color(0xFFE6E8EB)),
+),
       elevation: 0,
       color: const Color(0xFFE0E0E0),
       child: ListTile(
@@ -924,7 +1013,7 @@ class _LevelIndicator extends StatelessWidget {
                     child: CircularProgressIndicator(
                       value: progress,
                       backgroundColor: Colors.grey.shade200,
-                      color: Colors.blue.shade600,
+                      color: detailsColor2,
                       strokeWidth: 3,
                     ),
                   ),
@@ -934,7 +1023,7 @@ class _LevelIndicator extends StatelessWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: Colors.blue.shade800,
+                    color: detailsColor2,
                   ),
                 ),
               ],
@@ -978,11 +1067,11 @@ class LessonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         title: Text(lesson.title),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor: backgroundColor,
+        foregroundColor: textColor,
         elevation: 0.5,
       ),
       floatingActionButton: const HelpFab(
@@ -1004,27 +1093,51 @@ class LessonPage extends StatelessWidget {
             if (lesson.quizQuestions.isNotEmpty)
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
+                child: InkWell(
+                  onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder:
-                            (_) => QuizPage(
-                              title: lesson.title,
-                              questions: lesson.quizQuestions,
-                              onCompleted: onCompleted,
-                            ),
+                        builder: (_) => QuizPage(
+                          title: lesson.title,
+                          questions: lesson.quizQuestions,
+                          onCompleted: onCompleted,
+                        ),
                       ),
                     );
                   },
-                  icon: const Icon(Icons.quiz_rounded),
-                  label: const Text('Passer le Quizz'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    height: 54,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      gradient: const LinearGradient(
+                        colors: [detailsColor1, detailsColor2],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .12),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.quiz_rounded, color: Colors.white, size: 20),
+                        SizedBox(width: 10),
+                        Text(
+                          'Passer le Quizz',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            letterSpacing: .2,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -2041,18 +2154,18 @@ class _QuizPageState extends State<QuizPage> {
 
               if (_isValidated) {
                 if (isCorrect) {
-                  backgroundColor = Colors.green.withOpacity(0.1);
+                  backgroundColor = Colors.green.withValues(alpha: 0.1);
                   borderColor = Colors.green;
                   textColor = Colors.green.shade800;
                   fontWeight = FontWeight.bold;
                 } else if (isSelected) {
-                  backgroundColor = Colors.red.withOpacity(0.1);
+                  backgroundColor = Colors.red.withValues(alpha: 0.1);
                   borderColor = Colors.red;
                   textColor = Colors.red.shade800;
                   fontWeight = FontWeight.bold;
                 }
               } else if (isSelected) {
-                backgroundColor = Colors.black.withOpacity(0.05);
+                backgroundColor = Colors.black.withValues(alpha: 0.05);
                 borderColor = Colors.black87;
                 fontWeight = FontWeight.w600;
               }
@@ -2086,25 +2199,40 @@ class _QuizPageState extends State<QuizPage> {
             }),
             if (_selectedAnswerIndex != null) ...[
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _isValidated ? _nextQuestion : _validateAnswer,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              InkWell(
+                onTap: _isValidated ? _nextQuestion : _validateAnswer,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  height: 54,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: const LinearGradient(
+                      colors: [detailsColor1, detailsColor2],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
                   ),
-                ),
-                child: Text(
-                  _isValidated
-                      ? (_currentIndex < widget.questions.length - 1
-                          ? 'Question suivante'
-                          : 'Voir les résultats')
-                      : 'Valider',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                  child: Center(
+                    child: Text(
+                      _isValidated
+                          ? (_currentIndex < widget.questions.length - 1
+                              ? 'Question suivante'
+                              : 'Voir les résultats')
+                          : 'Valider',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: .2,
+                      ),
+                    ),
                   ),
                 ),
               ),

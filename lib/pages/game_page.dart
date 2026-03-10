@@ -9,16 +9,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
+import '../features/notifications/metals_notification_service.dart';
 import '../models/chart_models.dart';
 import '../widgets/help_fab.dart';
 import '../services/yahoo_finance_service.dart';
 import 'info_page.dart';
+import 'community_page.dart';
 import 'goal_page.dart';
+import '../features/daily_news_game/ui/daily_news_game_sheet.dart';
 import 'simulation_game.dart';
 import 'shop_page.dart';
 import 'compte_terme.dart';
+import 'package:fintech/core/constants.dart';
 
-const Color _gameBg = Color(0xFFF5F6F7);
+
+
+const LinearGradient _accentGradient = LinearGradient(
+  colors: [detailsColor1, detailsColor2],
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
+
+final List<BoxShadow> _softShadow = [
+  BoxShadow(
+    color: Colors.black.withOpacity(0.06),
+    blurRadius: 14,
+    offset: const Offset(0, 6),
+  ),
+];
 
 /// Page de simulation pour l'onglet "Game".
 class MarketSimulationPage extends StatefulWidget {
@@ -139,7 +157,7 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
         final bool isAdmin = (userSnapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ?? false;
 
         return Scaffold(
-      backgroundColor: _gameBg,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         leading: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream:
@@ -167,7 +185,7 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
                       )
                       : const Icon(
                         Icons.account_circle_rounded,
-                        color: Colors.black,
+                        color: textColor,
                         size: 28,
                       ),
               onPressed: () => _showUserProfile(context, isAdmin),
@@ -176,6 +194,14 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
         ),
         
         actions: [
+          IconButton(
+            icon: Icon(Icons.groups_rounded, color: textColor.withOpacity(0.75), size: 24),
+            tooltip: 'Jeux communautaires',
+            onPressed: () => showCupertinoModalBottomSheet(
+              context: context,
+              builder: (_) => const CommunityPage(),
+            ),
+          ),
           StreamBuilder<DocumentSnapshot>(
             stream: FirebaseAuth.instance.currentUser != null
                 ? FirebaseFirestore.instance
@@ -204,7 +230,7 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.checklist_rounded, color: Colors.black, size: 28),
+                    icon: const Icon(Icons.checklist_rounded, color: textColor, size: 28),
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GoalPage())),
                   ),
                   if (hasPendingReward)
@@ -229,8 +255,9 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
             ),
           ),
         ],
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        backgroundColor: backgroundColor,
+surfaceTintColor: backgroundColor,
+elevation: 0,
         centerTitle: false,
       ),
       floatingActionButton: const HelpFab(
@@ -250,6 +277,7 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
           ),
           _GamePortfolio(isAdmin: isAdmin),
           _DailyQuizCard(isAdmin: isAdmin),
+          const _NewsGameCard(),
           const TermDepositSection(),
           Card(
             margin: EdgeInsets.zero,
@@ -560,13 +588,8 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: Colors.black.withOpacity(0.06)),
+          boxShadow: _softShadow,
         ),
         height: 140,
         child: Column(
@@ -574,12 +597,13 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: _canClaim ? Colors.amber.shade100 : Colors.grey.shade100,
+                gradient: _canClaim ? _accentGradient : null,
+                color: _canClaim ? null : Colors.black.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 Icons.card_giftcard_rounded,
-                color: _canClaim ? Colors.amber.shade800 : Colors.grey,
+                color: _canClaim ? Colors.white : textColor.withOpacity(0.6),
                 size: 28,
               ),
             ),
@@ -591,7 +615,7 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: textColor,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -869,13 +893,8 @@ class _GamePortfolioState extends State<_GamePortfolio> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        boxShadow: _softShadow,
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -883,7 +902,11 @@ class _GamePortfolioState extends State<_GamePortfolio> {
           tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           title: const Text(
             "Portefeuille de Jeu",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
           ),
           subtitle: Row(
             children: [
@@ -891,7 +914,7 @@ class _GamePortfolioState extends State<_GamePortfolio> {
                 "${totalVal.toStringAsFixed(2)} coins",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: textColor,
                 ),
               ),
               const SizedBox(width: 8),
@@ -964,10 +987,10 @@ class _SparklineChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final points = series.points;
     if (points.length < 2) {
-      return const Center(child: Text('Historique insuffisant.'));
+      return Center(child: Text('Historique insuffisant.', style: TextStyle(color: textColor.withOpacity(0.65))));
     }
-    // Utilisation de l'indigo pour rappeler le thème du dashboard, ou amber pour les coins
-    final color = Colors.indigo.shade600;
+    // Utilisation de la palette harmonisée
+    const color = detailsColor2;
 
     return CustomPaint(
       painter: _SparklinePainter(points: points, color: color),
@@ -978,7 +1001,7 @@ class _SparklineChart extends StatelessWidget {
             bottom: 0,
             child: Text(
               "${points.first.value.toStringAsFixed(0)} coins",
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.black54),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: textColor.withOpacity(0.55)),
             ),
           ),
           Positioned(
@@ -987,7 +1010,7 @@ class _SparklineChart extends StatelessWidget {
             child: Text(
               "${points.last.value.toStringAsFixed(0)} coins",
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Colors.black87,
+                color: textColor,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1040,11 +1063,11 @@ class _SparklinePainter extends CustomPainter {
     final fillPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
         colors: [
-          color.withOpacity(0.25),
-          color.withOpacity(0.02),
+          detailsColor1.withOpacity(0.22),
+          detailsColor2.withOpacity(0.08),
         ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
@@ -1064,7 +1087,6 @@ class _PortfolioItem extends StatelessWidget {
   final double? currentPrice;
 
   const _PortfolioItem({
-    super.key,
     required this.symbol,
     required this.qty,
     required this.pru,
@@ -1104,11 +1126,14 @@ class _PortfolioItem extends StatelessWidget {
               children: [
                 Text(
                   symbol,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
                 ),
                 Text(
                   "$qty actions • PRU ${pru.toStringAsFixed(2)}",
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: textColor.withOpacity(0.55), fontSize: 12),
                 ),
               ],
             ),
@@ -1132,12 +1157,12 @@ class _PortfolioItem extends StatelessWidget {
                   ),
                   Text(
                     "Cours: ${currentPrice!.toStringAsFixed(2)}",
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    style: TextStyle(color: textColor.withOpacity(0.55), fontSize: 12),
                   ),
                 ],
               )
             else
-              const Text("-", style: TextStyle(color: Colors.grey)),
+              Text("-", style: TextStyle(color: textColor.withOpacity(0.55))),
           ],
         ),
       ),
@@ -1422,19 +1447,20 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withOpacity(0.06)),
-        ),
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(20),
+  border: Border.all(color: Colors.black.withOpacity(0.06)),
+  boxShadow: _softShadow,
+),
         child: Row(
           children: [
             const Icon(Icons.lock_outline_rounded, color: Colors.grey),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Terminez une leçon pour débloquer le quiz du jour !',
                 style: TextStyle(
-                  color: Colors.black54,
+                  color: textColor.withOpacity(0.65),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1449,10 +1475,11 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(20),
+  border: Border.all(color: Colors.green.withOpacity(0.30)),
+  boxShadow: _softShadow,
+),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1471,18 +1498,26 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _buyNewQuestions,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text('Nouveau quiz (5 💎)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade600,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
+            Container(
+  decoration: BoxDecoration(
+    gradient: _accentGradient,
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: _softShadow,
+  ),
+  child: ElevatedButton.icon(
+    onPressed: _buyNewQuestions,
+    icon: const Icon(Icons.refresh_rounded, size: 18),
+    label: const Text('Nouveau quiz (5 💎)'),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+  ),
+),
             if (widget.isAdmin)
               TextButton.icon(
                 onPressed: _resetQuiz,
@@ -1502,17 +1537,11 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(20),
+  border: Border.all(color: Colors.black.withOpacity(0.06)),
+  boxShadow: _softShadow,
+),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1521,7 +1550,7 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
             children: [
               const Icon(
                 Icons.lightbulb_outline_rounded,
-                color: Colors.amber,
+                color: detailsColor1,
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -1530,6 +1559,7 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
+                  color: textColor,
                 ),
               ),
               const Spacer(),
@@ -1538,7 +1568,7 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
                   _isCorrect ? '+10 coins' : 'Raté !',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: _isCorrect ? Colors.amber : Colors.red,
+                    color: _isCorrect ? detailsColor1 : Colors.red,
                   ),
                 ),
             ],
@@ -1980,8 +2010,11 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                           ),
                         ),
 
+                        const SizedBox(height: 16),
+                        const _MetalsNotifToggle(),
+
                         if (widget.onLogout != null) ...[
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 8),
                           TextButton.icon(
                             onPressed: widget.onLogout,
                             icon: const Icon(Icons.logout, color: Colors.red),
@@ -2209,13 +2242,8 @@ class _ShopAccessCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: Colors.black.withOpacity(0.06)),
+          boxShadow: _softShadow,
         ),
         height: 140,
         child: Column(
@@ -2223,12 +2251,12 @@ class _ShopAccessCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.purple.shade50,
+                gradient: _accentGradient,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
                 Icons.storefront_rounded,
-                color: Colors.purple.shade700,
+                color: Colors.white,
                 size: 24,
               ),
             ),
@@ -2238,7 +2266,7 @@ class _ShopAccessCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.black87,
+                color: textColor,
               ),
               textAlign: TextAlign.center,
             ),
@@ -2264,26 +2292,199 @@ class _HeaderBalance extends StatelessWidget {
         final gems = (userSnap.data?.data() as Map<String, dynamic>?)?['gems'] ?? 0;
         
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.shade300),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.black.withOpacity(0.06)),
+            boxShadow: _softShadow,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.diamond_rounded, color: Colors.cyan.shade700, size: 16),
+              Container(
+                width: 6,
+                height: 22,
+                decoration: BoxDecoration(
+                  gradient: _accentGradient,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Icon(Icons.diamond_rounded, color: detailsColor2, size: 16),
               const SizedBox(width: 4),
-              Text("$gems", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+              Text(
+                "$gems",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: textColor,
+                ),
+              ),
               const SizedBox(width: 12),
-              const Icon(Icons.monetization_on_rounded, color: Colors.amber, size: 16),
+              const Icon(Icons.monetization_on_rounded, color: detailsColor1, size: 16),
               const SizedBox(width: 4),
-              Text("$coins", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+              Text(
+                "$coins",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: textColor,
+                ),
+              ),
             ],
           ),
         );
       }
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Carte d'accès au mini-jeu "Actu & Quiz"
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _NewsGameCard extends StatelessWidget {
+  const _NewsGameCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => showCupertinoModalBottomSheet(
+        context: context,
+        builder: (_) => const DailyNewsGameSheet(),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+          boxShadow: _softShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                gradient: _accentGradient,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.newspaper_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Actu & Quiz',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    "Lis l'actu et teste tes connaissances",
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.black38,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toggle notifications métaux précieux
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MetalsNotifToggle extends StatefulWidget {
+  const _MetalsNotifToggle();
+
+  @override
+  State<_MetalsNotifToggle> createState() => _MetalsNotifToggleState();
+}
+
+class _MetalsNotifToggleState extends State<_MetalsNotifToggle> {
+  bool _enabled = true;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final v = await MetalsNotificationService.isEnabled();
+    if (mounted) setState(() { _enabled = v; _loading = false; });
+  }
+
+  Future<void> _toggle(bool value) async {
+    setState(() => _enabled = value);
+    await MetalsNotificationService.setEnabled(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const SizedBox(height: 48);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD4AF37).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Text('🥇', style: TextStyle(fontSize: 16)),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Cours des métaux',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                Text(
+                  'Notification quotidienne à 9h30',
+                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: _enabled,
+            onChanged: _toggle,
+            activeThumbColor: const Color(0xFFD4AF37),
+            activeTrackColor: const Color(0xFFD4AF37).withValues(alpha: 0.4),
+          ),
+        ],
+      ),
     );
   }
 }

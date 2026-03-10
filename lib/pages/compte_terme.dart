@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:fintech/core/constants.dart';
 
 class TermDepositSection extends StatefulWidget {
   const TermDepositSection({super.key});
@@ -243,61 +244,141 @@ class _TermDepositSectionState extends State<TermDepositSection> {
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(22),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: .06),
+      blurRadius: 18,
+      offset: const Offset(0, 10),
+    ),
+  ],
+),
           child: Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: ExpansionTile(
               leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.savings_rounded, color: Colors.indigo.shade700),
-              ),
+  width: 42,
+  height: 42,
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(14),
+    gradient: const LinearGradient(
+      colors: [detailsColor1, detailsColor2],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: .10),
+        blurRadius: 16,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  ),
+  child: const Icon(Icons.savings_rounded, color: Colors.white, size: 22),
+),
               title: const Text(
-                "Compte à Terme",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+  "Compte à Terme",
+  style: TextStyle(
+    fontWeight: FontWeight.w800,
+    fontSize: 16,
+    color: textColor,
+    letterSpacing: .2,
+  ),
+),
               subtitle: Text(
-                isUnlocked ? "Faites fructifier votre argent" : "Débloquer pour 100 💎",
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-              ),
+  isUnlocked ? "Faites fructifier votre argent" : "Débloquer pour 100 💎",
+  style: const TextStyle(
+    color: Colors.black54,
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+  ),
+),
               children: [
                 if (!isUnlocked)
                   Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        const Text(
-                          "Bloquez vos pièces ou gemmes pendant une durée déterminée pour obtenir un rendement garanti.",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey),
+  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+  child: Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF0F1F3),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFE6E8EB)),
+    ),
+    child: Column(
+      children: [
+        const Text(
+          "Bloquez vos pièces ou gemmes pendant une durée déterminée pour obtenir un rendement garanti.",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.black54,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          height: 6,
+          width: 96,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            gradient: const LinearGradient(
+              colors: [detailsColor1, detailsColor2],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        InkWell(
+          onTap: _isLoading ? null : () => _unlockFeature(gems),
+          borderRadius: BorderRadius.circular(14),
+          child: Opacity(
+            opacity: _isLoading ? .7 : 1,
+            child: Container(
+              height: 52,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .12),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _isLoading ? null : () => _unlockFeature(gems),
-                          icon: _isLoading 
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
-                              : const Icon(Icons.lock_open_rounded),
-                          label: const Text("Débloquer (100 Gemmes)"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.indigo,
-                            foregroundColor: Colors.white,
-                          ),
+                      )
+                    : const Text(
+                        "Débloquer (100 Gemmes)",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: .2,
                         ),
-                      ],
-                    ),
-                  )
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  ),
+)
                 else
                   _buildActiveDepositsList(user.uid, isAdmin),
               ],
@@ -314,17 +395,44 @@ class _TermDepositSectionState extends State<TermDepositSection> {
         StreamBuilder<QuerySnapshot>(
           stream: _firestore.collection('users').doc(uid).collection('term_deposits').orderBy('end_date').snapshots(),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+            if (!snapshot.hasData) {
+  return Center(
+    child: CircularProgressIndicator(
+      color: detailsColor2,
+      backgroundColor: detailsColor1.withValues(alpha: .20),
+      strokeWidth: 3,
+    ),
+  );
+}
             final docs = snapshot.data!.docs;
 
             if (docs.isEmpty) {
               return Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  "Aucun dépôt actif.",
-                  style: TextStyle(color: Colors.grey.shade500, fontStyle: FontStyle.italic),
-                ),
-              );
+  padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+  child: Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: const Color(0xFFE6E8EB)),
+    ),
+    child: Row(
+      children: const [
+        Icon(Icons.event_busy_rounded, color: Colors.black54),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            "Aucun dépôt actif pour le moment.",
+            style: TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  ),
+);
             }
 
             return ListView.builder(
@@ -342,55 +450,133 @@ class _TermDepositSectionState extends State<TermDepositSection> {
                 final isReady = now.isAfter(endDate);
                 final reward = (amount * (1 + rate)).floor();
 
-                // Calcul temps restant
                 final diff = endDate.difference(now);
-                String timeLeft;
+                final String statusText;
+                final Color statusColor;
+
                 if (isReady) {
-                  timeLeft = "Terminé";
+                  statusText = "Disponible";
+                  statusColor = Colors.green;
                 } else if (diff.inDays > 0) {
-                  timeLeft = "${diff.inDays}j restants";
+                  statusText = "Dans ${diff.inDays}j";
+                  statusColor = Colors.black54;
+                } else if (diff.inHours > 0) {
+                  statusText = "Dans ${diff.inHours}h";
+                  statusColor = Colors.black54;
                 } else {
-                  timeLeft = "${diff.inHours}h restants";
+                  statusText = "Dans ${diff.inMinutes}min";
+                  statusColor = Colors.black54;
                 }
 
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: type == 'coins' ? Colors.amber.shade100 : Colors.cyan.shade100,
-                    child: Icon(
-                      type == 'coins' ? Icons.monetization_on_rounded : Icons.diamond_rounded,
-                      color: type == 'coins' ? Colors.amber.shade800 : Colors.cyan.shade800,
-                      size: 20,
-                    ),
-                  ),
+                  leading: Container(
+  width: 44,
+  height: 44,
+  decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(16),
+    gradient: LinearGradient(
+      colors: type == 'coins'
+          ? [const Color(0xFFFFD54F), const Color(0xFFFF8F00)]
+          : [const Color(0xFF4DD0E1), const Color(0xFF006064)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: .10),
+        blurRadius: 16,
+        offset: const Offset(0, 10),
+      ),
+    ],
+  ),
+  child: Icon(
+    type == 'coins' ? Icons.monetization_on_rounded : Icons.diamond_rounded,
+    color: Colors.white,
+    size: 22,
+  ),
+),
                   title: Text(
                     "$amount ➔ $reward ${type == 'coins' ? 'Pièces' : 'Gemmes'}",
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
-                  subtitle: Text(
-                    "Taux: ${(rate * 100).toInt()}% • ",
-                    style: TextStyle(
-                      color: isReady ? Colors.green : Colors.grey,
-                      fontWeight: isReady ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12,
-                    ),
-                  ),
+                  subtitle: Row(
+  children: [
+    Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F1F3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+      ),
+      child: Text(
+        "Taux ${(rate * 100).toInt()}%",
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+          color: Colors.black87,
+        ),
+      ),
+    ),
+    const SizedBox(width: 8),
+    Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isReady
+            ? Colors.green.withValues(alpha: 0.10)
+            : const Color(0xFFF0F1F3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isReady
+              ? Colors.green.withValues(alpha: 0.20)
+              : const Color(0xFFE6E8EB),
+        ),
+      ),
+      child: Text(
+        statusText,
+        style: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+          color: isReady ? Colors.green : statusColor,
+        ),
+      ),
+    ),
+  ],
+),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (isReady)
-                        ElevatedButton(
-                          onPressed: () => _claimDeposit(id, type, amount, rate),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: const Text("Récupérer"),
-                        )
+                        InkWell(
+  onTap: () => _claimDeposit(id, type, amount, rate),
+  borderRadius: BorderRadius.circular(14),
+  child: Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(14),
+      gradient: const LinearGradient(
+        colors: [detailsColor1, detailsColor2],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: .12),
+          blurRadius: 18,
+          offset: const Offset(0, 10),
+        ),
+      ],
+    ),
+    child: const Text(
+      "Récupérer",
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  ),
+)
                       else
-                        const Icon(Icons.lock_clock_rounded, color: Colors.grey, size: 20),
+                        const Icon(Icons.lock_clock_rounded, color: Colors.black54, size: 20),
                       
                       if (isAdmin)
                         IconButton(
@@ -414,10 +600,11 @@ class _TermDepositSectionState extends State<TermDepositSection> {
               icon: const Icon(Icons.add_circle_outline_rounded),
               label: const Text("Nouveau Dépôt"),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.indigo,
-                side: const BorderSide(color: Colors.indigo),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+  backgroundColor: const Color(0xFFF0F1F3),
+  foregroundColor: detailsColor2,
+  side: const BorderSide(color: Color(0xFFE6E8EB)),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+),
             ),
           ),
         ),

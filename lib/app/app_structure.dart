@@ -1,145 +1,104 @@
-import 'dart:async';
-
+import 'package:fintech/core/constants.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../layouts/navigation_footer.dart';
 import '../pages/search_page.dart';
-import '../services/yahoo_consent_page.dart';
-import '../services/yahoo_finance_service.dart';
+import '../pages/portfolio_dashboard_page.dart';
+import '../pages/favorites_page.dart';
+import '../pages/learn_page.dart';
+import '../pages/game_page.dart';
+import '../pages/forum_page.dart';
 
+/// Modern animated bottom footer with 6 items:
+/// Home, Dashboard, Favoris, Apprendre, Game, Forum.
+///
+/// IMPORTANT:
+/// - This footer does NOT navigate by itself.
+/// - The parent (AppStructure) controls the current page and provides `onTap`.
+/// App shell that hosts the 6 bottom tabs and provides a slide transition between them.
+///
+/// Indices:
+/// 0 Home (SearchPage)
+/// 1 Dashboard (PortfolioDashboardPage)
+/// 2 Favoris (FavoritesPage)
+/// 3 Apprendre (LearnPage)
+/// 4 Game (MarketSimulationPage)
+/// 5 Forum (ForumPage)
 class AppStructure extends StatefulWidget {
-  const AppStructure({Key? key}) : super(key: key);
+  const AppStructure({Key? key, this.initialIndex = 0}) : super(key: key);
+
+  final int initialIndex;
 
   @override
   State<AppStructure> createState() => _AppStructureState();
 }
 
-class _AppStructureState extends State<AppStructure>
-    with WidgetsBindingObserver {
-  Timer? _watchdog;
-  bool _checking = false;
+class _AppStructureState extends State<AppStructure> {
+  int _selectedIndex = 0;
+  PageController? _pageController;
+
+  List<Widget> get _pages => const <Widget>[
+        SearchPage(),
+        PortfolioDashboardPage(),
+        FavoritesPage(),
+        LearnPage(),
+        MarketSimulationPage(),
+        ForumPage(),
+      ];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _ensureConsentAtStartup(),
-    );
-    _watchdog = Timer.periodic(
-      const Duration(minutes: 15),
-      (_) => _autoRecoverIfBlocked(),
-    );
+    _selectedIndex = widget.initialIndex.clamp(0, 5);
+    _pageController = PageController(initialPage: _selectedIndex);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppStructure oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.initialIndex.clamp(0, 5);
+    if (oldWidget.initialIndex != widget.initialIndex && next != _selectedIndex) {
+      _selectedIndex = next;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        (_pageController ??= PageController(initialPage: _selectedIndex))
+            .jumpToPage(_selectedIndex);
+        setState(() {});
+      });
+    }
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _watchdog?.cancel();
+    _pageController?.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _autoRecoverIfBlocked();
-    }
-  }
-
-  Future<void> _ensureConsentAtStartup() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedCookie = prefs.getString('yahoo_cookie');
-
-    if (savedCookie == null || savedCookie.isEmpty) {
-      final ok = await Navigator.of(context).push<bool>(
-        MaterialPageRoute(
-          builder: (_) => const YahooConsentPage(symbol: 'AAPL'),
-        ),
-      );
-      if (ok == true) {
-        final cookie = YahooFinanceService.currentCookie();
-        if (cookie != null && cookie.isNotEmpty) {
-          await prefs.setString('yahoo_cookie', cookie);
-          // ignore: avoid_print
-          print(
-            '[App] Stored yahoo_cookie after consent, length: ${cookie.length}',
-          );
-        }
-      }
-      return;
-    }
-
-    try {
-      await YahooFinanceService.fetchQuote('AAPL');
-      // ignore: avoid_print
-      print('[App] Probe OK with saved cookie');
-    } catch (e) {
-      final msg = e.toString().toLowerCase();
-      final looks401 =
-          msg.contains('401') ||
-          msg.contains('unauthorized') ||
-          msg.contains('consent');
-      if (looks401) {
-        // ignore: avoid_print
-        print(
-          '[App] Probe FAILED with saved cookie -> clearing and opening consent',
-        );
-        YahooFinanceService.setYahooCookieOverride(null);
-        await prefs.remove('yahoo_cookie');
-        final ok = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => const YahooConsentPage(symbol: 'AAPL'),
-          ),
-        );
-        if (ok == true) {
-          final cookie = YahooFinanceService.currentCookie();
-          if (cookie != null && cookie.isNotEmpty) {
-            await prefs.setString('yahoo_cookie', cookie);
-            // ignore: avoid_print
-            print(
-              '[App] Stored yahoo_cookie after re-consent, length: ${cookie.length}',
-            );
-          }
-        }
-      }
-    }
-  }
-
-  Future<void> _autoRecoverIfBlocked() async {
-    if (!mounted || _checking) return;
-    _checking = true;
-    try {
-      await YahooFinanceService.fetchQuote('AAPL');
-    } catch (e) {
-      final msg = e.toString().toLowerCase();
-      final looks401 =
-          msg.contains('401') ||
-          msg.contains('unauthorized') ||
-          msg.contains('consent');
-      if (looks401) {
-        final ok = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => const YahooConsentPage(symbol: 'AAPL'),
-          ),
-        );
-        if (ok == true) {
-          final prefs = await SharedPreferences.getInstance();
-          final cookie = YahooFinanceService.currentCookie();
-          if (cookie != null && cookie.isNotEmpty) {
-            await prefs.setString('yahoo_cookie', cookie);
-          }
-        }
-      }
-    } finally {
-      _checking = false;
-    }
+  void _onTabTap(int i) {
+    if (i == _selectedIndex) return;
+    setState(() => _selectedIndex = i);
+    _pageController?.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Color(0xFFF3E5F5),
-      body: SearchPage(),
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: PageView(
+        controller: (_pageController ??= PageController(initialPage: _selectedIndex)),
+        onPageChanged: (i) {
+          if (i == _selectedIndex) return;
+          setState(() => _selectedIndex = i);
+        },
+        children: _pages,
+      ),
+      bottomNavigationBar: NavigationFooter(
+        currentIndex: _selectedIndex,
+        onTap: _onTabTap,
+      ),
     );
   }
 }

@@ -96,6 +96,13 @@ class _InfoPageState extends State<InfoPage> {
     'déc.',
   ];
 
+  // Palette (same style as SearchPage)
+  static const Color _bg = backgroundColor;
+  static const Color _ink = textColor;
+  static const Color _gold = detailsColor1;
+  static const Color _wine = detailsColor2;
+  static const Color _chipBg = Color(0xFFF0F1F3);
+
   @override
   void initState() {
     super.initState();
@@ -558,11 +565,8 @@ class _InfoPageState extends State<InfoPage> {
     final bool hasTicker = _ticker != null && _ticker!.trim().isNotEmpty;
     final bool isLoading = !_favoriteStatusReady || _favoriteUpdating;
     final bool selected = _isFavorite && _favoriteStatusReady;
-    final Color iconColor =
-        selected
-            ? Colors.redAccent
-            : theme.textTheme.bodyMedium?.color?.withOpacity(0.65) ??
-                Colors.black54;
+   final Color iconColor =
+    selected ? _wine : (theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65) ?? Colors.black54);
     final bool enabled = user != null && hasTicker && !isLoading;
 
     final Widget visual =
@@ -603,18 +607,12 @@ class _InfoPageState extends State<InfoPage> {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color:
-                selected
-                    ? Colors.redAccent.withOpacity(0.12)
-                    : Colors.black.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color:
-                  selected
-                      ? Colors.redAccent.withOpacity(0.4)
-                      : Colors.black.withOpacity(0.05),
-            ),
-          ),
+  color: selected ? _wine.withValues(alpha: 0.10) : Colors.black.withValues(alpha: 0.04),
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(
+    color: selected ? _wine.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.05),
+  ),
+),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             transitionBuilder:
@@ -996,9 +994,14 @@ class _InfoPageState extends State<InfoPage> {
     final bool busy = _portfolioUpdating;
     final bool showSpinner = busy || !ready;
     final bool enabled = user != null && hasTicker && ready && !busy;
+    final buttonStyleColor = showSpinner
+    ? _chipBg.withValues(alpha: 0.85)
+    : _chipBg;
+
+final borderColor = Colors.black.withValues(alpha: 0.05);
 
     final Color iconColor =
-        theme.textTheme.bodyMedium?.color?.withOpacity(0.65) ?? Colors.black54;
+        theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65)?? Colors.black54;
 
     final Widget visual =
         showSpinner
@@ -1023,12 +1026,6 @@ class _InfoPageState extends State<InfoPage> {
             ? 'Connectez-vous pour gérer vos portefeuilles'
             : 'Ajouter au portefeuille';
 
-    final buttonStyleColor =
-        showSpinner
-            ? Colors.black.withOpacity(0.06)
-            : Colors.black.withOpacity(0.04);
-
-    final borderColor = Colors.black.withOpacity(0.05);
 
     final button = PopupMenuButton<_PortfolioMenuOption>(
       enabled: enabled,
@@ -1835,17 +1832,51 @@ class _InfoPageState extends State<InfoPage> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(_ticker ?? 'Info'),
-        centerTitle: false,
-        backgroundColor: backgroundColor,
-        elevation: 0,
+  title: Text(
+    _ticker ?? 'Info',
+    style: const TextStyle(
+      fontWeight: FontWeight.w800,
+      color: _ink,
+    ),
+  ),
+  centerTitle: false,
+  backgroundColor: _bg,
+  surfaceTintColor: Colors.transparent,
+  elevation: 0,
+  bottom: PreferredSize(
+    preferredSize: const Size.fromHeight(10),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          height: 6,
+          width: 96,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            gradient: const LinearGradient(
+              colors: [_gold, _wine],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
       ),
+    ),
+  ),
+),
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           child:
               _loading
-                  ? const Center(child: CircularProgressIndicator())
+    ? Center(
+        child: CircularProgressIndicator(
+          color: _wine,
+          backgroundColor: _gold.withValues(alpha: .20),
+          strokeWidth: 3,
+        ),
+      )
                   : (_error != null)
                   ? _ErrorView(
                     key: const ValueKey('error'),
@@ -2092,7 +2123,6 @@ class _InfoPageState extends State<InfoPage> {
       case DecisionValueType.text:
         return value.toString();
     }
-    return null;
   }
 
   void _showIndicatorDefinition(DecisionIndicator indicator) {

@@ -1,15 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fintech/core/constants.dart';
 
 import '../widgets/help_fab.dart';
 
 const Color _gameMuted = Colors.black54;
+const Color _line = Color(0xFFE6E8EB);
+const Color _chipBg = Color(0xFFF0F1F3);
+const Color _bg = backgroundColor;
+const Color _ink = textColor;
+const Color _gold = detailsColor1;
+const Color _wine = detailsColor2;
 
 double _scaledFont(BuildContext context, double size) {
   final width = MediaQuery.sizeOf(context).width;
@@ -82,14 +87,20 @@ class ScenarioCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: isLocked ? null : onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isLocked ? Colors.grey.shade100 : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black.withOpacity(0.06)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          color: isLocked ? const Color(0xFFF0F1F3) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: _line),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,13 +110,13 @@ class ScenarioCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isLocked ? Colors.grey.shade300 : Colors.blue.shade50,
+                    color: isLocked ? Colors.black.withValues(alpha: 0.08) : _wine.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     isLocked ? "Verrouillé" : scenario.focus,
                     style: TextStyle(
-                      color: isLocked ? Colors.grey.shade700 : Colors.blue.shade800,
+                      color: isLocked ? Colors.black54 : _wine,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -125,7 +136,22 @@ class ScenarioCard extends StatelessWidget {
                     const Icon(Icons.check_circle, color: Colors.green, size: 20),
                   if (isCompleted)
                     const SizedBox(width: 8),
-                  Text('${scenario.rewardXp} XP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _wine.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _wine.withValues(alpha: 0.22)),
+                    ),
+                    child: Text(
+                      '${scenario.rewardXp} XP',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: _wine,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -135,14 +161,14 @@ class ScenarioCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
-                color: isLocked ? Colors.grey : Colors.black,
+                color: isLocked ? Colors.black45 : _ink,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               scenario.description,
               style: TextStyle(
-                color: isLocked ? Colors.grey.shade400 : Colors.black54,
+                color: isLocked ? Colors.black38 : _gameMuted,
                 fontSize: 14,
               ),
               maxLines: 2,
@@ -162,56 +188,122 @@ class ScenarioBriefing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: Colors.transparent,
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(scenario.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Chip(label: Text(scenario.focus), backgroundColor: Colors.blue.shade50),
-                  const SizedBox(width: 8),
-                  Chip(label: Text(scenario.risk), backgroundColor: Colors.orange.shade50),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(scenario.description, style: const TextStyle(fontSize: 16, height: 1.4)),
-              const SizedBox(height: 24),
-              const Text('Objectifs :', style: TextStyle(fontWeight: FontWeight.bold)),
-              ...scenario.prompts.map((p) => Padding(
-                    padding: const EdgeInsets.only(top: 8),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  scenario.title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: _ink,
+                    letterSpacing: .2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  height: 6,
+                  width: 96,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(99),
+                    gradient: const LinearGradient(
+                      colors: [_gold, _wine],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _chipBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _line),
+                      ),
+                      child: Text(
+                        scenario.focus,
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black87),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _wine.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _wine.withValues(alpha: 0.22)),
+                      ),
+                      child: Text(
+                        scenario.risk,
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: _wine),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  scenario.description,
+                  style: const TextStyle(fontSize: 15.5, height: 1.35, color: Colors.black87),
+                ),
+                const SizedBox(height: 18),
+                const Text('Objectifs', style: TextStyle(fontWeight: FontWeight.w800, color: _ink)),
+                const SizedBox(height: 10),
+                ...scenario.prompts.map(
+                  (p) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.check_circle_outline, size: 18, color: Colors.green),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(p)),
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: _wine.withValues(alpha: 0.10),
+                            border: Border.all(color: _wine.withValues(alpha: 0.22)),
+                          ),
+                          child: const Icon(Icons.check_rounded, size: 14, color: _wine),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text(p, style: const TextStyle(color: Colors.black87))),
                       ],
                     ),
-                  )),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context, true);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Commencer la simulation'),
                 ),
-              ),
-            ],
+                const SizedBox(height: 18),
+                _GradientButton(
+                  label: 'Commencer la simulation',
+                  icon: Icons.play_arrow_rounded,
+                  onTap: () => Navigator.pop(context, true),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -342,15 +434,38 @@ class _SimulationRunnerState extends State<SimulationRunner> {
     bool isValid = (total - 100).abs() < 0.1;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Allocation'), elevation: 0, backgroundColor: Colors.white, foregroundColor: Colors.black),
+      appBar: AppBar(
+        title: const Text(
+          'Allocation',
+          style: TextStyle(fontWeight: FontWeight.w800, color: _ink, letterSpacing: .2),
+        ),
+        backgroundColor: _bg,
+        foregroundColor: _ink,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: const _PremiumAppBarUnderline(),
+      ),
       floatingActionButton: const HelpFab(
         helpText: "Répartissez votre capital initial entre les différents actifs. Utilisez les curseurs pour ajuster les pourcentages. Le total doit faire exactement 100% pour commencer.",
       ),
+      backgroundColor: _bg,
       body: Column(
         children: [
           Container(
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
             padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: _line),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 Row(
@@ -375,10 +490,11 @@ class _SimulationRunnerState extends State<SimulationRunner> {
                   min: 0,
                   max: _userCoins > 0 ? _userCoins : 100,
                   divisions: _userCoins > 0 ? (_userCoins / 10).ceil() : 1,
-                  activeColor: Colors.black,
+                  activeColor: _wine,
+                  inactiveColor: _gold.withValues(alpha: 0.18),
                   onChanged: _userCoins > 0 ? (v) => setState(() => _stake = v) : null,
                 ),
-                const Divider(),
+                Divider(color: _line),
                 const Text('Répartissez votre investissement (Total doit faire 100%)', style: TextStyle(fontSize: 14, color: Colors.grey)),
               ],
             ),
@@ -398,6 +514,8 @@ class _SimulationRunnerState extends State<SimulationRunner> {
                       value: _allocation[key]!,
                       min: 0,
                       max: 100,
+                      activeColor: _wine,
+                      inactiveColor: _gold.withValues(alpha: 0.18),
                       onChanged: (v) {
                         double diff = v - _allocation[key]!;
                         if (total + diff <= 100.1) { // Petite marge pour float
@@ -411,25 +529,26 @@ class _SimulationRunnerState extends State<SimulationRunner> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: _line)),
+            ),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Total investi: ${total.toStringAsFixed(0)}%'),
-                    Text('Cash: ${(100 - total).toStringAsFixed(0)}%'),
+                    Text('Total investi: ${total.toStringAsFixed(0)}%', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text('Cash: ${(100 - total).toStringAsFixed(0)}%', style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600)),
                   ],
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isValid && _stake > 0 ? _startSimulation : null,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, padding: const EdgeInsets.all(16), disabledBackgroundColor: Colors.grey.shade300),
-                    child: Text(isValid ? 'Lancer la simulation' : 'Total doit être 100%'),
-                  ),
+                const SizedBox(height: 14),
+                _GradientButton(
+                  label: isValid ? 'Lancer la simulation' : 'Total doit être 100%',
+                  icon: Icons.show_chart_rounded,
+                  disabled: !(isValid && _stake > 0),
+                  onTap: isValid && _stake > 0 ? _startSimulation : null,
                 ),
               ],
             ),
@@ -442,7 +561,19 @@ class _SimulationRunnerState extends State<SimulationRunner> {
   Widget _buildRunningView() {
     double pnl = (_currentValue - _initialValue) / _initialValue * 100;
     return Scaffold(
-      appBar: AppBar(title: Text(_config.headline), automaticallyImplyLeading: false),
+      appBar: AppBar(
+        title: Text(
+          _config.headline,
+          style: const TextStyle(fontWeight: FontWeight.w800, color: _ink, letterSpacing: .2),
+        ),
+        backgroundColor: _bg,
+        foregroundColor: _ink,
+        surfaceTintColor: Colors.transparent,
+        automaticallyImplyLeading: false,
+        elevation: 0,
+        bottom: const _PremiumAppBarUnderline(),
+      ),
+      backgroundColor: _bg,
       floatingActionButton: const HelpFab(
         helpText: "Observez l'évolution de votre portefeuille semaine après semaine. Analysez comment vos choix d'allocation réagissent aux événements du marché.",
       ),
@@ -451,7 +582,7 @@ class _SimulationRunnerState extends State<SimulationRunner> {
         child: Column(
           children: [
             SimulationTicker(
-              accent: Colors.blue,
+              accent: _wine,
               currentValue: _currentValue,
               pnlPct: pnl,
               drawdownPct: _drawdown,
@@ -463,7 +594,7 @@ class _SimulationRunnerState extends State<SimulationRunner> {
               child: PriceTape(
                 assets: _config.assets.where((a) => a.id != 'cash').toList(),
                 step: _step,
-                accent: Colors.blue,
+                accent: _wine,
               ),
             ),
           ],
@@ -511,26 +642,87 @@ class _SimulationRunnerState extends State<SimulationRunner> {
     }
 
     return Scaffold(
+      backgroundColor: _bg,
       floatingActionButton: const HelpFab(
         helpText: "Simulation terminée ! Voici votre performance finale. Si elle est positive, vous avez gagné des pièces et de l'XP.",
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Simulation terminée', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Text('Performance finale: ${pnl > 0 ? '+' : ''}${pnl.toStringAsFixed(2)}%',
-                style: TextStyle(fontSize: 32, color: pnl >= 0 ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('Solde récupéré : ${_currentValue.toStringAsFixed(0)} coins',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Retour'),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: _line),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: const LinearGradient(
+                        colors: [_gold, _wine],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: const Icon(Icons.emoji_events_rounded, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Simulation terminée',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _ink),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 6,
+                    width: 96,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      gradient: const LinearGradient(
+                        colors: [_gold, _wine],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Performance finale: ${pnl > 0 ? '+' : ''}${pnl.toStringAsFixed(2)}%',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      color: pnl >= 0 ? Colors.green : Colors.redAccent,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Solde récupéré : ${_currentValue.toStringAsFixed(0)} coins',
+                    style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 18),
+                  _GradientButton(
+                    label: 'Retour',
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -562,7 +754,7 @@ class SimulationTicker extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        border: Border.all(color: _line),
       ),
       child: Column(
         children: [
@@ -645,7 +837,7 @@ class PriceTape extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.black.withOpacity(0.04)),
+            border: Border.all(color: _line),
           ),
           child: Row(
             children: [
@@ -665,7 +857,9 @@ class PriceTape extends StatelessWidget {
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: pct >= 0 ? Colors.green.withOpacity(0.12) : Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(999)),
+                decoration: BoxDecoration(
+                  color: pct >= 0 ? Colors.green.withValues(alpha: 0.12) : Colors.red.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999)),
                 child: Text(
                   '${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%',
                   style: TextStyle(color: pct >= 0 ? Colors.green : Colors.redAccent, fontWeight: FontWeight.w700),
@@ -762,6 +956,112 @@ class SimulationAsset {
       label: json['label'],
       prices: (json['prices'] as List).map((e) => (e as num).toDouble()).toList(),
       role: json['role'],
+    );
+  }
+}
+// --- Premium UI helpers ---
+
+class _GradientButton extends StatelessWidget {
+  const _GradientButton({
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.disabled = false,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final bool disabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = !disabled && onTap != null;
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(14),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.55,
+        child: Container(
+          height: 54,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: enabled
+                ? const LinearGradient(
+                    colors: [_gold, _wine],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : LinearGradient(
+                    colors: [
+                      Colors.black.withValues(alpha: 0.18),
+                      Colors.black.withValues(alpha: 0.12),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                ],
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    letterSpacing: .2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PremiumAppBarUnderline extends StatelessWidget implements PreferredSizeWidget {
+  const _PremiumAppBarUnderline();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(12);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          height: 6,
+          width: 96,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            gradient: const LinearGradient(
+              colors: [_gold, _wine],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

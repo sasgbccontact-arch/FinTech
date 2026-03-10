@@ -6,7 +6,7 @@ import 'package:fintech/models/dividend_event.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-
+import 'package:fintech/core/constants.dart';
 import 'info_page.dart';
 
 enum _DividendFilter { all, favorites, portfolios }
@@ -27,6 +27,14 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
   String? _error;
   List<_DividendCalendarEntry> _entries = const <_DividendCalendarEntry>[];
   _DividendFilter _filter = _DividendFilter.all;
+
+  // Palette (same style as SearchPage)
+static const Color _ink = textColor;
+static const Color _muted = Colors.black54;
+static const Color _line = Color(0xFFE6E8EB);
+static const Color _chipBg = Color(0xFFF0F1F3);
+static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
 
   @override
   void initState() {
@@ -260,7 +268,7 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    Theme.of(context);
     return Material(
       color: Colors.transparent,
       child: SafeArea(
@@ -268,99 +276,187 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            color: Colors.white,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+  color: Colors.white,
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const SizedBox(height: 12),
+      Container(
+        width: 44,
+        height: 4,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+
+      // Header premium
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 16, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Calendrier des dividendes',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                      letterSpacing: .2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 6,
+                    width: 96,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      gradient: const LinearGradient(
+                        colors: [_gold, _wine],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Filtre sur tes favoris et portefeuilles',
+                    style: TextStyle(
+                      color: _muted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Row(
               children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(2),
+                Tooltip(
+                  message: 'Actualiser',
+                  child: InkWell(
+                    onTap: _loadCalendar,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _chipBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _line),
+                      ),
+                      child: const Icon(
+                        Icons.refresh_rounded,
+                        size: 20,
+                        color: _wine,
+                      ),
+                    ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Calendrier des dividendes',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Filtre sur tes favoris et portefeuilles',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
+                const SizedBox(width: 10),
+                Tooltip(
+                  message: 'Fermer',
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).maybePop(),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _chipBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _line),
                       ),
-                      IconButton(
-                        tooltip: 'Actualiser',
-                        onPressed: _loadCalendar,
-                        icon: const Icon(Icons.refresh_rounded),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: _ink,
                       ),
-                      IconButton(
-                        tooltip: 'Fermer',
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                TabBar(
-                  controller: _tabController,
-                  labelColor: Colors.black,
-                  unselectedLabelColor: Colors.black45,
-                  indicatorColor: Colors.black,
-                  tabs: const [Tab(text: 'Liste'), Tab(text: 'Calendrier')],
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child:
-                      _tabController.index == 0
-                          ? Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
-                            child: _DividendFilterChips(
-                              current: _filter,
-                              onChanged: _changeFilter,
-                            ),
-                          )
-                          : const SizedBox(height: 12),
-                ),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child:
-                        _loading
-                            ? const Center(child: CircularProgressIndicator())
-                            : (_error != null)
-                            ? _CalendarError(
-                              message: _error!,
-                              onRetry: _loadCalendar,
-                            )
-                            : TabBarView(
-                              controller: _tabController,
-                              children: [
-                                _CalendarList(entries: _filteredEntries),
-                                _CalendarPlanner(entries: _filteredEntries),
-                              ],
-                            ),
+                    ),
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+
+      // TabBar segmented
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _chipBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _line),
           ),
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                colors: [_gold, _wine],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .10),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.black87,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+            tabs: const [Tab(text: 'Liste'), Tab(text: 'Calendrier')],
+          ),
+        ),
+      ),
+
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: _tabController.index == 0
+            ? Padding(
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+                child: _DividendFilterChips(
+                  current: _filter,
+                  onChanged: _changeFilter,
+                ),
+              )
+            : const SizedBox(height: 8),
+      ),
+
+      Expanded(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _loading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: _wine,
+                    backgroundColor: _gold.withValues(alpha: .20),
+                    strokeWidth: 3,
+                  ),
+                )
+              : (_error != null)
+                  ? _CalendarError(message: _error!, onRetry: _loadCalendar)
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _CalendarList(entries: _filteredEntries),
+                        _CalendarPlanner(entries: _filteredEntries),
+                      ],
+                    ),
+        ),
+      ),
+    ],
+  ),
+),
         ),
       ),
     );
@@ -437,17 +533,65 @@ class _CalendarList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (entries.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Aucun dividende à venir pour le moment.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.black54),
-          ),
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-      );
-    }
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(Icons.event_busy_rounded,
+                  color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Aucun dividende à venir',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ajoute des favoris ou des positions en portefeuille pour suivre leurs prochains paiements.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
     final grouped = _groupEntries();
     final labels = grouped.keys.toList();
@@ -511,23 +655,70 @@ class _CalendarPlanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final datedEntries =
         entries.where((entry) => entry.calendarDate != null).toList();
 
     if (datedEntries.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Aucun dividende daté à afficher pour l’instant.',
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-          ),
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-      );
-    }
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(Icons.calendar_month_rounded,
+                  color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Aucun dividende daté',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Les dates seront affichées dès qu’elles seront disponibles.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
     final eventsByDate = SplayTreeMap<DateTime, List<_DividendCalendarEntry>>();
     final months = SplayTreeSet<DateTime>((a, b) => a.compareTo(b));
@@ -651,12 +842,16 @@ class _MonthCalendar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color:
-                      isToday
-                          ? Colors.black.withValues(alpha: 0.05)
-                          : Colors.black.withValues(alpha: 0.02),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+  color: isToday
+      ? detailsColor2.withValues(alpha: 0.08)
+      : Colors.black.withValues(alpha: 0.02),
+  borderRadius: BorderRadius.circular(10),
+  border: Border.all(
+    color: isToday
+        ? detailsColor2.withValues(alpha: 0.20)
+        : const Color(0xFFE6E8EB),
+  ),
+),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -722,9 +917,10 @@ class _CalendarDot extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-      ),
+  color: const Color(0xFFF0F1F3),
+  borderRadius: BorderRadius.circular(10),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+),
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
@@ -825,28 +1021,67 @@ class _DividendCard extends StatelessWidget {
               ),
             ),
             if (isFavorite || portfolios.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  if (isFavorite)
-                    const Chip(
-                      label: Text('Favori'),
-                      avatar: Icon(Icons.favorite_rounded, size: 16),
-                    ),
-                  ...portfolios.map(
-                    (name) => Chip(
-                      label: Text(name),
-                      avatar: const Icon(
-                        Icons.folder_special_rounded,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
+  const SizedBox(height: 12),
+  Wrap(
+    spacing: 8,
+    runSpacing: 6,
+    children: [
+      if (isFavorite)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: detailsColor2.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: detailsColor2.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.favorite_rounded, size: 16, color: detailsColor2),
+              SizedBox(width: 6),
+              Text(
+                'Favori',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: detailsColor2,
+                ),
               ),
             ],
+          ),
+        ),
+      ...portfolios.map(
+        (name) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F1F3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE6E8EB)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.folder_special_rounded,
+                size: 16,
+                color: Colors.black87,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  ),
+],
           ],
         ),
       ),
@@ -866,9 +1101,10 @@ class _CalendarBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-      ),
+  color: const Color(0xFFF0F1F3),
+  borderRadius: BorderRadius.circular(12),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -914,10 +1150,24 @@ class _DividendFilterChips extends StatelessWidget {
   ) {
     final selected = current == filter;
     return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onChanged(filter),
-    );
+  label: Text(
+    label,
+    style: TextStyle(
+      fontWeight: FontWeight.w700,
+      color: selected ? Colors.white : Colors.black87,
+    ),
+  ),
+  selected: selected,
+  onSelected: (_) => onChanged(filter),
+  selectedColor: detailsColor2,
+  backgroundColor: const Color(0xFFF0F1F3),
+  side: BorderSide(
+    color: selected
+        ? detailsColor2.withValues(alpha: .35)
+        : const Color(0xFFE6E8EB),
+  ),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+);
   }
 }
 
@@ -928,29 +1178,100 @@ class _CalendarError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+Widget build(BuildContext context) {
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Réessayer'),
+            InkWell(
+              onTap: onRetry,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: const LinearGradient(
+                    colors: [detailsColor1, detailsColor2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 10),
+                    Text(
+                      'Réessayer',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _TrackedSymbol {
