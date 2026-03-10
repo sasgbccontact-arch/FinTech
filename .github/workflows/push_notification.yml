@@ -1,0 +1,36 @@
+name: Push Notification Manuelle
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Titre de la notification"
+        required: true
+        default: "FinTech"
+      body:
+        description: "Corps du message"
+        required: true
+        default: "Nouveau message de l'équipe FinTech."
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm install
+
+      - name: Send notification
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          NOTIF_TITLE: ${{ inputs.title }}
+          NOTIF_BODY: ${{ inputs.body }}
+        run: node scripts/send_manual_notification.js

@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview_android/flutter_inappwebview_android.dart';
 import 'package:flutter_inappwebview_ios/flutter_inappwebview_ios.dart';
@@ -16,9 +17,6 @@ import 'pages/login_page.dart';
 
 import 'services/yahoo_consent_page.dart';
 import 'services/yahoo_finance_service.dart';
-
-
-
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -75,10 +73,10 @@ class MyApp extends StatelessWidget {
       routes: {
         '/home': (_) => const AppStructure(initialIndex: 0),
         '/dashboard': (_) => const AppStructure(initialIndex: 1),
-        '/favorites': (_) => const AppStructure(initialIndex: 2),
-        '/learn': (_) => const AppStructure(initialIndex: 3),
-        '/game': (_) => const AppStructure(initialIndex: 4),
-        '/forum': (_) => const AppStructure(initialIndex: 5),
+        '/favorites': (_) => const AppStructure(initialIndex: 1),
+        '/learn': (_) => const AppStructure(initialIndex: 2),
+        '/game': (_) => const AppStructure(initialIndex: 3),
+        '/forum': (_) => const AppStructure(initialIndex: 4),
       },
     );
   }
@@ -113,11 +111,11 @@ class _LogoSplashScreenState extends State<LogoSplashScreen> {
     await Future.delayed(const Duration(milliseconds: 1500));
     if (!mounted) return;
     final user = FirebaseAuth.instance.currentUser;
-    final nextPage = user == null
-        ? const LoginPage()
-        : const AppStructure(initialIndex: 0);
-    Navigator.of(context)
-        .pushReplacement(MaterialPageRoute(builder: (_) => nextPage));
+    final nextPage =
+        user == null ? const LoginPage() : const AppStructure(initialIndex: 0);
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => nextPage));
   }
 
   @override
@@ -162,4 +160,3 @@ class _LogoSplashScreenState extends State<LogoSplashScreen> {
     );
   }
 }
-

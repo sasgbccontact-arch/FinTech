@@ -160,7 +160,7 @@ class QuizGenerator {
     _SeededRandom rng,
     int idx,
   ) {
-    final snippet = article.snippet ?? '';
+    final snippet = _sanitize(article.snippet ?? '');
     if (snippet.trim().length < 50) return null;
 
     final sentences = _extractSentences(snippet)
@@ -243,6 +243,7 @@ class QuizGenerator {
 
   // ─── CLOZE ────────────────────────────────────────────────────────────────
   // Extract a sentence, blank a key word, generate plausible distractors.
+  // Falls back to the title when no usable snippet is available.
 
   QuizQuestion? _buildClozeQuestion(
     NewsArticle article,
@@ -250,58 +251,86 @@ class QuizGenerator {
     _SeededRandom rng,
     int idx,
   ) {
-    final snippet = article.snippet ?? '';
-    if (snippet.trim().length < 60) return null;
+    final rawSnippet = _sanitize(article.snippet ?? '');
+    final hasSnippet = rawSnippet.trim().length >= 60;
+    final title = _sanitize(article.title);
+    // Use snippet when available, otherwise fall back to title (≥4 words)
+    final base = hasSnippet
+        ? rawSnippet
+        : (title.split(RegExp(r'\s+')).length >= 4 ? title : '');
+    if (base.trim().length < 20) return null;
 
-    final sentences = _extractSentences(snippet);
-    String? selectedSentence;
-    String? blankWord;
+    final sentences = _extractSentences(base);
+    final candidates =
+        sentences.isNotEmpty ? sentences : [base.trim()];
+
+    // selectedSentenceBlanked already contains '___'
+    String? selectedSentenceBlanked;
+    String? blankWord; // clean version shown as a choice
     String? blankType; // 'entity' | 'number'
 
     // Prefer sentences with a named entity (more meaningful blanks)
-    for (final sent in sentences) {
-      if (sent.trim().length < 25 || sent.trim().length > 230) continue;
+    for (final sent in candidates) {
+      if (sent.trim().length < 20 || sent.trim().length > 230) continue;
       final words = sent.trim().split(RegExp(r'\s+'));
-      if (words.length < 6) continue;
+      if (words.length < 4) continue;
 
-      // Look for a mid-sentence capitalized word (named entity candidate)
-      for (int wi = 1; wi < words.length; wi++) {
-        final clean = words[wi].replaceAll(RegExp(r'[^\w\-]'), '');
-        if (clean.length >= 3 &&
-            RegExp(r'^[A-Z]').hasMatch(clean) &&
-            !RegExp(r'^[A-Z]+$').hasMatch(clean)) {
-          blankWord = clean;
-          selectedSentence = sent.trim();
-          blankType = 'entity';
-          break;
-        }
+      // For snippets skip position 0 (sentence-start capital is noise).
+      // For titles every word is content so start at 0.
+      final startIdx = hasSnippet ? 1 : 0;
+      for (int wi = startIdx; wi < words.length; wi++) {
+        final rawWord = words[wi];
+        final clean = rawWord.replaceAll(RegExp(r'[^\w\-]'), '');
+        if (clean.length < 3) continue;
+        if (!RegExp(r'^[A-Z]').hasMatch(clean)) continue;
+        if (RegExp(r'^[A-Z]+$').hasMatch(clean) && clean.length <= 3) continue;
+
+        // Replace the raw word (with punctuation) so '___' is always inserted
+        final candidate = sent.trim().replaceFirst(rawWord, '___');
+        if (!candidate.contains('___')) continue; // silent failure guard
+
+        blankWord = clean;
+        selectedSentenceBlanked = candidate;
+        blankType = 'entity';
+        break;
       }
       if (blankWord != null) break;
     }
 
     // Fallback: sentence with a number+unit
     if (blankWord == null) {
-      for (final sent in sentences) {
+      for (final sent in candidates) {
         final nm = _extractNumbersWithUnits(sent);
         if (nm.isNotEmpty) {
           final m = nm.first;
-          blankWord = '${m.rawNumber}${m.unit}';
-          selectedSentence = sent.trim();
-          blankType = 'number';
-          break;
+          final rawBlank = '${m.rawNumber}${m.unit}';
+          final candidate = sent.trim().replaceFirst(rawBlank, '___');
+          if (candidate.contains('___')) {
+            blankWord = rawBlank;
+            selectedSentenceBlanked = candidate;
+            blankType = 'number';
+            break;
+          }
+          // Try number without unit
+          final candidate2 = sent.trim().replaceFirst(m.rawNumber, '___');
+          if (candidate2.contains('___')) {
+            blankWord = rawBlank;
+            selectedSentenceBlanked = candidate2;
+            blankType = 'number';
+            break;
+          }
         }
       }
     }
 
-    if (selectedSentence == null ||
+    if (selectedSentenceBlanked == null ||
         blankWord == null ||
         blankWord.length < 2) {
       return null;
     }
 
-    final blanked = selectedSentence.replaceFirst(blankWord, '___');
     final prompt =
-        'Complétez la phrase extraite de l\'article :\n"${_truncate(blanked, max: 160)}"';
+        'Complétez la phrase extraite de l\'article :\n"${_truncate(selectedSentenceBlanked, max: 160)}"';
 
     final distractors = <String>{};
 
@@ -315,14 +344,17 @@ class QuizGenerator {
     } else {
       // Entity distractors: from other articles + static bank
       distractors.addAll(
-        _buildEntityPool(_detectDomain(article), others)
-            .where((e) => e != blankWord && !selectedSentence!.contains(e)),
+        _buildEntityPool(_detectDomain(article), others).where(
+          (e) =>
+              e != blankWord &&
+              !selectedSentenceBlanked!.contains(e),
+        ),
       );
-      // Also add entities from other articles' snippets
       for (final other in others) {
         distractors.addAll(
-          _extractNamedEntities('${other.title} ${other.snippet ?? ''}')
-              .where((e) => e != blankWord),
+          _extractNamedEntities(
+            _sanitize('${other.title} ${other.snippet ?? ''}'),
+          ).where((e) => e != blankWord),
         );
       }
     }
@@ -355,7 +387,7 @@ class QuizGenerator {
     _SeededRandom rng,
     int idx,
   ) {
-    final text = '${article.title} ${article.snippet ?? ''}';
+    final text = _sanitize('${article.title} ${article.snippet ?? ''}');
     final matches = _extractNumbersWithUnits(text);
     if (matches.isEmpty) return null;
 
@@ -393,8 +425,13 @@ class QuizGenerator {
     _SeededRandom rng,
     int idx,
   ) {
-    final text = '${article.title} ${article.snippet ?? ''}';
-    final entities = _extractNamedEntities(text);
+    final text = _sanitize('${article.title} ${article.snippet ?? ''}');
+    // _extractNamedEntities skips position-0 words per sentence (noise filter).
+    // For the title we also extract ALL positions since every word is content.
+    final entities = {
+      ..._extractNamedEntities(text),
+      ..._extractTitleEntities(_sanitize(article.title)),
+    }.toList();
     if (entities.isEmpty) return null;
 
     rng.shuffle(entities);
@@ -408,12 +445,11 @@ class QuizGenerator {
     // From other articles
     for (final other in others) {
       distractorPool.addAll(
-        _extractNamedEntities('${other.title} ${other.snippet ?? ''}')
-            .where(
-              (e) =>
-                  e != correct &&
-                  !articleLower.contains(e.toLowerCase()),
-            ),
+        _extractNamedEntities(
+          _sanitize('${other.title} ${other.snippet ?? ''}'),
+        ).where(
+          (e) => e != correct && !articleLower.contains(e.toLowerCase()),
+        ),
       );
     }
 
@@ -454,9 +490,9 @@ class QuizGenerator {
     _SeededRandom rng,
     int idx,
   ) {
-    final text = '${article.title} ${article.snippet ?? ''}';
+    final text = _sanitize('${article.title} ${article.snippet ?? ''}');
     final otherTexts =
-        others.map((a) => '${a.title} ${a.snippet ?? ''}').toList();
+        others.map((a) => _sanitize('${a.title} ${a.snippet ?? ''}')).toList();
     final keywords = _extractKeywords(text, otherTexts);
     if (keywords.isEmpty) return null;
 
@@ -496,14 +532,19 @@ class QuizGenerator {
     final wrongs = distList.take(3).toList();
     if (wrongs.length < 2) return null;
 
-    final choices = [correct, ...wrongs];
+    // Capitalize for display (keywords are extracted in lowercase)
+    String cap(String w) =>
+        w.isEmpty ? w : w[0].toUpperCase() + w.substring(1);
+
+    final choices = [correct, ...wrongs].map(cap).toList();
+    final correctDisplay = cap(correct);
     rng.shuffle(choices);
 
     return QuizQuestion(
       id: 'q${idx}_keyword_${article.id}',
       prompt: 'Lequel de ces termes est un mot-clé central de cet article ?',
       choices: choices,
-      correctIndex: choices.indexOf(correct),
+      correctIndex: choices.indexOf(correctDisplay),
       type: QuizQuestionType.keyword,
       sourceArticleUrl: article.url,
     );
@@ -517,13 +558,13 @@ class QuizGenerator {
     _SeededRandom rng,
   ) {
     final withSnippets = articles
-        .where((a) => (a.snippet ?? '').trim().length >= 50)
+        .where((a) => _sanitize(a.snippet ?? '').trim().length >= 50)
         .toList();
     if (withSnippets.length < 2) return null;
 
     rng.shuffle(withSnippets);
     final target = withSnippets.first;
-    final sentences = _extractSentences(target.snippet!)
+    final sentences = _extractSentences(_sanitize(target.snippet!))
         .where((s) => s.trim().length >= 35 && s.trim().length <= 160)
         .toList();
     if (sentences.isEmpty) return null;
@@ -634,12 +675,57 @@ class QuizGenerator {
 
   // ─── TEXT UTILITIES ───────────────────────────────────────────────────────
 
-  List<String> _extractSentences(String text) {
+  /// Supprime toutes les URLs (http/https/ftp) d'un texte brut.
+  /// Évite que des liens GDELT se retrouvent dans les questions.
+  String _sanitize(String text) {
     return text
+        .replaceAll(RegExp(r'https?://\S+'), '')
+        .replaceAll(RegExp(r'ftp://\S+'), '')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
+  }
+
+  List<String> _extractSentences(String text) {
+    return _sanitize(text)
         .split(RegExp(r'(?<=[.!?])\s+'))
         .map((s) => s.trim())
-        .where((s) => s.length >= 10)
+        // Rejette tout fragment qui contient encore un schéma URL ou ressemble
+        // à un nom de domaine seul (ex: "reuters.com")
+        .where(
+          (s) =>
+              s.length >= 10 &&
+              !RegExp(r'https?://', caseSensitive: false).hasMatch(s) &&
+              !RegExp(r'^\s*\w+\.\w{2,4}\s*$').hasMatch(s),
+        )
         .toList();
+  }
+
+  /// Extracts ALL capitalized-word sequences from a title (no position skip).
+  /// Used for titles where every word is content (unlike sentence-first words).
+  List<String> _extractTitleEntities(String title) {
+    final words = title.split(RegExp(r'\s+'));
+    final entities = <String>[];
+    StringBuffer? current;
+    for (final word in words) {
+      final clean = word.replaceAll(RegExp(r'[^\w\-]'), '');
+      if (clean.isEmpty) continue;
+      final isCapitalized =
+          RegExp(r'^[A-Z]').hasMatch(clean) &&
+          clean.length >= 2 &&
+          !(clean.length <= 3 && RegExp(r'^[A-Z]+$').hasMatch(clean));
+      if (isCapitalized) {
+        current ??= StringBuffer();
+        if (current.isNotEmpty) current.write(' ');
+        current.write(clean);
+      } else {
+        if (current != null) {
+          entities.add(current.toString().trim());
+          current = null;
+        }
+      }
+    }
+    if (current != null) entities.add(current.toString().trim());
+    return entities.where((e) => e.isNotEmpty).toSet().toList();
   }
 
   /// Extracts capitalized-word sequences that are NOT at the start of a sentence.
@@ -835,7 +921,9 @@ class QuizGenerator {
     final pool = <String>[..._staticEntityBank(domain)];
     for (final other in others) {
       pool.addAll(
-        _extractNamedEntities('${other.title} ${other.snippet ?? ''}'),
+        _extractNamedEntities(
+          _sanitize('${other.title} ${other.snippet ?? ''}'),
+        ),
       );
     }
     return pool.toSet().toList();

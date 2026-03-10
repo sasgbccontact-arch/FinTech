@@ -14,15 +14,13 @@ import '../models/chart_models.dart';
 import '../widgets/help_fab.dart';
 import '../services/yahoo_finance_service.dart';
 import 'info_page.dart';
-import 'community_page.dart';
 import 'goal_page.dart';
 import '../features/daily_news_game/ui/daily_news_game_sheet.dart';
+import 'income_statement_game_page.dart';
 import 'simulation_game.dart';
 import 'shop_page.dart';
 import 'compte_terme.dart';
 import 'package:fintech/core/constants.dart';
-
-
 
 const LinearGradient _accentGradient = LinearGradient(
   colors: [detailsColor1, detailsColor2],
@@ -101,7 +99,9 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
     final oldRef = userRef.collection('learning').doc('progress');
     final newRef = userRef.collection('games').doc('progress');
 
@@ -152,248 +152,115 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
     final user = FirebaseAuth.instance.currentUser;
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: user != null ? FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots() : null,
+      stream:
+          user != null
+              ? FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots()
+              : null,
       builder: (context, userSnapshot) {
-        final bool isAdmin = (userSnapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ?? false;
+        final bool isAdmin =
+            (userSnapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ??
+            false;
 
         return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        leading: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-          stream:
-              FirebaseAuth.instance.currentUser != null
-                  ? FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(FirebaseAuth.instance.currentUser!.uid)
-                      .snapshots()
-                  : null,
-          builder: (context, snapshot) {
-            final avatarId = snapshot.data?.data()?['avatar_id'] as String?;
-            return IconButton(
-              icon:
-                  avatarId != null
-                      ? Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(
-                            image: AssetImage(_getAvatarAsset(avatarId)),
-                            fit: BoxFit.cover,
+          backgroundColor: backgroundColor,
+          appBar: AppBar(
+            leading: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseAuth.instance.currentUser != null
+                      ? FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(FirebaseAuth.instance.currentUser!.uid)
+                          .snapshots()
+                      : null,
+              builder: (context, snapshot) {
+                final avatarId = snapshot.data?.data()?['avatar_id'] as String?;
+                return IconButton(
+                  icon:
+                      avatarId != null
+                          ? Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              image: DecorationImage(
+                                image: AssetImage(_getAvatarAsset(avatarId)),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          )
+                          : const Icon(
+                            Icons.account_circle_rounded,
+                            color: textColor,
+                            size: 28,
                           ),
-                        ),
-                      )
-                      : const Icon(
-                        Icons.account_circle_rounded,
-                        color: textColor,
-                        size: 28,
-                      ),
-              onPressed: () => _showUserProfile(context, isAdmin),
-            );
-          },
-        ),
-        
-        actions: [
-          IconButton(
-            icon: Icon(Icons.groups_rounded, color: textColor.withOpacity(0.75), size: 24),
-            tooltip: 'Jeux communautaires',
-            onPressed: () => showCupertinoModalBottomSheet(
-              context: context,
-              builder: (_) => const CommunityPage(),
+                  onPressed: () => _showUserProfile(context, isAdmin),
+                );
+              },
             ),
-          ),
-          StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseAuth.instance.currentUser != null
-                ? FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(FirebaseAuth.instance.currentUser!.uid)
-                    .collection('quests')
-                    .doc('daily')
-                    .snapshots()
-                : null,
-            builder: (context, snapshot) {
-              bool hasPendingReward = false;
-              if (snapshot.hasData && snapshot.data!.exists) {
-                final data = snapshot.data!.data() as Map<String, dynamic>;
-                final now = DateTime.now();
-                final todayStr = "${now.year}-${now.month}-${now.day}";
-                
-                if (data['date'] == todayStr) {
-                  final qDone = (data['quizzes_done'] ?? 0) >= 1 && !(data['claimed_quizzes'] ?? false);
-                  final lDone = (data['lessons_done'] ?? 0) >= 1 && !(data['claimed_lessons'] ?? false);
-                  final tDone = (data['trades_done'] ?? 0) >= 1 && !(data['claimed_trades'] ?? false);
-                  hasPendingReward = qDone || lDone || tDone;
-                }
-              }
 
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.checklist_rounded, color: textColor, size: 28),
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GoalPage())),
-                  ),
-                  if (hasPendingReward)
-                    Positioned(
-                      top: 12,
-                      right: 10,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      ),
-                    ),
-                ],
-              );
-            },
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 300),
+                  child: const _HeaderBalance(),
+                ),
+              ),
+            ],
+            backgroundColor: backgroundColor,
+            surfaceTintColor: backgroundColor,
+            elevation: 0,
+            centerTitle: false,
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 300),
-              child: const _HeaderBalance(),
-            ),
+          floatingActionButton: const HelpFab(
+            helpText:
+                "Ici, vous pouvez participer à des simulations de marché. Choisissez un scénario, gérez votre portefeuille face à des événements et gagnez des récompenses.",
           ),
-        ],
-        backgroundColor: backgroundColor,
-surfaceTintColor: backgroundColor,
-elevation: 0,
-        centerTitle: false,
-      ),
-      floatingActionButton: const HelpFab(
-        helpText:
-            "Ici, vous pouvez participer à des simulations de marché. Choisissez un scénario, gérez votre portefeuille face à des événements et gagnez des récompenses.",
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          body: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              const Expanded(child: _ShopAccessCard()),
-              const SizedBox(width: 12),
-              Expanded(child: _DailyRewardCard(isAdmin: isAdmin)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Expanded(child: _ShopAccessCard()),
+                  const SizedBox(width: 12),
+                  const Expanded(child: _QuestAccessCard()),
+                ],
+              ),
+              _SimulationHubAccessCard(
+                isAdmin: isAdmin,
+                scenarioCount: _scenarios.length,
+                completedCount: _completedScenarios.length,
+                loading: _isLoadingScenarios,
+                onTap: () => _openSimulationHub(isAdmin),
+              ),
+              const _NewsGameCard(),
+              _TermDepositAccessCard(isAdmin: isAdmin),
+              const _IncomeStatementGameCard(),
             ],
           ),
-          _GamePortfolio(isAdmin: isAdmin),
-          _DailyQuizCard(isAdmin: isAdmin),
-          const _NewsGameCard(),
-          const TermDepositSection(),
-          Card(
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            elevation: 2,
-            color: Colors.white,
-            clipBehavior: Clip.antiAlias,
-            child: ExpansionTile(
-              title: const Text(
-                'Simulation Games',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              leading: const Icon(
-                Icons.sports_esports_rounded,
-                color: Colors.black,
-              ),
-              initiallyExpanded: false,
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              children:
-                  // On enveloppe la liste dans un StreamBuilder pour écouter l'XP et calculer le niveau
-                  [StreamBuilder<DocumentSnapshot>(
-                    stream: user != null ? FirebaseFirestore.instance.collection('users').doc(user.uid).collection('games').doc('progress').snapshots() : null,
-                    builder: (context, progressSnapshot) {
-                      final data = progressSnapshot.data?.data() as Map<String, dynamic>?;
-                      final xp = data?['xp'] as int? ?? 0;
-                      final level = (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
-                      
-                      // Récupération des scénarios complétés depuis le stream pour la réactivité
-                      final completedSet = (data?['completed_scenarios'] as List?)?.map((e) => e.toString()).toSet() ?? _completedScenarios;
-                      
-                      return Column(
-                        children: 
-                  _isLoadingScenarios
-                      ? const [
-                        Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(16),
-                            child: CircularProgressIndicator(),
-                          ),
-                        ),
-                      ]
-                      : _loadingError != null
-                      ? [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              Text(
-                                _loadingError!,
-                                style: const TextStyle(color: Colors.red),
-                                textAlign: TextAlign.center,
-                              ),
-                              TextButton(
-                                onPressed: _loadScenarios,
-                                child: const Text("Réessayer"),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ]
-                      : () {
-                        // On prépare une liste avec l'index d'origine pour le calcul du niveau
-                        final entries = _scenarios.asMap().entries.toList();
-
-                        // Tri : Non complétés en premier, Complétés en dernier.
-                        // En cas d'égalité, on garde l'ordre d'origine (index).
-                        entries.sort((a, b) {
-                          final aCompleted = completedSet.contains(a.value.id);
-                          final bCompleted = completedSet.contains(b.value.id);
-                          
-                          if (aCompleted != bCompleted) {
-                            return aCompleted ? 1 : -1;
-                          }
-                          return a.key.compareTo(b.key);
-                        });
-
-                        return entries.map<Widget>((entry) {
-                          final index = entry.key; // Index d'origine
-                          final scenario = entry.value;
-                          final isCompleted = completedSet.contains(scenario.id);
-                          
-                          // Logique : 3 scénarios par niveau.
-                          // Niveau 1 : indices 0, 1, 2 débloqués.
-                          // Niveau 2 : indices 3, 4, 5 débloqués, etc.
-                          final requiredLevel = (index / 3).floor() + 1;
-                          final isLocked = !isAdmin && (level < requiredLevel);
-
-                          return Padding(
-                            key: ValueKey(scenario.id),
-                            padding: const EdgeInsets.only(top: 12),
-                            child: ScenarioCard(
-                              scenario: scenario,
-                              isCompleted: isCompleted,
-                              isLocked: isLocked,
-                              requiredLevel: requiredLevel,
-                              onTap:
-                                  isLocked
-                                      ? () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Niveau $requiredLevel requis !")))
-                                      : (isCompleted && !isAdmin)
-                                          ? null
-                                          : () => _openScenario(scenario),
-                            ),
-                          );
-                        }).toList();
-                      }(),
-                      );
-                    }
-                  )],
-            ),
-          ),
-        ],
-      ),
-    );
+        );
       },
+    );
+  }
+
+  Future<void> _openSimulationHub(bool isAdmin) async {
+    await showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      builder:
+          (_) => _SimulationHubSheet(
+            isAdmin: isAdmin,
+            scenarios: _scenarios,
+            completedScenarios: _completedScenarios,
+            isLoadingScenarios: _isLoadingScenarios,
+            loadingError: _loadingError,
+            onRetry: _loadScenarios,
+            onOpenScenario: _openScenario,
+          ),
     );
   }
 
@@ -406,11 +273,7 @@ elevation: 0,
     if (result == true && mounted) {
       await Navigator.push(
         context,
-          MaterialPageRoute(
-            builder: (_) => SimulationRunner(scenario: scenario),
-          ),
-
-
+        MaterialPageRoute(builder: (_) => SimulationRunner(scenario: scenario)),
       );
       _loadGameProgress();
     }
@@ -419,7 +282,8 @@ elevation: 0,
   void _showUserProfile(BuildContext context, bool isAdmin) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
+      builder:
+          (context) => Dialog(
             backgroundColor: Colors.transparent,
             insetPadding: const EdgeInsets.all(20),
             child: SingleChildScrollView(
@@ -431,6 +295,7 @@ elevation: 0,
 }
 
 class _DailyRewardCard extends StatefulWidget {
+  // ignore: unused_element_parameter
   const _DailyRewardCard({this.isAdmin = false});
   final bool isAdmin;
 
@@ -523,9 +388,7 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
     }
 
     try {
-      final ref = FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid);
+      final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
 
       await ref.set({
         type: FieldValue.increment(amount),
@@ -563,10 +426,9 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .update({'last_daily_reward': FieldValue.delete()});
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+      'last_daily_reward': FieldValue.delete(),
+    });
     _checkStatus();
   }
 
@@ -657,6 +519,460 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
   }
 }
 
+class _QuestAccessCard extends StatelessWidget {
+  const _QuestAccessCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream:
+          FirebaseAuth.instance.currentUser != null
+              ? FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(FirebaseAuth.instance.currentUser!.uid)
+                  .collection('quests')
+                  .doc('daily')
+                  .snapshots()
+              : null,
+      builder: (context, snapshot) {
+        bool hasPendingReward = false;
+        if (snapshot.hasData && snapshot.data!.exists) {
+          final data = snapshot.data!.data() ?? <String, dynamic>{};
+          final now = DateTime.now();
+          final todayStr = "${now.year}-${now.month}-${now.day}";
+          if (data['date'] == todayStr) {
+            final qDone =
+                (data['quizzes_done'] ?? 0) >= 1 &&
+                !(data['claimed_quizzes'] ?? false);
+            final lDone =
+                (data['lessons_done'] ?? 0) >= 1 &&
+                !(data['claimed_lessons'] ?? false);
+            final tDone =
+                (data['trades_done'] ?? 0) >= 1 &&
+                !(data['claimed_trades'] ?? false);
+            hasPendingReward = qDone || lDone || tDone;
+          }
+        }
+
+        return GestureDetector(
+          onTap:
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GoalPage()),
+              ),
+          child: Stack(
+            children: [
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.black.withOpacity(0.06)),
+                  boxShadow: _softShadow,
+                ),
+                height: 140,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: _accentGradient,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.checklist_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          "Quêtes & Succès",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: textColor,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      hasPendingReward
+                          ? 'Récompense dispo'
+                          : 'Progression du jour',
+                      style: TextStyle(
+                        color: hasPendingReward ? Colors.red : Colors.black54,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (hasPendingReward)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GameHubCard extends StatelessWidget {
+  const _GameHubCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+          boxShadow: _softShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                gradient: _accentGradient,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.black38,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SimulationHubAccessCard extends StatelessWidget {
+  const _SimulationHubAccessCard({
+    required this.isAdmin,
+    required this.scenarioCount,
+    required this.completedCount,
+    required this.loading,
+    required this.onTap,
+  });
+
+  final bool isAdmin;
+  final int scenarioCount;
+  final int completedCount;
+  final bool loading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle =
+        loading
+            ? 'Chargement des scénarios en cours...'
+            : scenarioCount == 0
+            ? 'Ouvre le hub pour charger ta simulation'
+            : '$scenarioCount scénarios • $completedCount terminés';
+    return _GameHubCard(
+      title: 'Simulation portefeuille',
+      subtitle: subtitle,
+      icon: Icons.show_chart_rounded,
+      onTap: onTap,
+    );
+  }
+}
+
+class _TermDepositAccessCard extends StatelessWidget {
+  const _TermDepositAccessCard({required this.isAdmin});
+
+  final bool isAdmin;
+
+  @override
+  Widget build(BuildContext context) {
+    return _GameHubCard(
+      title: 'Compte à terme',
+      subtitle:
+          isAdmin
+              ? 'Gère les dépôts et les rendements garantis'
+              : 'Place tes pièces ou gemmes avec rendement garanti',
+      icon: Icons.savings_rounded,
+      onTap:
+          () => showCupertinoModalBottomSheet(
+            context: context,
+            expand: true,
+            builder: (_) => const _TermDepositHubSheet(),
+          ),
+    );
+  }
+}
+
+class _IncomeStatementGameCard extends StatelessWidget {
+  const _IncomeStatementGameCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _GameHubCard(
+      title: 'Stock Analyst',
+      subtitle: 'Score fondamental automatique sur 100',
+      icon: Icons.receipt_long_rounded,
+      onTap:
+          () => showCupertinoModalBottomSheet(
+            context: context,
+            expand: true,
+            builder: (_) => const IncomeStatementGamePage(),
+          ),
+    );
+  }
+}
+
+class _TermDepositHubSheet extends StatelessWidget {
+  const _TermDepositHubSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: backgroundColor,
+        surfaceTintColor: backgroundColor,
+        elevation: 0,
+        title: const Text(
+          'Compte à terme',
+          style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: const [TermDepositSection()],
+        ),
+      ),
+    );
+  }
+}
+
+class _SimulationHubSheet extends StatelessWidget {
+  const _SimulationHubSheet({
+    required this.isAdmin,
+    required this.scenarios,
+    required this.completedScenarios,
+    required this.isLoadingScenarios,
+    required this.loadingError,
+    required this.onRetry,
+    required this.onOpenScenario,
+  });
+
+  final bool isAdmin;
+  final List<PortfolioScenario> scenarios;
+  final Set<String> completedScenarios;
+  final bool isLoadingScenarios;
+  final String? loadingError;
+  final VoidCallback onRetry;
+  final Future<void> Function(PortfolioScenario scenario) onOpenScenario;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        backgroundColor: backgroundColor,
+        surfaceTintColor: backgroundColor,
+        elevation: 0,
+        title: const Text(
+          'Simulation portefeuille',
+          style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.black.withOpacity(0.06)),
+                boxShadow: _softShadow,
+              ),
+              child: const Text(
+                "Retrouve ici ton portefeuille de jeu et tous les scénarios de simulation de marché.",
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                  height: 1.4,
+                ),
+              ),
+            ),
+            _GamePortfolio(isAdmin: isAdmin),
+            StreamBuilder<DocumentSnapshot>(
+              stream:
+                  user != null
+                      ? FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(user.uid)
+                          .collection('games')
+                          .doc('progress')
+                          .snapshots()
+                      : null,
+              builder: (context, progressSnapshot) {
+                final data =
+                    progressSnapshot.data?.data() as Map<String, dynamic>?;
+                final xp = data?['xp'] as int? ?? 0;
+                final level =
+                    (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
+                final completedSet =
+                    (data?['completed_scenarios'] as List?)
+                        ?.map((e) => e.toString())
+                        .toSet() ??
+                    completedScenarios;
+
+                if (isLoadingScenarios) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (loadingError != null) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Text(
+                          loadingError!,
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
+                        ),
+                        TextButton(
+                          onPressed: onRetry,
+                          child: const Text('Réessayer'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                if (scenarios.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Aucun scénario disponible pour le moment.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  );
+                }
+
+                final entries = scenarios.asMap().entries.toList();
+                entries.sort((a, b) {
+                  final aCompleted = completedSet.contains(a.value.id);
+                  final bCompleted = completedSet.contains(b.value.id);
+                  if (aCompleted != bCompleted) {
+                    return aCompleted ? 1 : -1;
+                  }
+                  return a.key.compareTo(b.key);
+                });
+
+                return Column(
+                  children:
+                      entries.map<Widget>((entry) {
+                        final index = entry.key;
+                        final scenario = entry.value;
+                        final isCompleted = completedSet.contains(scenario.id);
+                        final requiredLevel = (index / 3).floor() + 1;
+                        final isLocked = !isAdmin && (level < requiredLevel);
+
+                        return Padding(
+                          key: ValueKey(scenario.id),
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ScenarioCard(
+                            scenario: scenario,
+                            isCompleted: isCompleted,
+                            isLocked: isLocked,
+                            requiredLevel: requiredLevel,
+                            onTap:
+                                isLocked
+                                    ? () => ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          "Niveau $requiredLevel requis !",
+                                        ),
+                                      ),
+                                    )
+                                    : (isCompleted && !isAdmin)
+                                    ? null
+                                    : () => onOpenScenario(scenario),
+                          ),
+                        );
+                      }).toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _GamePortfolio extends StatefulWidget {
   const _GamePortfolio({this.isAdmin = false});
   final bool isAdmin;
@@ -685,7 +1001,11 @@ class _GamePortfolioState extends State<_GamePortfolio> {
           .collection('positions')
           .snapshots()
           .listen(_onPositionsUpdate);
-      _userSubscription = FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots().listen(_checkInvestmentAchievement);
+      _userSubscription = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots()
+          .listen(_checkInvestmentAchievement);
     }
   }
 
@@ -708,7 +1028,7 @@ class _GamePortfolioState extends State<_GamePortfolio> {
 
   Future<void> _checkInvestmentAchievement(DocumentSnapshot snapshot) async {
     if (_positions.isEmpty) return;
-    
+
     double totalInvested = 0;
     for (var doc in _positions) {
       final data = doc.data() as Map<String, dynamic>;
@@ -718,7 +1038,9 @@ class _GamePortfolioState extends State<_GamePortfolio> {
     }
 
     final userData = snapshot.data() as Map<String, dynamic>?;
-    final achievements = List<String>.from(userData?['achievements_claimed'] ?? []);
+    final achievements = List<String>.from(
+      userData?['achievements_claimed'] ?? [],
+    );
 
     if (totalInvested >= 50000 && !achievements.contains('investor_50k')) {
       final user = FirebaseAuth.instance.currentUser;
@@ -731,12 +1053,22 @@ class _GamePortfolioState extends State<_GamePortfolio> {
           'gems': FieldValue.increment(100),
         }, SetOptions(merge: true));
 
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('games').doc('progress').set({
-          'xp': FieldValue.increment(400),
-        }, SetOptions(merge: true));
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('games')
+            .doc('progress')
+            .set({'xp': FieldValue.increment(400)}, SetOptions(merge: true));
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Succès débloqué : Investisseur (50k) ! Avatar Rich + 400 XP + 100 Gemmes"), backgroundColor: Colors.purple));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Succès débloqué : Investisseur (50k) ! Avatar Rich + 400 XP + 100 Gemmes",
+              ),
+              backgroundColor: Colors.purple,
+            ),
+          );
         }
       } catch (e) {
         debugPrint("Error unlocking investor achievement: $e");
@@ -783,11 +1115,14 @@ class _GamePortfolioState extends State<_GamePortfolio> {
     final symbols = _positions.map((d) => d['symbol'] as String).toSet();
     final quantities = {
       for (var d in _positions)
-        d['symbol'] as String: (d.data() as Map<String, dynamic>)['quantity'] as num
+        d['symbol'] as String:
+            (d.data() as Map<String, dynamic>)['quantity'] as num,
     };
 
     try {
-      final futures = symbols.map((s) => YahooFinanceService.fetchHistoricalSeries(s, interval));
+      final futures = symbols.map(
+        (s) => YahooFinanceService.fetchHistoricalSeries(s, interval),
+      );
       final results = await Future.wait(futures);
 
       final historyMap = <String, List<HistoricalPoint>>{};
@@ -802,19 +1137,30 @@ class _GamePortfolioState extends State<_GamePortfolio> {
       for (var s in symbols) {
         final points = historyMap[s] ?? [];
         final qty = quantities[s]?.toDouble() ?? 0.0;
-        
+
         for (var p in points) {
-           // Normalisation à la journée pour aligner les points
-           final dateKey = DateTime(p.time.year, p.time.month, p.time.day);
-           aggregated.update(dateKey, (val) => val + (p.close * qty), ifAbsent: () => p.close * qty);
+          // Normalisation à la journée pour aligner les points
+          final dateKey = DateTime(p.time.year, p.time.month, p.time.day);
+          aggregated.update(
+            dateKey,
+            (val) => val + (p.close * qty),
+            ifAbsent: () => p.close * qty,
+          );
         }
       }
-      
-      final points = aggregated.entries.map((e) => _HistoryPoint(time: e.key, value: e.value)).toList();
-      
+
+      final points =
+          aggregated.entries
+              .map((e) => _HistoryPoint(time: e.key, value: e.value))
+              .toList();
+
       if (mounted) {
         setState(() {
-          _historySeries = _HistorySeries(points: points, currency: 'coins', normalized: false);
+          _historySeries = _HistorySeries(
+            points: points,
+            currency: 'coins',
+            normalized: false,
+          );
         });
       }
     } catch (e) {
@@ -828,12 +1174,19 @@ class _GamePortfolioState extends State<_GamePortfolio> {
     if (user == null) return const SizedBox.shrink();
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .snapshots(),
       builder: (context, snapshot) {
         final userData = snapshot.data?.data() as Map<String, dynamic>?;
-        final unlockedAvatars = List<String>.from(userData?['unlocked_avatars'] ?? []);
+        final unlockedAvatars = List<String>.from(
+          userData?['unlocked_avatars'] ?? [],
+        );
         // '_student' est débloqué à la fin du Chapitre 1 (voir learn_page.dart)
-        final bool isUnlocked = widget.isAdmin || unlockedAvatars.contains('_student');
+        final bool isUnlocked =
+            widget.isAdmin || unlockedAvatars.contains('_student');
 
         if (!isUnlocked) {
           return Container(
@@ -987,7 +1340,12 @@ class _SparklineChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final points = series.points;
     if (points.length < 2) {
-      return Center(child: Text('Historique insuffisant.', style: TextStyle(color: textColor.withOpacity(0.65))));
+      return Center(
+        child: Text(
+          'Historique insuffisant.',
+          style: TextStyle(color: textColor.withOpacity(0.65)),
+        ),
+      );
     }
     // Utilisation de la palette harmonisée
     const color = detailsColor2;
@@ -1001,7 +1359,9 @@ class _SparklineChart extends StatelessWidget {
             bottom: 0,
             child: Text(
               "${points.first.value.toStringAsFixed(0)} coins",
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: textColor.withOpacity(0.55)),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: textColor.withOpacity(0.55),
+              ),
             ),
           ),
           Positioned(
@@ -1034,7 +1394,8 @@ class _SparklinePainter extends CustomPainter {
     final fillPath = Path();
     final minValue = points.map((p) => p.value).reduce(math.min);
     final maxValue = points.map((p) => p.value).reduce(math.max);
-    final range = (maxValue - minValue).abs() < 1e-6 ? 1.0 : maxValue - minValue;
+    final range =
+        (maxValue - minValue).abs() < 1e-6 ? 1.0 : maxValue - minValue;
     final first = points.first;
 
     double translateX(int index) => (index / (points.length - 1)) * size.width;
@@ -1056,20 +1417,22 @@ class _SparklinePainter extends CustomPainter {
     fillPath.lineTo(translateX(points.length - 1), size.height);
     fillPath.close();
 
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = color;
-    final fillPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          detailsColor1.withOpacity(0.22),
-          detailsColor2.withOpacity(0.08),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    final paint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = color;
+    final fillPaint =
+        Paint()
+          ..style = PaintingStyle.fill
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              detailsColor1.withOpacity(0.22),
+              detailsColor2.withOpacity(0.08),
+            ],
+          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
@@ -1133,7 +1496,10 @@ class _PortfolioItem extends StatelessWidget {
                 ),
                 Text(
                   "$qty actions • PRU ${pru.toStringAsFixed(2)}",
-                  style: TextStyle(color: textColor.withOpacity(0.55), fontSize: 12),
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.55),
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -1157,7 +1523,10 @@ class _PortfolioItem extends StatelessWidget {
                   ),
                   Text(
                     "Cours: ${currentPrice!.toStringAsFixed(2)}",
-                    style: TextStyle(color: textColor.withOpacity(0.55), fontSize: 12),
+                    style: TextStyle(
+                      color: textColor.withOpacity(0.55),
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               )
@@ -1171,6 +1540,7 @@ class _PortfolioItem extends StatelessWidget {
 }
 
 class _DailyQuizCard extends StatefulWidget {
+  // ignore: unused_element_parameter
   const _DailyQuizCard({this.isAdmin = false});
   final bool isAdmin;
 
@@ -1273,15 +1643,17 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
       if (!refresh && _questions.isNotEmpty) {
         final today = DateTime.now();
         final dateStr = "${today.year}-${today.month}-${today.day}";
-        final questDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('quests')
-            .doc('daily')
-            .get();
+        final questDoc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .collection('quests')
+                .doc('daily')
+                .get();
 
         if (questDoc.exists && questDoc.data()?['date'] == dateStr) {
-          final int done = (questDoc.data()?['quizzes_done'] as num?)?.toInt() ?? 0;
+          final int done =
+              (questDoc.data()?['quizzes_done'] as num?)?.toInt() ?? 0;
           if (done > 0) {
             _completed = true;
             _restoredFromHistory = true;
@@ -1447,11 +1819,11 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(20),
-  border: Border.all(color: Colors.black.withOpacity(0.06)),
-  boxShadow: _softShadow,
-),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.black.withOpacity(0.06)),
+          boxShadow: _softShadow,
+        ),
         child: Row(
           children: [
             const Icon(Icons.lock_outline_rounded, color: Colors.grey),
@@ -1475,11 +1847,11 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(20),
-  border: Border.all(color: Colors.green.withOpacity(0.30)),
-  boxShadow: _softShadow,
-),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.green.withOpacity(0.30)),
+          boxShadow: _softShadow,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1499,25 +1871,25 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
             ),
             const SizedBox(height: 12),
             Container(
-  decoration: BoxDecoration(
-    gradient: _accentGradient,
-    borderRadius: BorderRadius.circular(12),
-    boxShadow: _softShadow,
-  ),
-  child: ElevatedButton.icon(
-    onPressed: _buyNewQuestions,
-    icon: const Icon(Icons.refresh_rounded, size: 18),
-    label: const Text('Nouveau quiz (5 💎)'),
-    style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.transparent,
-      shadowColor: Colors.transparent,
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-    ),
-  ),
-),
+              decoration: BoxDecoration(
+                gradient: _accentGradient,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: _softShadow,
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _buyNewQuestions,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Nouveau quiz (5 💎)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
             if (widget.isAdmin)
               TextButton.icon(
                 onPressed: _resetQuiz,
@@ -1537,11 +1909,11 @@ class _DailyQuizCardState extends State<_DailyQuizCard> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-  color: Colors.white,
-  borderRadius: BorderRadius.circular(20),
-  border: Border.all(color: Colors.black.withOpacity(0.06)),
-  boxShadow: _softShadow,
-),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        boxShadow: _softShadow,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -1722,7 +2094,9 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
             userData?['Name'] as String? ?? user.displayName ?? 'Joueur';
         final avatarId = userData?['avatar_id'] as String?;
         final coins = (userData?['coins'] as num?)?.toInt() ?? 0;
-        final achievements = List<String>.from(userData?['achievements_claimed'] ?? []);
+        final achievements = List<String>.from(
+          userData?['achievements_claimed'] ?? [],
+        );
         final unlockedAvatars =
             (userData?['unlocked_avatars'] as List?)
                 ?.map((e) => e.toString())
@@ -1765,7 +2139,8 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
 
             if (streak > maxStreak) maxStreak = streak;
 
-            final level = (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
+            final level =
+                (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
             final startXp = 500 * (math.pow(1.2, level - 1) - 1);
             final nextLevelXp = 500 * (math.pow(1.2, level) - 1);
             final range = nextLevelXp - startXp;
@@ -1779,26 +2154,41 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
 
             // --- Gestion Succès : 10 000 pièces ---
             if (coins >= 10000 && !achievements.contains('wealthy_10k')) {
-               WidgetsBinding.instance.addPostFrameCallback((_) async {
-                 try {
-                   await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-                     'achievements_claimed': FieldValue.arrayUnion(['wealthy_10k']),
-                     'unlocked_avatars': FieldValue.arrayUnion(['_wealthy']),
-                   }, SetOptions(merge: true));
-                   
-                   await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('games').doc('progress').set({
-                     'xp': FieldValue.increment(200),
-                   }, SetOptions(merge: true));
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                try {
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .set({
+                        'achievements_claimed': FieldValue.arrayUnion([
+                          'wealthy_10k',
+                        ]),
+                        'unlocked_avatars': FieldValue.arrayUnion(['_wealthy']),
+                      }, SetOptions(merge: true));
 
-                   if (mounted) {
-                     ScaffoldMessenger.of(context).showSnackBar(
-                       const SnackBar(content: Text("Succès débloqué : Économe (10k) ! Avatar Wealthy + 200 XP"), backgroundColor: Colors.purple),
-                     );
-                   }
-                 } catch (e) {
-                   debugPrint("Error unlocking wealthy achievement: $e");
-                 }
-               });
+                  await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('games')
+                      .doc('progress')
+                      .set({
+                        'xp': FieldValue.increment(200),
+                      }, SetOptions(merge: true));
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "Succès débloqué : Économe (10k) ! Avatar Wealthy + 200 XP",
+                        ),
+                        backgroundColor: Colors.purple,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint("Error unlocking wealthy achievement: $e");
+                }
+              });
             }
 
             // Gestion des récompenses de niveau
@@ -1841,16 +2231,22 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                     'last_rewarded_level': level,
                   }, SetOptions(merge: true));
 
-                  FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-                    'coins': FieldValue.increment(totalCoins),
-                    'gems': FieldValue.increment(totalGems),
-                    if (newAvatars.isNotEmpty) 'unlocked_avatars': FieldValue.arrayUnion(newAvatars),
-                  }, SetOptions(merge: true));
+                  FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .set({
+                        'coins': FieldValue.increment(totalCoins),
+                        'gems': FieldValue.increment(totalGems),
+                        if (newAvatars.isNotEmpty)
+                          'unlocked_avatars': FieldValue.arrayUnion(newAvatars),
+                      }, SetOptions(merge: true));
 
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Niveau $level atteint ! +$totalGems Gemmes, +$totalCoins Pièces${newAvatars.isNotEmpty ? ', Avatar débloqué !' : ''}'),
+                        content: Text(
+                          'Niveau $level atteint ! +$totalGems Gemmes, +$totalCoins Pièces${newAvatars.isNotEmpty ? ', Avatar débloqué !' : ''}',
+                        ),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -2103,12 +2499,13 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
     // Avatars cachés tant qu'ils ne sont pas débloqués (codes secrets)
     final Set<String> secretAvatars = {'_easteregg', '_sydsteregg'};
 
-    final List<String> allAvatars = specialAvatars.where((id) {
-      if (secretAvatars.contains(id)) {
-        return widget.isAdmin || unlockedAvatars.contains(id);
-      }
-      return true;
-    }).toList();
+    final List<String> allAvatars =
+        specialAvatars.where((id) {
+          if (secretAvatars.contains(id)) {
+            return widget.isAdmin || unlockedAvatars.contains(id);
+          }
+          return true;
+        }).toList();
 
     // Tri : Les avatars débloqués s'affichent en premier
     allAvatars.sort((a, b) {
@@ -2286,11 +2683,17 @@ class _HeaderBalance extends StatelessWidget {
     if (user == null) return const SizedBox.shrink();
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .snapshots(),
       builder: (context, userSnap) {
-        final coins = (userSnap.data?.data() as Map<String, dynamic>?)?['coins'] ?? 0;
-        final gems = (userSnap.data?.data() as Map<String, dynamic>?)?['gems'] ?? 0;
-        
+        final coins =
+            (userSnap.data?.data() as Map<String, dynamic>?)?['coins'] ?? 0;
+        final gems =
+            (userSnap.data?.data() as Map<String, dynamic>?)?['gems'] ?? 0;
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
@@ -2322,7 +2725,11 @@ class _HeaderBalance extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Icon(Icons.monetization_on_rounded, color: detailsColor1, size: 16),
+              const Icon(
+                Icons.monetization_on_rounded,
+                color: detailsColor1,
+                size: 16,
+              ),
               const SizedBox(width: 4),
               Text(
                 "$coins",
@@ -2335,7 +2742,7 @@ class _HeaderBalance extends StatelessWidget {
             ],
           ),
         );
-      }
+      },
     );
   }
 }
@@ -2349,63 +2756,15 @@ class _NewsGameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => showCupertinoModalBottomSheet(
-        context: context,
-        builder: (_) => const DailyNewsGameSheet(),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
-          boxShadow: _softShadow,
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                gradient: _accentGradient,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.newspaper_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Actu & Quiz',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    "Lis l'actu et teste tes connaissances",
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.black38,
-              size: 22,
-            ),
-          ],
-        ),
-      ),
+    return _GameHubCard(
+      title: 'Actu & Quiz',
+      subtitle: "Lis l'actu et teste tes connaissances",
+      icon: Icons.newspaper_rounded,
+      onTap:
+          () => showCupertinoModalBottomSheet(
+            context: context,
+            builder: (_) => const DailyNewsGameSheet(),
+          ),
     );
   }
 }
@@ -2433,7 +2792,11 @@ class _MetalsNotifToggleState extends State<_MetalsNotifToggle> {
 
   Future<void> _load() async {
     final v = await MetalsNotificationService.isEnabled();
-    if (mounted) setState(() { _enabled = v; _loading = false; });
+    if (mounted)
+      setState(() {
+        _enabled = v;
+        _loading = false;
+      });
   }
 
   Future<void> _toggle(bool value) async {
