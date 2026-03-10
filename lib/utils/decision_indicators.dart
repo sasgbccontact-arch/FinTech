@@ -4,28 +4,50 @@ import 'package:fintech/services/yahoo_finance_service.dart' show QuoteDetail;
 enum DecisionValueType { currency, percent, ratio, quantity, text }
 
 const Map<String, String> _indicatorDefinitions = {
-  'revenue': 'C’est l’argent total que l’entreprise gagne en vendant ses produits ou services. On aime une croissance régulière sans à-coups.',
-  'net_income': 'Bénéfice net après impôts et charges. C’est le “vrai” résultat qui reste pour les actionnaires. Idéalement croissant et positif.',
-  'eps': 'Bénéfice net par action. Sert à comparer dans le temps et entre entreprises. Progression régulière = business solide.',
-  'ebitda': 'Résultat avant intérêts, impôts, dépréciations et amortissements. Approche du cash opérationnel. Formule: EBITDA = Résultat op + D&A.',
-  'ebit': 'Résultat opérationnel (après amortissements). Mesure la profitabilité du cœur de métier. Formule: EBIT = CA - coûts opérationnels - D&A.',
-  'operating_margin': 'Marge d’exploitation = EBIT / CA. Indique la rentabilité du cœur de métier. Plus c’est stable/élevé, mieux c’est.',
-  'net_margin': 'Marge nette = Résultat net / CA. Montre ce qu’il reste sur 1€ de vente. Utile pour comparer les secteurs.',
-  'dividend_yield': 'Rendement du dividende = Dividende annuel / Prix. À mettre en balance avec la qualité/risque et la capacité à maintenir ce dividende.',
-  'dividend_history': 'Historique de dividendes (stabilité, croissance). Une trajectoire régulière rassure, une coupe signalerait un risque.',
-  'payout_ratio': 'Taux de distribution = Dividendes / Résultat net ou FCF. >80% peut être fragile; <30% laisse de la marge pour croître.',
-  'per': 'PER (Price/Earnings) = Prix / BPA. Compare le prix payé à 1€ de bénéfice. Plus utile vs pairs et historique de l’entreprise.',
-  'peg': 'PEG = PER / Croissance du BPA. <1 suggère un prix raisonnable vs croissance attendue (si les prévisions sont fiables).',
-  'book_value': 'Valeur comptable (capitaux propres). Approximation de ce qui resterait si on liquidait les actifs au bilan.',
-  'bvps': 'Book Value Per Share = Capitaux propres / nombre d’actions. Sert à calculer le P/B.',
-  'intrinsic_value': 'Estimation de valeur intrinsèque (ex: DCF ou modèles internes). À comparer au prix pour juger la décote/surcote.',
-  'pbr': 'Price-to-Book (P/B) = Prix / BVPS. Pertinent pour banques/assureurs. <1 peut indiquer décote (ou risque).',
-  'equity': 'Capitaux propres (actifs - dettes). Base de solvabilité et coussin de pertes.',
-  'roa': 'ROA = Résultat net / Actifs. Mesure l’efficacité d’utilisation des actifs. À comparer au secteur.',
-  'roe': 'ROE = Résultat net / Capitaux propres. Indique la rentabilité pour l’actionnaire. Un ROE élevé et stable est recherché.',
-  'cash_debt': 'Trésorerie vs dette. Voir si le cash couvre une partie de la dette. Ratio simple: Cash / Dette.',
-  'leverage': 'Levier financier (ex: Dette nette / EBITDA). Mesure la charge d’endettement. >3-4x = zone de vigilance selon les secteurs.',
-  'float_shares': 'Actions flottantes (actions réellement disponibles au marché). Float faible = volatilité possible, float élevé = plus de liquidité.',
+  'revenue':
+      'C’est l’argent total que l’entreprise gagne en vendant ses produits ou services. On aime une croissance régulière sans à-coups.',
+  'net_income':
+      'Bénéfice net après impôts et charges. C’est le “vrai” résultat qui reste pour les actionnaires. Idéalement croissant et positif.',
+  'eps':
+      'Bénéfice net par action. Sert à comparer dans le temps et entre entreprises. Progression régulière = business solide.',
+  'ebitda':
+      'Résultat avant intérêts, impôts, dépréciations et amortissements. Approche du cash opérationnel. Formule: EBITDA = Résultat op + D&A.',
+  'ebit':
+      'Résultat opérationnel (après amortissements). Mesure la profitabilité du cœur de métier. Formule: EBIT = CA - coûts opérationnels - D&A.',
+  'operating_margin':
+      'Marge d’exploitation = EBIT / CA. Indique la rentabilité du cœur de métier. Plus c’est stable/élevé, mieux c’est.',
+  'net_margin':
+      'Marge nette = Résultat net / CA. Montre ce qu’il reste sur 1€ de vente. Utile pour comparer les secteurs.',
+  'dividend_yield':
+      'Rendement du dividende = Dividende annuel / Prix. À mettre en balance avec la qualité/risque et la capacité à maintenir ce dividende.',
+  'dividend_history':
+      'Historique de dividendes (stabilité, croissance). Une trajectoire régulière rassure, une coupe signalerait un risque.',
+  'payout_ratio':
+      'Taux de distribution = Dividendes / Résultat net ou FCF. >80% peut être fragile; <30% laisse de la marge pour croître.',
+  'per':
+      'PER (Price/Earnings) = Prix / BPA. Compare le prix payé à 1€ de bénéfice. Plus utile vs pairs et historique de l’entreprise.',
+  'peg':
+      'PEG = PER / Croissance du BPA. <1 suggère un prix raisonnable vs croissance attendue (si les prévisions sont fiables).',
+  'book_value':
+      'Valeur comptable (capitaux propres). Approximation de ce qui resterait si on liquidait les actifs au bilan.',
+  'bvps':
+      'Book Value Per Share = Capitaux propres / nombre d’actions. Sert à calculer le P/B.',
+  'intrinsic_value':
+      'Estimation de valeur intrinsèque (ex: DCF ou modèles internes). À comparer au prix pour juger la décote/surcote.',
+  'pbr':
+      'Price-to-Book (P/B) = Prix / BVPS. Pertinent pour banques/assureurs. <1 peut indiquer décote (ou risque).',
+  'equity':
+      'Capitaux propres (actifs - dettes). Base de solvabilité et coussin de pertes.',
+  'roa':
+      'ROA = Résultat net / Actifs. Mesure l’efficacité d’utilisation des actifs. À comparer au secteur.',
+  'roe':
+      'ROE = Résultat net / Capitaux propres. Indique la rentabilité pour l’actionnaire. Un ROE élevé et stable est recherché.',
+  'cash_debt':
+      'Trésorerie vs dette. Voir si le cash couvre une partie de la dette. Ratio simple: Cash / Dette.',
+  'leverage':
+      'Levier financier (ex: Dette nette / EBITDA). Mesure la charge d’endettement. >3-4x = zone de vigilance selon les secteurs.',
+  'float_shares':
+      'Actions flottantes (actions réellement disponibles au marché). Float faible = volatilité possible, float élevé = plus de liquidité.',
 };
 
 class DecisionIndicator {
@@ -55,7 +77,8 @@ class DecisionIndicator {
 
   bool get hasPrimaryValue => value != null;
   bool get hasSecondaryValue => secondaryValue != null;
-  bool get hasCustomDisplay => customDisplay != null && customDisplay!.isNotEmpty;
+  bool get hasCustomDisplay =>
+      customDisplay != null && customDisplay!.isNotEmpty;
 }
 
 List<DecisionIndicator> buildDecisionIndicators(
@@ -73,7 +96,8 @@ List<DecisionIndicator> buildDecisionIndicators(
   void addIfAvailable(DecisionIndicator indicator) {
     final hasPrimary = indicator.hasPrimaryValue;
     final hasSecondary = indicator.hasSecondaryValue;
-    final hasCustom = indicator.hasCustomDisplay && !_isPlaceholder(indicator.customDisplay);
+    final hasCustom =
+        indicator.hasCustomDisplay && !_isPlaceholder(indicator.customDisplay);
     if (!hasPrimary && !hasSecondary && !hasCustom) return;
     indicators.add(indicator);
   }
@@ -151,8 +175,7 @@ List<DecisionIndicator> buildDecisionIndicators(
     ),
   );
 
-  final dividendYield =
-      snapshot?.dividendYield ?? quote?.dividendYield;
+  final dividendYield = snapshot?.dividendYield ?? quote?.dividendYield;
   addIfAvailable(
     DecisionIndicator(
       id: 'dividend_yield',

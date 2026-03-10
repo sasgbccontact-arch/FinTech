@@ -112,11 +112,18 @@ class FinancialSnapshot {
     final summaryProfile = asMap(summary['summaryProfile']);
     final fundProfile = asMap(summary['fundProfile']);
     final balanceSheetHistory = asMap(summary['balanceSheetHistory']);
-    final balanceSheetHistoryQuarterly = asMap(summary['balanceSheetHistoryQuarterly']);
+    final balanceSheetHistoryQuarterly = asMap(
+      summary['balanceSheetHistoryQuarterly'],
+    );
     final incomeStatementHistory = asMap(summary['incomeStatementHistory']);
-    final incomeStatementHistoryQuarterly = asMap(summary['incomeStatementHistoryQuarterly']);
+    final incomeStatementHistoryQuarterly = asMap(
+      summary['incomeStatementHistoryQuarterly'],
+    );
 
-    Map<String, dynamic>? firstFromHistory(Map<String, dynamic>? history, String key) {
+    Map<String, dynamic>? firstFromHistory(
+      Map<String, dynamic>? history,
+      String key,
+    ) {
       if (history == null) return null;
       final list = asList(history[key]);
       if (list == null || list.isEmpty) return null;
@@ -124,15 +131,27 @@ class FinancialSnapshot {
     }
 
     Map<String, dynamic>? _latestBalanceSheet() {
-      final yearly = firstFromHistory(balanceSheetHistory, 'balanceSheetStatements');
+      final yearly = firstFromHistory(
+        balanceSheetHistory,
+        'balanceSheetStatements',
+      );
       if (yearly != null) return yearly;
-      return firstFromHistory(balanceSheetHistoryQuarterly, 'balanceSheetStatements');
+      return firstFromHistory(
+        balanceSheetHistoryQuarterly,
+        'balanceSheetStatements',
+      );
     }
 
     Map<String, dynamic>? _latestIncomeStatement() {
-      final yearly = firstFromHistory(incomeStatementHistory, 'incomeStatementHistory');
+      final yearly = firstFromHistory(
+        incomeStatementHistory,
+        'incomeStatementHistory',
+      );
       if (yearly != null) return yearly;
-      return firstFromHistory(incomeStatementHistoryQuarterly, 'incomeStatementHistory');
+      return firstFromHistory(
+        incomeStatementHistoryQuarterly,
+        'incomeStatementHistory',
+      );
     }
 
     final latestBalanceSheet = _latestBalanceSheet();
@@ -143,11 +162,15 @@ class FinancialSnapshot {
     double? readSummaryDetail(String key) =>
         summaryDetail == null ? null : readNum(summaryDetail[key]);
     double? readKeyStatistic(String key) =>
-        defaultKeyStatistics == null ? null : readNum(defaultKeyStatistics[key]);
+        defaultKeyStatistics == null
+            ? null
+            : readNum(defaultKeyStatistics[key]);
     double? readBalanceSheet(String key) =>
         latestBalanceSheet == null ? null : readNum(latestBalanceSheet[key]);
     double? readIncomeStatement(String key) =>
-        latestIncomeStatement == null ? null : readNum(latestIncomeStatement[key]);
+        latestIncomeStatement == null
+            ? null
+            : readNum(latestIncomeStatement[key]);
     String? readFundCategory() {
       final value = fundProfile?["category"] ?? summaryProfile?["category"];
       if (value == null) return null;
@@ -170,15 +193,22 @@ class FinancialSnapshot {
     }
 
     final totalAssets = readBalanceOrFinancial('totalAssets');
-    final totalLiabilities = readBalanceOrFinancial('totalLiab', alternate: 'totalLiabilities');
-    final stockholderEquity = readBalanceOrFinancial(
+    final totalLiabilities = readBalanceOrFinancial(
+      'totalLiab',
+      alternate: 'totalLiabilities',
+    );
+    final stockholderEquity =
+        readBalanceOrFinancial(
           'totalStockholderEquity',
           alternate: 'totalEquityGrossMinorityInterest',
-        ) ?? readBalanceOrFinancial('commonStockEquity');
-    final sharesOutstanding = readKeyStatistic('sharesOutstanding') ??
+        ) ??
+        readBalanceOrFinancial('commonStockEquity');
+    final sharesOutstanding =
+        readKeyStatistic('sharesOutstanding') ??
         readKeyStatistic('shares') ??
         readFinancialData('sharesOutstanding');
-    final marketCap = readKeyStatistic('marketCap') ?? readFinancialData('marketCap');
+    final marketCap =
+        readKeyStatistic('marketCap') ?? readFinancialData('marketCap');
 
     double? computeBookValue(double? bvps) {
       if (bvps != null && sharesOutstanding != null) {
@@ -191,19 +221,25 @@ class FinancialSnapshot {
     }
 
     return FinancialSnapshot(
-      revenue: readFinancialData('totalRevenue') ?? readIncomeStatement('totalRevenue'),
+      revenue:
+          readFinancialData('totalRevenue') ??
+          readIncomeStatement('totalRevenue'),
       netIncome: readIncomeStatement('netIncome'),
       eps: readFinancialData('eps'),
       ebitda: readFinancialData('ebitda'),
-      ebit: readIncomeStatement('ebit') ??
+      ebit:
+          readIncomeStatement('ebit') ??
           readIncomeStatement('operatingIncome') ??
           readFinancialData('ebit') ??
           readFinancialData('operatingIncome'),
       operatingMargin: readFinancialData('operatingMargins'),
       netMargin: readFinancialData('profitMargins'),
-      dividendYield: readSummaryDetail('dividendYield') ?? readFinancialData('dividendYield'),
+      dividendYield:
+          readSummaryDetail('dividendYield') ??
+          readFinancialData('dividendYield'),
       payoutRatio: readSummaryDetail('payoutRatio'),
-      pegRatio: readKeyStatistic('pegRatio') ??
+      pegRatio:
+          readKeyStatistic('pegRatio') ??
           readFinancialData('pegRatio') ??
           readSummaryDetail('pegRatio'),
       enterpriseValue: readFinancialData('enterpriseValue'),
@@ -215,7 +251,9 @@ class FinancialSnapshot {
       capitalExpenditures: readFinancialData('capitalExpenditures'),
       freeCashflow: readFinancialData('freeCashflow'),
       capexToRevenue: _computeCapexToRevenue(
-        revenue: readFinancialData('totalRevenue') ?? readIncomeStatement('totalRevenue'),
+        revenue:
+            readFinancialData('totalRevenue') ??
+            readIncomeStatement('totalRevenue'),
         capex: readFinancialData('capitalExpenditures'),
       ),
       freeCashflowYield: _computeFcfYield(
@@ -223,7 +261,8 @@ class FinancialSnapshot {
         marketCap: marketCap,
       ),
       marketCap: marketCap,
-      bookValuePerShare: readKeyStatistic('bookValue') ?? readFinancialData('bookValue'),
+      bookValuePerShare:
+          readKeyStatistic('bookValue') ?? readFinancialData('bookValue'),
       bookValue: computeBookValue(
         readKeyStatistic('bookValue') ?? readFinancialData('bookValue'),
       ),
@@ -238,14 +277,25 @@ class FinancialSnapshot {
         ebitda: readFinancialData('ebitda'),
       ),
       floatShares: readKeyStatistic('floatShares'),
-      trailingPe: readKeyStatistic('trailingPE') ?? readFinancialData('trailingPE'),
-      trailingAnnualDividendRate: readSummaryDetail('trailingAnnualDividendRate'),
-      trailingAnnualDividendYield: readSummaryDetail('trailingAnnualDividendYield'),
+      trailingPe:
+          readKeyStatistic('trailingPE') ?? readFinancialData('trailingPE'),
+      trailingAnnualDividendRate: readSummaryDetail(
+        'trailingAnnualDividendRate',
+      ),
+      trailingAnnualDividendYield: readSummaryDetail(
+        'trailingAnnualDividendYield',
+      ),
       netAssets: readSummaryDetail('netAssets'),
-      expenseRatio: readSummaryDetail('annualReportExpenseRatio') ?? readSummaryDetail('managementExpenseRatio'),
-      ytdReturn: readSummaryDetail('ytdReturn') ?? readFinancialData('ytdReturn'),
-      threeYearAverageReturn: readSummaryDetail('threeYearAverageReturn') ?? readFinancialData('threeYearAverageReturn'),
-      betaThreeYear: readKeyStatistic('beta3Year') ?? readSummaryDetail('beta3Year'),
+      expenseRatio:
+          readSummaryDetail('annualReportExpenseRatio') ??
+          readSummaryDetail('managementExpenseRatio'),
+      ytdReturn:
+          readSummaryDetail('ytdReturn') ?? readFinancialData('ytdReturn'),
+      threeYearAverageReturn:
+          readSummaryDetail('threeYearAverageReturn') ??
+          readFinancialData('threeYearAverageReturn'),
+      betaThreeYear:
+          readKeyStatistic('beta3Year') ?? readSummaryDetail('beta3Year'),
       fundCategory: readFundCategory(),
     );
   }
@@ -262,7 +312,8 @@ class FinancialSnapshot {
   }
 
   static double? _computeFcfYield({double? freeCashflow, double? marketCap}) {
-    if (freeCashflow == null || marketCap == null || marketCap.abs() < 1e-9) return null;
+    if (freeCashflow == null || marketCap == null || marketCap.abs() < 1e-9)
+      return null;
     return freeCashflow / marketCap;
   }
 }

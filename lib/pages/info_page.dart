@@ -25,6 +25,7 @@ class InfoPage extends StatefulWidget {
     this.initialExchange,
     this.initialCurrency,
     this.initialQuoteType,
+    this.isAdmin = false,
   });
 
   final String? ticker;
@@ -32,6 +33,7 @@ class InfoPage extends StatefulWidget {
   final String? initialExchange;
   final String? initialCurrency;
   final String? initialQuoteType;
+  final bool isAdmin;
 
   @override
   State<InfoPage> createState() => _InfoPageState();
@@ -66,15 +68,19 @@ class _InfoPageState extends State<InfoPage> {
   Set<String> _newsFavoriteMatches = const <String>{};
   Set<String> _newsTickerMatches = const <String>{};
   _PeriodDelta? _periodDelta;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _favoriteSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _favoriteSubscription;
   bool _favoriteStatusReady = false;
   bool _isFavorite = false;
   bool _favoriteUpdating = false;
   String? _favoriteListenSymbol;
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _portfolioSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _portfolioSubscription;
   List<_PortfolioInfo> _portfolios = const <_PortfolioInfo>[];
+  StreamSubscription<DocumentSnapshot>? _userSubscription;
   bool _portfoliosReady = false;
   bool _portfolioUpdating = false;
+  bool _isAdmin = false;
   static const List<String> _shortMonths = <String>[
     'janv.',
     'févr.',
@@ -90,6 +96,13 @@ class _InfoPageState extends State<InfoPage> {
     'déc.',
   ];
 
+  // Palette (same style as SearchPage)
+  static const Color _bg = backgroundColor;
+  static const Color _ink = textColor;
+  static const Color _gold = detailsColor1;
+  static const Color _wine = detailsColor2;
+  static const Color _chipBg = Color(0xFFF0F1F3);
+
   @override
   void initState() {
     super.initState();
@@ -97,6 +110,7 @@ class _InfoPageState extends State<InfoPage> {
     _exchange = widget.initialExchange;
     _currency = widget.initialCurrency;
     _quoteType = widget.initialQuoteType;
+    _listenToUserAdmin();
     _listenToPortfolios();
   }
 
@@ -157,11 +171,15 @@ class _InfoPageState extends State<InfoPage> {
                 if (variationTexts.isNotEmpty) ...[
                   const SizedBox(width: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
-                      color: changePositive
-                          ? Colors.green.shade100
-                          : Colors.red.shade100,
+                      color:
+                          changePositive
+                              ? Colors.green.shade100
+                              : Colors.red.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
@@ -178,9 +196,10 @@ class _InfoPageState extends State<InfoPage> {
                         Text(
                           variationTexts.join(' · '),
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: changePositive
-                                ? Colors.green.shade800
-                                : Colors.red.shade800,
+                            color:
+                                changePositive
+                                    ? Colors.green.shade800
+                                    : Colors.red.shade800,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -193,17 +212,16 @@ class _InfoPageState extends State<InfoPage> {
           ],
         ),
         const SizedBox(height: 20),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              priceText ?? '—',
-              style: theme.textTheme.displaySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+        Center(
+          child: Text(
+            priceText ?? '—',
+            style: theme.textTheme.displaySmall?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-          ],
+          ),
         ),
+        const SizedBox(height: 16),
+        Center(child: _buildTradeButtons(theme)),
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 14),
           _InsightHighlightRow(highlights: highlights),
@@ -301,9 +319,26 @@ class _InfoPageState extends State<InfoPage> {
   @override
   void dispose() {
     _favoriteSubscription?.cancel();
+    _userSubscription?.cancel();
     _portfolioSubscription?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _listenToUserAdmin() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    _userSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _isAdmin = snapshot.data()?['isAdmin'] ?? false;
+        });
+      }
+    });
   }
 
   void _listenToPortfolios() {
@@ -341,16 +376,17 @@ class _InfoPageState extends State<InfoPage> {
 
     _portfolioSubscription = query.snapshots().listen(
       (snapshot) {
-        final items = snapshot.docs.map((doc) {
-          final data = doc.data();
-          final rawName = (data['name'] as String?)?.trim() ?? '';
-          final count = (data['positionsCount'] as num?)?.toInt() ?? 0;
-          return _PortfolioInfo(
-            id: doc.id,
-            name: rawName.isEmpty ? 'Portefeuille' : rawName,
-            positionsCount: count,
-          );
-        }).toList();
+        final items =
+            snapshot.docs.map((doc) {
+              final data = doc.data();
+              final rawName = (data['name'] as String?)?.trim() ?? '';
+              final count = (data['positionsCount'] as num?)?.toInt() ?? 0;
+              return _PortfolioInfo(
+                id: doc.id,
+                name: rawName.isEmpty ? 'Portefeuille' : rawName,
+                positionsCount: count,
+              );
+            }).toList();
 
         if (!mounted) return;
         setState(() {
@@ -484,14 +520,10 @@ class _InfoPageState extends State<InfoPage> {
       } else {
         final data = <String, dynamic>{
           'symbol': symbol,
-          'name': _displayName ??
-              _quote?.longName ??
-              _quote?.shortName ??
-              symbol,
-          'exchange': _exchange ??
-              _quote?.fullExchangeName ??
-              _quote?.exchange ??
-              '',
+          'name':
+              _displayName ?? _quote?.longName ?? _quote?.shortName ?? symbol,
+          'exchange':
+              _exchange ?? _quote?.fullExchangeName ?? _quote?.exchange ?? '',
           'currency': _currency ?? _quote?.currency ?? '',
           'quoteType': _quoteType ?? _quote?.quoteType ?? 'UNKNOWN',
           'addedAt': FieldValue.serverTimestamp(),
@@ -512,7 +544,9 @@ class _InfoPageState extends State<InfoPage> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de la mise à jour des favoris.')),
+          const SnackBar(
+            content: Text('Erreur lors de la mise à jour des favoris.'),
+          ),
         );
       }
     } finally {
@@ -531,36 +565,36 @@ class _InfoPageState extends State<InfoPage> {
     final bool hasTicker = _ticker != null && _ticker!.trim().isNotEmpty;
     final bool isLoading = !_favoriteStatusReady || _favoriteUpdating;
     final bool selected = _isFavorite && _favoriteStatusReady;
-    final Color iconColor =
-        selected
-            ? Colors.redAccent
-            : theme.textTheme.bodyMedium?.color?.withOpacity(0.65) ?? Colors.black54;
+   final Color iconColor =
+    selected ? _wine : (theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65) ?? Colors.black54);
     final bool enabled = user != null && hasTicker && !isLoading;
 
     final Widget visual =
         isLoading
             ? SizedBox(
-                key: const ValueKey<String>('favorite-loading'),
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(iconColor),
-                ),
-              )
+              key: const ValueKey<String>('favorite-loading'),
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+              ),
+            )
             : Icon(
-                selected ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                key: ValueKey<bool>(selected),
-                color: iconColor,
-                size: 22,
-              );
+              selected
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_outline_rounded,
+              key: ValueKey<bool>(selected),
+              color: iconColor,
+              size: 22,
+            );
 
     final tooltip =
         user == null
             ? 'Connectez-vous pour gérer vos favoris'
             : selected
-                ? 'Retirer des favoris'
-                : 'Ajouter aux favoris';
+            ? 'Retirer des favoris'
+            : 'Ajouter aux favoris';
 
     return Tooltip(
       message: tooltip,
@@ -573,21 +607,17 @@ class _InfoPageState extends State<InfoPage> {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color:
-                selected
-                    ? Colors.redAccent.withOpacity(0.12)
-                    : Colors.black.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color:
-                  selected
-                      ? Colors.redAccent.withOpacity(0.4)
-                      : Colors.black.withOpacity(0.05),
-            ),
-          ),
+  color: selected ? _wine.withValues(alpha: 0.10) : Colors.black.withValues(alpha: 0.04),
+  borderRadius: BorderRadius.circular(14),
+  border: Border.all(
+    color: selected ? _wine.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.05),
+  ),
+),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
-            transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+            transitionBuilder:
+                (child, animation) =>
+                    ScaleTransition(scale: animation, child: child),
             child: visual,
           ),
         ),
@@ -617,7 +647,10 @@ class _InfoPageState extends State<InfoPage> {
     }
   }
 
-  Future<void> _addSymbolToPortfolio(String portfolioId, String portfolioName) async {
+  Future<void> _addSymbolToPortfolio(
+    String portfolioId,
+    String portfolioName,
+  ) async {
     final symbol = _ticker?.trim();
     if (symbol == null || symbol.isEmpty) {
       return;
@@ -627,7 +660,9 @@ class _InfoPageState extends State<InfoPage> {
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Connectez-vous pour gérer vos portefeuilles.')),
+          const SnackBar(
+            content: Text('Connectez-vous pour gérer vos portefeuilles.'),
+          ),
         );
       }
       return;
@@ -635,7 +670,9 @@ class _InfoPageState extends State<InfoPage> {
 
     final quote = _quote;
     final currentPrice = quote?.regularMarketPrice ?? quote?.previousClose;
-    final positionDetails = await _promptPositionDetails(currentPrice: currentPrice);
+    final positionDetails = await _promptPositionDetails(
+      currentPrice: currentPrice,
+    );
     if (positionDetails == null) {
       return;
     }
@@ -664,16 +701,16 @@ class _InfoPageState extends State<InfoPage> {
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connectez-vous pour gérer vos portefeuilles.')),
+        const SnackBar(
+          content: Text('Connectez-vous pour gérer vos portefeuilles.'),
+        ),
       );
       return;
     }
 
     final quote = _quote;
-    final displayName = _displayName ??
-        quote?.longName ??
-        quote?.shortName ??
-        symbol;
+    final displayName =
+        _displayName ?? quote?.longName ?? quote?.shortName ?? symbol;
 
     final data = <String, dynamic>{
       'symbol': symbol,
@@ -701,9 +738,9 @@ class _InfoPageState extends State<InfoPage> {
         data: data,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ajouté à "$portfolioName".')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ajouté à "$portfolioName".')));
     } on FirebaseException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -716,7 +753,9 @@ class _InfoPageState extends State<InfoPage> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de l’ajout au portefeuille.')),
+        const SnackBar(
+          content: Text('Erreur lors de l’ajout au portefeuille.'),
+        ),
       );
     }
   }
@@ -726,7 +765,9 @@ class _InfoPageState extends State<InfoPage> {
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connectez-vous pour créer un portefeuille.')),
+        const SnackBar(
+          content: Text('Connectez-vous pour créer un portefeuille.'),
+        ),
       );
       return;
     }
@@ -738,34 +779,38 @@ class _InfoPageState extends State<InfoPage> {
 
     String? newPortfolioId;
     await _withPortfolioUpdating(() async {
-      newPortfolioId = await PortfolioService.createPortfolio(uid: user.uid, name: name);
+      newPortfolioId = await PortfolioService.createPortfolio(
+        uid: user.uid,
+        name: name,
+      );
     });
 
     if (!mounted || newPortfolioId == null) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Portefeuille "$name" créé.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Portefeuille "$name" créé.')));
 
     final quote = _quote;
     final currentPrice = quote?.regularMarketPrice ?? quote?.previousClose;
-    final positionDetails = await _promptPositionDetails(currentPrice: currentPrice);
+    final positionDetails = await _promptPositionDetails(
+      currentPrice: currentPrice,
+    );
     if (positionDetails == null) {
       return;
     }
 
     await _withPortfolioUpdating(
-      () => _addSymbolToPortfolioInternal(
-        newPortfolioId!,
-        name,
-        positionDetails,
-      ),
+      () =>
+          _addSymbolToPortfolioInternal(newPortfolioId!, name, positionDetails),
     );
   }
 
-  Future<_PositionFormResult?> _promptPositionDetails({double? currentPrice}) async {
+  Future<_PositionFormResult?> _promptPositionDetails({
+    double? currentPrice,
+  }) async {
     final quantityController = TextEditingController(text: '1');
     final costController = TextEditingController(
       text: currentPrice != null ? currentPrice.toStringAsFixed(2) : '',
@@ -785,7 +830,10 @@ class _InfoPageState extends State<InfoPage> {
                 TextFormField(
                   controller: quantityController,
                   autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: false,
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Quantité',
                     hintText: 'Ex: 12.5',
@@ -804,10 +852,16 @@ class _InfoPageState extends State<InfoPage> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: costController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: false),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: false,
+                  ),
                   decoration: InputDecoration(
                     labelText: 'PRU (optionnel)',
-                    hintText: currentPrice != null ? currentPrice.toStringAsFixed(2) : null,
+                    hintText:
+                        currentPrice != null
+                            ? currentPrice.toStringAsFixed(2)
+                            : null,
                   ),
                   validator: (value) {
                     final trimmed = value?.trim() ?? '';
@@ -835,8 +889,11 @@ class _InfoPageState extends State<InfoPage> {
                 if (!(formKey.currentState?.validate() ?? false)) {
                   return;
                 }
-                final quantity = _parseNumericInput(quantityController.text.trim())!;
-                final costBasis = _parseNumericInput(costController.text.trim());
+                final quantity =
+                    _parseNumericInput(quantityController.text.trim())!;
+                final costBasis = _parseNumericInput(
+                  costController.text.trim(),
+                );
                 Navigator.of(dialogContext).pop(
                   _PositionFormResult(quantity: quantity, costBasis: costBasis),
                 );
@@ -856,7 +913,9 @@ class _InfoPageState extends State<InfoPage> {
     return double.tryParse(normalized);
   }
 
-  List<PopupMenuEntry<_PortfolioMenuOption>> _buildPortfolioMenuEntries(ThemeData theme) {
+  List<PopupMenuEntry<_PortfolioMenuOption>> _buildPortfolioMenuEntries(
+    ThemeData theme,
+  ) {
     final entries = <PopupMenuEntry<_PortfolioMenuOption>>[];
 
     if (_portfolios.isEmpty) {
@@ -873,7 +932,11 @@ class _InfoPageState extends State<InfoPage> {
             value: _PortfolioMenuOption.select(portfolio),
             child: Row(
               children: [
-                Icon(Icons.folder_open_rounded, size: 18, color: Colors.black.withOpacity(0.65)),
+                Icon(
+                  Icons.folder_open_rounded,
+                  size: 18,
+                  color: Colors.black.withOpacity(0.65),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -885,7 +948,10 @@ class _InfoPageState extends State<InfoPage> {
                 ),
                 if (portfolio.positionsCount > 0)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.05),
                       borderRadius: BorderRadius.circular(10),
@@ -928,38 +994,38 @@ class _InfoPageState extends State<InfoPage> {
     final bool busy = _portfolioUpdating;
     final bool showSpinner = busy || !ready;
     final bool enabled = user != null && hasTicker && ready && !busy;
+    final buttonStyleColor = showSpinner
+    ? _chipBg.withValues(alpha: 0.85)
+    : _chipBg;
+
+final borderColor = Colors.black.withValues(alpha: 0.05);
 
     final Color iconColor =
-        theme.textTheme.bodyMedium?.color?.withOpacity(0.65) ?? Colors.black54;
+        theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65)?? Colors.black54;
 
     final Widget visual =
         showSpinner
             ? SizedBox(
-                key: const ValueKey<String>('portfolio-loading'),
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(iconColor),
-                ),
-              )
+              key: const ValueKey<String>('portfolio-loading'),
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+              ),
+            )
             : Icon(
-                Icons.folder_open_rounded,
-                key: const ValueKey<String>('portfolio-icon'),
-                color: iconColor,
-                size: 22,
-              );
+              Icons.folder_open_rounded,
+              key: const ValueKey<String>('portfolio-icon'),
+              color: iconColor,
+              size: 22,
+            );
 
     final tooltip =
         user == null
             ? 'Connectez-vous pour gérer vos portefeuilles'
             : 'Ajouter au portefeuille';
 
-    final buttonStyleColor = showSpinner
-        ? Colors.black.withOpacity(0.06)
-        : Colors.black.withOpacity(0.04);
-
-    final borderColor = Colors.black.withOpacity(0.05);
 
     final button = PopupMenuButton<_PortfolioMenuOption>(
       enabled: enabled,
@@ -985,7 +1051,9 @@ class _InfoPageState extends State<InfoPage> {
         ),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
-          transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+          transitionBuilder:
+              (child, animation) =>
+                  ScaleTransition(scale: animation, child: child),
           child: visual,
         ),
       ),
@@ -996,6 +1064,451 @@ class _InfoPageState extends State<InfoPage> {
       waitDuration: const Duration(milliseconds: 600),
       child: button,
     );
+  }
+
+  Widget _buildTradeButtons(ThemeData theme) {
+    final bool canTrade = _quote?.regularMarketPrice != null;
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (user != null)
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+            builder: (context, snapshot) {
+              final data = snapshot.data?.data() as Map<String, dynamic>?;
+              final zeroFeesUntil = data?['zero_fees_until'] as Timestamp?;
+              final boostCount = (data?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
+              
+              final bool isActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+              
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: IconButton(
+                  onPressed: () => _showBoostInventory(context, isActive, boostCount, zeroFeesUntil?.toDate()),
+                  icon: Icon(
+                    Icons.flash_on_rounded,
+                    color: isActive ? Colors.green : (boostCount > 0 ? Colors.amber : Colors.grey.shade300),
+                  ),
+                  style: IconButton.styleFrom(
+                    backgroundColor: isActive ? Colors.green.withOpacity(0.1) : (boostCount > 0 ? Colors.amber.withOpacity(0.1) : Colors.grey.shade100),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  tooltip: "Boosts & Bonus",
+                ),
+              );
+            },
+          ),
+        ElevatedButton(
+          onPressed: canTrade ? () => _showTradeDialog(isBuy: true) : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+          ),
+          child: const Text("Acheter", style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          onPressed: canTrade ? () => _showTradeDialog(isBuy: false) : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red.shade700,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+          ),
+          child: const Text("Vendre", style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  void _showBoostInventory(BuildContext context, bool isActive, int count, DateTime? expiry) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Inventaire de Boosts", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isActive ? Colors.green : Colors.grey.shade200),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: isActive ? Colors.green : Colors.blueAccent,
+                      child: const Icon(Icons.flash_on_rounded, color: Colors.white),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("0% de Frais (12h)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          if (isActive)
+                            Text("Actif jusqu'à ${_formatDateTime(expiry)}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))
+                          else
+                            Text("En stock : $count", style: const TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    if (!isActive)
+                      ElevatedButton(
+                        onPressed: count > 0 ? () {
+                          Navigator.pop(context);
+                          _activateBoost();
+                        } : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text("Activer"),
+                      )
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _activateBoost() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        final snapshot = await transaction.get(userRef);
+        final count = (snapshot.data()?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
+
+        if (count > 0) {
+          final now = DateTime.now();
+          final expiry = now.add(const Duration(hours: 12));
+          
+          transaction.update(userRef, {
+            'boost_zero_fees_count': FieldValue.increment(-1),
+            'zero_fees_until': Timestamp.fromDate(expiry),
+          });
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Boost activé ! Profitez de 0% de frais."), backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      debugPrint("Erreur activation boost: $e");
+    }
+  }
+
+  Future<void> _showTradeDialog({required bool isBuy}) async {
+    // Vérification des horaires de marché (9h00 - 17h30, Lundi-Vendredi)
+    final now = DateTime.now();
+    final isWeekend = now.weekday >= 6; // 6 = Samedi, 7 = Dimanche
+    final totalMinutes = now.hour * 60 + now.minute;
+    final isMarketHours = totalMinutes >= 540 && totalMinutes < 1050; // 9*60 à 17*60+30
+
+    if (!_isAdmin && (isWeekend || !isMarketHours)) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Marché fermé"),
+          content: const Text("Les transactions sont possibles uniquement du lundi au vendredi, de 9h00 à 17h30."),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Veuillez vous connecter pour trader.")),
+      );
+      return;
+    }
+
+    // Vérification du Chapitre 1 (via l'avatar _student)
+    if (!_isAdmin) {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final unlockedAvatars = List<String>.from(userDoc.data()?['unlocked_avatars'] ?? []);
+      if (!unlockedAvatars.contains('_student')) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Fonctionnalité verrouillée"),
+            content: const Text("Vous devez terminer le Chapitre 1 dans l'onglet Apprendre pour débloquer le trading."),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    final double price = _quote!.regularMarketPrice!;
+    final TextEditingController qtyController = TextEditingController(text: "1");
+    final ValueNotifier<int> qtyNotifier = ValueNotifier<int>(1);
+
+    showDialog(
+      context: context,
+      builder: (context) => StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+        builder: (context, userSnapshot) {
+          final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+          final zeroFeesUntil = userData?['zero_fees_until'] as Timestamp?;
+          final bool isBoostActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+
+          return StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('games')
+            .doc('portofolio')
+            .collection('positions')
+            .doc(_ticker)
+            .snapshots(),
+        builder: (context, snapshot) {
+          final data = snapshot.data?.data() as Map<String, dynamic>?;
+          final double? pru = (data?['averagePrice'] as num?)?.toDouble();
+
+          return AlertDialog(
+          title: Text(
+            isBuy ? "Acheter $_ticker" : "Vendre $_ticker",
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Prix unitaire : ${_formatCurrency(price)}",
+                style: const TextStyle(color: Colors.grey),
+              ),
+              if (pru != null)
+                Text(
+                  "PRU actuel : ${_formatCurrency(pru)}",
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: qtyController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Nombre d'actions",
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onChanged: (value) {
+                  final int? val = int.tryParse(value);
+                  qtyNotifier.value = (val != null && val > 0) ? val : 0;
+                },
+              ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<int>(
+                valueListenable: qtyNotifier,
+                builder: (context, qty, child) {
+                  final double rawTotal = price * qty;
+                  final double fees = isBoostActive ? 0.0 : rawTotal * 0.005; // 0.5% frais ou 0% si boost
+                  final double total = isBuy ? rawTotal + fees : rawTotal - fees;
+
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Sous-total :"),
+                            Text(_formatCurrency(rawTotal) ?? ""),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(isBoostActive ? "Frais (0% - Boost) :" : "Frais (0.5%) :", style: TextStyle(fontSize: 12, color: isBoostActive ? Colors.green : Colors.grey)),
+                            Text(_formatCurrency(fees) ?? "", style: TextStyle(fontSize: 12, color: isBoostActive ? Colors.green : Colors.grey)),
+                          ],
+                        ),
+                        const Divider(),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Total :", style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(
+                              _formatCurrency(total) ?? "",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isBuy ? Colors.red : Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isBuy ? "(Débité de vos Coins)" : "(Crédité en Coins)",
+                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          textAlign: TextAlign.right,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Annuler", style: TextStyle(color: Colors.grey)),
+            ),
+            ValueListenableBuilder<int>(
+              valueListenable: qtyNotifier,
+              builder: (context, qty, _) {
+                return ElevatedButton(
+                  onPressed: qty > 0 ? () {
+                    Navigator.pop(context);
+                    _executeTrade(user.uid, isBuy, qty, price);
+                  } : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text("Valider"),
+                );
+              },
+            ),
+          ],
+        );
+        },
+      );
+        }
+      ),
+    );
+  }
+
+  Future<void> _executeTrade(String uid, bool isBuy, int qty, double price) async {
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+    final portfolioRef = userRef
+        .collection('games')
+        .doc('portofolio')
+        .collection('positions')
+        .doc(_ticker);
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        final portfolioDoc = await transaction.get(portfolioRef);
+
+        // Vérification Boost
+        final zeroFeesUntil = userDoc.data()?['zero_fees_until'] as Timestamp?;
+        final bool isBoostActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+
+        final double rawTotal = price * qty;
+        final double fees = isBoostActive ? 0.0 : rawTotal * 0.005;
+        final double totalAmount = isBuy ? rawTotal + fees : rawTotal - fees;
+
+        final int currentCoins = (userDoc.data()?['coins'] as num?)?.toInt() ?? 0;
+        final int currentQty = (portfolioDoc.data()?['quantity'] as num?)?.toInt() ?? 0;
+        final double currentAvgPrice = (portfolioDoc.data()?['averagePrice'] as num?)?.toDouble() ?? 0.0;
+
+        if (isBuy) {
+          if (currentCoins < totalAmount) {
+            throw Exception("Pas assez de coins ! (Manque ${(totalAmount - currentCoins).toStringAsFixed(2)})");
+          }
+          // Calcul nouveau PRU (Prix de Revient Unitaire)
+          final double newAvgPrice = ((currentQty * currentAvgPrice) + (qty * price)) / (currentQty + qty);
+
+          transaction.update(userRef, {'coins': currentCoins - totalAmount.toInt()});
+          transaction.set(portfolioRef, {
+            'symbol': _ticker,
+            'quantity': currentQty + qty,
+            'averagePrice': newAvgPrice,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+
+        } else {
+          // Vente
+          if (currentQty < qty) {
+            throw Exception("Pas assez d'actions ! (Possédé: $currentQty)");
+          }
+          transaction.update(userRef, {'coins': currentCoins + totalAmount.toInt()});
+          
+          if (currentQty - qty == 0) {
+            transaction.delete(portfolioRef);
+          } else {
+            transaction.update(portfolioRef, {
+              'quantity': currentQty - qty,
+            });
+          }
+        }
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Ordre exécuté !"), backgroundColor: Colors.green),
+      );
+
+      // --- Mise à jour Quête Quotidienne (Trade) ---
+      try {
+        final today = DateTime.now();
+        final dateStr = "${today.year}-${today.month}-${today.day}";
+        final questRef = FirebaseFirestore.instance.collection('users').doc(uid).collection('quests').doc('daily');
+
+        // On utilise une transaction ou un update simple (ici update simple suffisant car post-transaction critique)
+        final doc = await questRef.get();
+        if (!doc.exists || doc.data()?['date'] != dateStr) {
+          await questRef.set({
+            'date': dateStr,
+            'quizzes_done': 0,
+            'lessons_done': 0,
+            'trades_done': 1,
+          });
+        } else {
+          await questRef.update({
+            'trades_done': FieldValue.increment(1),
+          });
+        }
+      } catch (e) {
+        debugPrint("Erreur quête trade : $e");
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceAll("Exception: ", "")), backgroundColor: Colors.red),
+      );
+    }
   }
 
   Future<void> _fetchQuote(String symbol) async {
@@ -1143,7 +1656,12 @@ class _InfoPageState extends State<InfoPage> {
     if (percent == null) {
       return _PeriodDelta(start: start, end: end, change: change, percent: 0);
     }
-    return _PeriodDelta(start: start, end: end, change: change, percent: percent);
+    return _PeriodDelta(
+      start: start,
+      end: end,
+      change: change,
+      percent: percent,
+    );
   }
 
   Future<void> _loadNews() async {
@@ -1174,21 +1692,26 @@ class _InfoPageState extends State<InfoPage> {
         _quote?.shortName,
         _quote?.symbol,
       };
-      final aliases = aliasCandidates
-          .where((value) => (value?.trim().isNotEmpty ?? false))
-          .map((value) => value!.trim())
-          .toList();
+      final aliases =
+          aliasCandidates
+              .where((value) => (value?.trim().isNotEmpty ?? false))
+              .map((value) => value!.trim())
+              .toList();
 
       final items = await YahooFinanceService.fetchCompanyNews(
         symbol,
         aliases: aliases,
       );
       final prioritized = _prioritizeNewsItems(items, favoriteSymbols, symbol);
-      final favoriteMatches = _extractFavoriteMatches(prioritized, favoriteSymbols);
+      final favoriteMatches = _extractFavoriteMatches(
+        prioritized,
+        favoriteSymbols,
+      );
       final tickerMatches = _extractTickerMatches(prioritized, symbol);
       assert(() {
         debugPrint(
-          '[InfoPage] Received ${prioritized.length} news item(s) for ' + symbol,
+          '[InfoPage] Received ${prioritized.length} news item(s) for ' +
+              symbol,
         );
         return true;
       }());
@@ -1225,16 +1748,21 @@ class _InfoPageState extends State<InfoPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const <String>{};
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('favoris')
-          .get();
-      final symbols = snap.docs.map((doc) {
-        final data = doc.data();
-        final symbol = (data['symbol'] as String? ?? doc.id).trim();
-        return symbol.toUpperCase();
-      }).where((symbol) => symbol.isNotEmpty).toSet();
+      final snap =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('favoris')
+              .get();
+      final symbols =
+          snap.docs
+              .map((doc) {
+                final data = doc.data();
+                final symbol = (data['symbol'] as String? ?? doc.id).trim();
+                return symbol.toUpperCase();
+              })
+              .where((symbol) => symbol.isNotEmpty)
+              .toSet();
       return symbols;
     } catch (_) {
       return const <String>{};
@@ -1248,14 +1776,16 @@ class _InfoPageState extends State<InfoPage> {
   ) {
     final favs = favorites.map((e) => e.toUpperCase()).toSet();
     final symbolUpper = symbol.toUpperCase();
-    final scored = items.asMap().entries.map((entry) {
-      final item = entry.value;
-      final tickers = item.relatedTickers.map((t) => t.toUpperCase()).toSet();
-      final matchesSymbol = tickers.contains(symbolUpper);
-      final matchesFavorite = favs.isNotEmpty && tickers.any(favs.contains);
-      final score = (matchesSymbol ? 2 : 0) + (matchesFavorite ? 1 : 0);
-      return (_NewsRanking(item, score, entry.key));
-    }).toList();
+    final scored =
+        items.asMap().entries.map((entry) {
+          final item = entry.value;
+          final tickers =
+              item.relatedTickers.map((t) => t.toUpperCase()).toSet();
+          final matchesSymbol = tickers.contains(symbolUpper);
+          final matchesFavorite = favs.isNotEmpty && tickers.any(favs.contains);
+          final score = (matchesSymbol ? 2 : 0) + (matchesFavorite ? 1 : 0);
+          return (_NewsRanking(item, score, entry.key));
+        }).toList();
     scored.sort((a, b) {
       final scoreCompare = b.score.compareTo(a.score);
       if (scoreCompare != 0) return scoreCompare;
@@ -1271,15 +1801,26 @@ class _InfoPageState extends State<InfoPage> {
     if (favorites.isEmpty) return const <String>{};
     final favs = favorites.map((e) => e.toUpperCase()).toSet();
     return items
-        .where((item) => item.relatedTickers.any((ticker) => favs.contains(ticker.toUpperCase())))
+        .where(
+          (item) => item.relatedTickers.any(
+            (ticker) => favs.contains(ticker.toUpperCase()),
+          ),
+        )
         .map((item) => item.id)
         .toSet();
   }
 
-  Set<String> _extractTickerMatches(List<FinanceNewsItem> items, String symbol) {
+  Set<String> _extractTickerMatches(
+    List<FinanceNewsItem> items,
+    String symbol,
+  ) {
     final upper = symbol.toUpperCase();
     return items
-        .where((item) => item.relatedTickers.any((ticker) => ticker.toUpperCase() == upper))
+        .where(
+          (item) => item.relatedTickers.any(
+            (ticker) => ticker.toUpperCase() == upper,
+          ),
+        )
         .map((item) => item.id)
         .toSet();
   }
@@ -1291,17 +1832,51 @@ class _InfoPageState extends State<InfoPage> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(_ticker ?? 'Info'),
-        centerTitle: false,
-        backgroundColor: backgroundColor,
-        elevation: 0,
+  title: Text(
+    _ticker ?? 'Info',
+    style: const TextStyle(
+      fontWeight: FontWeight.w800,
+      color: _ink,
+    ),
+  ),
+  centerTitle: false,
+  backgroundColor: _bg,
+  surfaceTintColor: Colors.transparent,
+  elevation: 0,
+  bottom: PreferredSize(
+    preferredSize: const Size.fromHeight(10),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          height: 6,
+          width: 96,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            gradient: const LinearGradient(
+              colors: [_gold, _wine],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
       ),
+    ),
+  ),
+),
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           child:
               _loading
-                  ? const Center(child: CircularProgressIndicator())
+    ? Center(
+        child: CircularProgressIndicator(
+          color: _wine,
+          backgroundColor: _gold.withValues(alpha: .20),
+          strokeWidth: 3,
+        ),
+      )
                   : (_error != null)
                   ? _ErrorView(
                     key: const ValueKey('error'),
@@ -1319,13 +1894,16 @@ class _InfoPageState extends State<InfoPage> {
     final uri = Uri.tryParse(url);
     if (uri == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lien invalide.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lien invalide.')));
       return;
     }
     try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Impossible d\'ouvrir la news.')),
@@ -1377,8 +1955,10 @@ class _InfoPageState extends State<InfoPage> {
       }
     }
 
-    final decisionIndicators =
-        buildDecisionIndicators(quote, _financialSnapshot);
+    final decisionIndicators = buildDecisionIndicators(
+      quote,
+      _financialSnapshot,
+    );
 
     final highlights = _buildHighlights(quote);
 
@@ -1411,11 +1991,7 @@ class _InfoPageState extends State<InfoPage> {
                 setState(() => _currentPage = index);
               }
             },
-            children: [
-              overview,
-              extraPage,
-              _buildNewsPage(theme),
-            ],
+            children: [overview, extraPage, _buildNewsPage(theme)],
           ),
         ),
         const SizedBox(height: 12),
@@ -1432,7 +2008,9 @@ class _InfoPageState extends State<InfoPage> {
   ) {
     final showDecisionLoading = _financialLoading && _financialSnapshot == null;
     final showDecisionError =
-        _financialError != null && !_financialLoading && _financialSnapshot == null;
+        _financialError != null &&
+        !_financialLoading &&
+        _financialSnapshot == null;
 
     final children = <Widget>[];
 
@@ -1509,7 +2087,10 @@ class _InfoPageState extends State<InfoPage> {
     if (indicator.hasCustomDisplay) {
       return indicator.customDisplay!;
     }
-    final formatted = _formatDecisionNumeric(indicator.value, indicator.valueType);
+    final formatted = _formatDecisionNumeric(
+      indicator.value,
+      indicator.valueType,
+    );
     if (formatted == null) return 'Donnée manquante';
     if (indicator.primaryLabel != null) {
       return '${indicator.primaryLabel}: $formatted';
@@ -1519,7 +2100,10 @@ class _InfoPageState extends State<InfoPage> {
 
   String? _renderIndicatorSecondary(DecisionIndicator indicator) {
     if (!indicator.hasSecondaryValue) return null;
-    final formatted = _formatDecisionNumeric(indicator.secondaryValue, indicator.valueType);
+    final formatted = _formatDecisionNumeric(
+      indicator.secondaryValue,
+      indicator.valueType,
+    );
     if (formatted == null) return null;
     final label = indicator.secondaryLabel ?? 'Valeur 2';
     return '$label: $formatted';
@@ -1562,10 +2146,7 @@ class _InfoPageState extends State<InfoPage> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                indicator.definition,
-                style: theme.textTheme.bodyMedium,
-              ),
+              Text(indicator.definition, style: theme.textTheme.bodyMedium),
             ],
           ),
         );
@@ -1590,10 +2171,7 @@ class _InfoPageState extends State<InfoPage> {
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
-              TextButton(
-                onPressed: _loadNews,
-                child: const Text('Réessayer'),
-              ),
+              TextButton(onPressed: _loadNews, child: const Text('Réessayer')),
             ],
           ),
         ),
@@ -1623,9 +2201,10 @@ class _InfoPageState extends State<InfoPage> {
         final published = _formatDateTime(item.publishedAt);
         return _NewsArticleCard(
           article: item,
-          subtitle: published == null
-              ? item.publisher
-              : '${item.publisher} • $published',
+          subtitle:
+              published == null
+                  ? item.publisher
+                  : '${item.publisher} • $published',
           onTap: () => _openNewsLink(item.url),
           highlightPrimary: _newsTickerMatches.contains(item.id),
           highlightFavorite: _newsFavoriteMatches.contains(item.id),
@@ -1765,10 +2344,7 @@ class _InfoPageState extends State<InfoPage> {
           _formatPercent(snapshot!.expenseRatio! * 100),
         ),
       if (isEtf && snapshot?.ytdReturn != null)
-        _MetricEntry(
-          'Perf. YTD',
-          _formatPercent(snapshot!.ytdReturn! * 100),
-        ),
+        _MetricEntry('Perf. YTD', _formatPercent(snapshot!.ytdReturn! * 100)),
       if (isEtf && snapshot?.threeYearAverageReturn != null)
         _MetricEntry(
           'Perf. 3 ans',
@@ -1779,27 +2355,50 @@ class _InfoPageState extends State<InfoPage> {
           'Bêta 3 ans',
           _formatNumber(snapshot!.betaThreeYear!, fractionDigits: 2),
         ),
-      if (isEtf && snapshot?.fundCategory != null && snapshot!.fundCategory!.isNotEmpty)
+      if (isEtf &&
+          snapshot?.fundCategory != null &&
+          snapshot!.fundCategory!.isNotEmpty)
         _MetricEntry('Catégorie', snapshot.fundCategory!),
       if (!isEtf && snapshot?.returnOnEquity != null)
         _MetricEntry('ROE', _formatPercent(snapshot!.returnOnEquity! * 100)),
       if (!isEtf && snapshot?.returnOnAssets != null)
         _MetricEntry('ROA', _formatPercent(snapshot!.returnOnAssets! * 100)),
       if (!isEtf && snapshot?.operatingMargin != null)
-        _MetricEntry('Marge op.', _formatPercent(snapshot!.operatingMargin! * 100)),
+        _MetricEntry(
+          'Marge op.',
+          _formatPercent(snapshot!.operatingMargin! * 100),
+        ),
       if (!isEtf && snapshot?.netMargin != null)
         _MetricEntry('Marge nette', _formatPercent(snapshot!.netMargin! * 100)),
       if (!isEtf && snapshot?.revenueGrowth != null)
-        _MetricEntry('Croissance CA', _formatPercent(snapshot!.revenueGrowth! * 100)),
+        _MetricEntry(
+          'Croissance CA',
+          _formatPercent(snapshot!.revenueGrowth! * 100),
+        ),
       if (!isEtf && snapshot?.earningsGrowth != null)
-        _MetricEntry('Croissance BPA', _formatPercent(snapshot!.earningsGrowth! * 100)),
+        _MetricEntry(
+          'Croissance BPA',
+          _formatPercent(snapshot!.earningsGrowth! * 100),
+        ),
       if (!isEtf && snapshot?.freeCashflowYield != null)
-        _MetricEntry('FCF yield', _formatPercent(snapshot!.freeCashflowYield! * 100)),
+        _MetricEntry(
+          'FCF yield',
+          _formatPercent(snapshot!.freeCashflowYield! * 100),
+        ),
       if (!isEtf && snapshot?.capexToRevenue != null)
-        _MetricEntry('Capex/CA', _formatPercent(snapshot!.capexToRevenue! * 100)),
+        _MetricEntry(
+          'Capex/CA',
+          _formatPercent(snapshot!.capexToRevenue! * 100),
+        ),
       if (quote.averageDailyVolume3Month != null)
-        _MetricEntry('ADV 3m', _formatLargeNumber(quote.averageDailyVolume3Month), _formatInteger(quote.averageDailyVolume3Month)),
-      if (quote.regularMarketVolume != null && quote.averageDailyVolume3Month != null && quote.averageDailyVolume3Month! > 0)
+        _MetricEntry(
+          'ADV 3m',
+          _formatLargeNumber(quote.averageDailyVolume3Month),
+          _formatInteger(quote.averageDailyVolume3Month),
+        ),
+      if (quote.regularMarketVolume != null &&
+          quote.averageDailyVolume3Month != null &&
+          quote.averageDailyVolume3Month! > 0)
         _MetricEntry(
           'Turnover',
           '${(quote.regularMarketVolume! / quote.averageDailyVolume3Month! * 100).toStringAsFixed(1)} %',
@@ -1820,14 +2419,21 @@ class _InfoPageState extends State<InfoPage> {
         _InsightHighlight(
           label: 'Momentum',
           value: _formatPercent(changePercent) ?? '—',
-          icon: changePercent >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-          color: changePercent >= 0 ? Colors.green.shade600 : Colors.red.shade600,
+          icon:
+              changePercent >= 0
+                  ? Icons.trending_up_rounded
+                  : Icons.trending_down_rounded,
+          color:
+              changePercent >= 0 ? Colors.green.shade600 : Colors.red.shade600,
         ),
       );
     }
 
-    if (quote.regularMarketVolume != null && quote.averageDailyVolume3Month != null && quote.averageDailyVolume3Month! > 0) {
-      final ratio = quote.regularMarketVolume! / quote.averageDailyVolume3Month!;
+    if (quote.regularMarketVolume != null &&
+        quote.averageDailyVolume3Month != null &&
+        quote.averageDailyVolume3Month! > 0) {
+      final ratio =
+          quote.regularMarketVolume! / quote.averageDailyVolume3Month!;
       highlights.add(
         _InsightHighlight(
           label: 'Volume',
@@ -1849,7 +2455,9 @@ class _InfoPageState extends State<InfoPage> {
       );
     }
 
-    if (quote.regularMarketPrice != null && quote.fiftyTwoWeekHigh != null && quote.fiftyTwoWeekLow != null) {
+    if (quote.regularMarketPrice != null &&
+        quote.fiftyTwoWeekHigh != null &&
+        quote.fiftyTwoWeekLow != null) {
       final price = quote.regularMarketPrice!;
       final low = quote.fiftyTwoWeekLow!;
       final high = quote.fiftyTwoWeekHigh!;
@@ -2218,12 +2826,20 @@ class _InsightHighlightRow extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   highlight.label,
-                  style: TextStyle(fontSize: _infoScaledFont(context, 12), color: Colors.black54, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: _infoScaledFont(context, 12),
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   highlight.value,
-                  style: TextStyle(fontSize: _infoScaledFont(context, 15), fontWeight: FontWeight.w700, color: highlight.color),
+                  style: TextStyle(
+                    fontSize: _infoScaledFont(context, 15),
+                    fontWeight: FontWeight.w700,
+                    color: highlight.color,
+                  ),
                 ),
               ],
             ),
@@ -2318,7 +2934,8 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
               lineColor: widget.lineColor,
               fillColor: widget.fillColor,
               showHorizontalGrid: true,
-              verticalLineX: _hoverIndex != null ? _xForIndex(_hoverIndex!) : null,
+              verticalLineX:
+                  _hoverIndex != null ? _xForIndex(_hoverIndex!) : null,
             ),
             child: const SizedBox.expand(),
           ),
@@ -2365,6 +2982,7 @@ class _TooltipOverlay extends StatelessWidget {
   });
 
   final HistoricalPoint point;
+
   /// x fraction [0,1] of the chart width.
   final double x;
   final String? Function(double?) currencyFormatter;
@@ -2373,13 +2991,17 @@ class _TooltipOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final price = currencyFormatter(point.close) ?? point.close.toStringAsFixed(2);
+    final price =
+        currencyFormatter(point.close) ?? point.close.toStringAsFixed(2);
     final dateLabel = labelBuilder(point.time, interval);
     return LayoutBuilder(
       builder: (context, constraints) {
         final px = x * constraints.maxWidth;
         final tooltipWidth = 140.0;
-        final left = (px - tooltipWidth / 2).clamp(8.0, constraints.maxWidth - tooltipWidth - 8);
+        final left = (px - tooltipWidth / 2).clamp(
+          8.0,
+          constraints.maxWidth - tooltipWidth - 8,
+        );
 
         return Stack(
           children: [
@@ -2396,7 +3018,10 @@ class _TooltipOverlay extends StatelessWidget {
               top: 8,
               child: Container(
                 width: tooltipWidth,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(12),
@@ -2414,12 +3039,20 @@ class _TooltipOverlay extends StatelessWidget {
                   children: [
                     Text(
                       price,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       dateLabel,
-                      style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),
@@ -2438,14 +3071,16 @@ class _VerticalCursorPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = Colors.black.withOpacity(0.25)
-      ..strokeWidth = 1.2;
+    final Paint paint =
+        Paint()
+          ..color = Colors.black.withOpacity(0.25)
+          ..strokeWidth = 1.2;
     canvas.drawLine(Offset(px, 0), Offset(px, size.height), paint);
   }
 
   @override
-  bool shouldRepaint(covariant _VerticalCursorPainter oldDelegate) => oldDelegate.px != px;
+  bool shouldRepaint(covariant _VerticalCursorPainter oldDelegate) =>
+      oldDelegate.px != px;
 }
 
 class _MinimalLineChartPainter extends CustomPainter {
@@ -2461,6 +3096,7 @@ class _MinimalLineChartPainter extends CustomPainter {
   final Color lineColor;
   final Color fillColor;
   final bool showHorizontalGrid;
+
   /// If provided, draw a vertical line at this fraction [0,1] of width.
   final double? verticalLineX;
 
@@ -2697,7 +3333,10 @@ class _NewsArticleCard extends StatelessWidget {
                   if (highlightFavorite)
                     Padding(
                       padding: const EdgeInsets.only(left: 6),
-                      child: _NewsChip(label: 'Favori lié', color: Colors.blueAccent),
+                      child: _NewsChip(
+                        label: 'Favori lié',
+                        color: Colors.blueAccent,
+                      ),
                     ),
                 ],
               ),
@@ -2784,9 +3423,7 @@ class _SectionHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Text(
       label,
-      style: theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w700,
-      ),
+      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
     );
   }
 }
@@ -2919,19 +3556,25 @@ class _DecisionIndicatorCard extends StatelessWidget {
                         Text(
                           secondaryText!,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: indicator.secondaryEmphasis
-                                ? Colors.black87
-                                : Colors.black54,
-                            fontWeight: indicator.secondaryEmphasis
-                                ? FontWeight.w700
-                                : FontWeight.w500,
+                            color:
+                                indicator.secondaryEmphasis
+                                    ? Colors.black87
+                                    : Colors.black54,
+                            fontWeight:
+                                indicator.secondaryEmphasis
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, size: 20, color: Colors.black45),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Colors.black45,
+                ),
               ],
             ),
           ),
@@ -2954,10 +3597,7 @@ class _PortfolioInfo {
 }
 
 class _PositionFormResult {
-  const _PositionFormResult({
-    required this.quantity,
-    this.costBasis,
-  });
+  const _PositionFormResult({required this.quantity, this.costBasis});
 
   final double quantity;
   final double? costBasis;
@@ -2979,11 +3619,7 @@ class _PortfolioMenuOption {
   }
 
   const _PortfolioMenuOption.create()
-      : this._(
-          portfolioId: null,
-          portfolioName: null,
-          createNew: true,
-        );
+    : this._(portfolioId: null, portfolioName: null, createNew: true);
 
   final String? portfolioId;
   final String? portfolioName;

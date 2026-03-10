@@ -4,12 +4,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class PortfolioService {
   const PortfolioService._();
 
-  static CollectionReference<Map<String, dynamic>> _portfoliosCollection(String uid) {
-    return FirebaseFirestore.instance.collection('users').doc(uid).collection('portfolios');
+  static CollectionReference<Map<String, dynamic>> _portfoliosCollection(
+    String uid,
+  ) {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('portfolios');
   }
 
   /// Crée un portefeuille avec un identifiant basé sur le nom (slug) et renvoie son ID.
-  static Future<String> createPortfolio({required String uid, required String name}) async {
+  static Future<String> createPortfolio({
+    required String uid,
+    required String name,
+  }) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
       throw ArgumentError('Portfolio name cannot be empty.');
@@ -64,10 +72,11 @@ class PortfolioService {
     await FirebaseFirestore.instance.runTransaction((transaction) async {
       final existingPosition = await transaction.get(positionDoc);
 
-      final positionData = Map<String, dynamic>.from(data)
-        ..['symbol'] = symbol
-        ..['updatedAt'] = FieldValue.serverTimestamp()
-        ..['lastRefreshed'] = FieldValue.serverTimestamp();
+      final positionData =
+          Map<String, dynamic>.from(data)
+            ..['symbol'] = symbol
+            ..['updatedAt'] = FieldValue.serverTimestamp()
+            ..['lastRefreshed'] = FieldValue.serverTimestamp();
 
       if (quantityOverride != null) {
         positionData['quantity'] = quantityOverride;

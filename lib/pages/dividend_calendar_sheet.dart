@@ -6,7 +6,7 @@ import 'package:fintech/models/dividend_event.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-
+import 'package:fintech/core/constants.dart';
 import 'info_page.dart';
 
 enum _DividendFilter { all, favorites, portfolios }
@@ -28,15 +28,22 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
   List<_DividendCalendarEntry> _entries = const <_DividendCalendarEntry>[];
   _DividendFilter _filter = _DividendFilter.all;
 
+  // Palette (same style as SearchPage)
+static const Color _ink = textColor;
+static const Color _muted = Colors.black54;
+static const Color _line = Color(0xFFE6E8EB);
+static const Color _chipBg = Color(0xFFF0F1F3);
+static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this)
-      ..addListener(() {
-        if (mounted) {
-          setState(() {});
-        }
-      });
+    _tabController = TabController(length: 2, vsync: this)..addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
     _loadCalendar();
   }
 
@@ -74,11 +81,13 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
           name: (name ?? symbol).trim().isEmpty ? symbol : name!.trim(),
           exchange: exchange?.trim() ?? '',
           currency: currency?.trim() ?? '',
-          quoteType: quoteType?.trim().isEmpty ?? true ? 'UNKNOWN' : quoteType!.trim(),
+          quoteType:
+              quoteType?.trim().isEmpty ?? true ? 'UNKNOWN' : quoteType!.trim(),
           isFavorite: markFavorite,
-          portfolios: portfolioName != null && portfolioName.trim().isNotEmpty
-              ? {portfolioName.trim()}
-              : <String>{},
+          portfolios:
+              portfolioName != null && portfolioName.trim().isNotEmpty
+                  ? {portfolioName.trim()}
+                  : <String>{},
         );
         return;
       }
@@ -92,7 +101,9 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
       if (currency != null && currency.trim().isNotEmpty) {
         existing.currency = currency.trim();
       }
-      if (quoteType != null && quoteType.trim().isNotEmpty && existing.quoteType == 'UNKNOWN') {
+      if (quoteType != null &&
+          quoteType.trim().isNotEmpty &&
+          existing.quoteType == 'UNKNOWN') {
         existing.quoteType = quoteType.trim();
       }
       if (markFavorite) {
@@ -104,11 +115,12 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
     }
 
     try {
-      final favoritesSnap = await firestore
-          .collection('users')
-          .doc(widget.userId)
-          .collection('favoris')
-          .get();
+      final favoritesSnap =
+          await firestore
+              .collection('users')
+              .doc(widget.userId)
+              .collection('favoris')
+              .get();
 
       for (final doc in favoritesSnap.docs) {
         final data = doc.data();
@@ -124,16 +136,20 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
         );
       }
 
-      final portfoliosSnap = await firestore
-          .collection('users')
-          .doc(widget.userId)
-          .collection('portfolios')
-          .get();
+      final portfoliosSnap =
+          await firestore
+              .collection('users')
+              .doc(widget.userId)
+              .collection('portfolios')
+              .get();
 
       await Future.wait(
         portfoliosSnap.docs.map((portfolioDoc) async {
-          final portfolioName = (portfolioDoc.data()['name'] as String? ?? portfolioDoc.id).trim();
-          final positionsSnap = await portfolioDoc.reference.collection('positions').get();
+          final portfolioName =
+              (portfolioDoc.data()['name'] as String? ?? portfolioDoc.id)
+                  .trim();
+          final positionsSnap =
+              await portfolioDoc.reference.collection('positions').get();
           for (final positionDoc in positionsSnap.docs) {
             final data = positionDoc.data();
             final symbol = (data['symbol'] as String? ?? positionDoc.id).trim();
@@ -144,7 +160,8 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
               exchange: (data['exchange'] as String? ?? '').trim(),
               currency: (data['currency'] as String? ?? '').trim(),
               quoteType: (data['quoteType'] as String? ?? '').trim(),
-              portfolioName: portfolioName.isEmpty ? portfolioDoc.id : portfolioName,
+              portfolioName:
+                  portfolioName.isEmpty ? portfolioDoc.id : portfolioName,
             );
           }
         }),
@@ -163,7 +180,9 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
 
       for (final meta in symbols.values) {
         try {
-          final event = await YahooFinanceService.fetchDividendEvent(meta.symbol);
+          final event = await YahooFinanceService.fetchDividendEvent(
+            meta.symbol,
+          );
           if (event == null) continue;
 
           var exDate = event.exDate;
@@ -174,7 +193,9 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
           if (paymentDate == null && exDate != null) {
             paymentDate = exDate.add(const Duration(days: 3));
           }
-          if (exDate != null && paymentDate != null && paymentDate.isBefore(exDate)) {
+          if (exDate != null &&
+              paymentDate != null &&
+              paymentDate.isBefore(exDate)) {
             paymentDate = exDate.add(const Duration(days: 3));
           }
 
@@ -183,21 +204,23 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
             paymentDate: paymentDate,
           );
 
-          final primaryDate = normalizedEvent.exDate ?? normalizedEvent.paymentDate ?? normalizedEvent.declarationDate;
-          if (primaryDate != null && primaryDate.isBefore(now.subtract(const Duration(days: 60)))) {
+          final primaryDate =
+              normalizedEvent.exDate ??
+              normalizedEvent.paymentDate ??
+              normalizedEvent.declarationDate;
+          if (primaryDate != null &&
+              primaryDate.isBefore(now.subtract(const Duration(days: 60)))) {
             continue;
           }
 
           entries.add(
-            _DividendCalendarEntry(
-              metadata: meta,
-              event: normalizedEvent,
-            ),
+            _DividendCalendarEntry(metadata: meta, event: normalizedEvent),
           );
         } on FinanceRequestException catch (e) {
           if (e.message == 'consent_required') {
             setState(() {
-              _error = 'Consentement Yahoo requis pour consulter les dividendes.';
+              _error =
+                  'Consentement Yahoo requis pour consulter les dividendes.';
               _loading = false;
             });
             return;
@@ -237,13 +260,15 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
       case _DividendFilter.favorites:
         return _entries.where((entry) => entry.metadata.isFavorite).toList();
       case _DividendFilter.portfolios:
-        return _entries.where((entry) => entry.metadata.portfolios.isNotEmpty).toList();
+        return _entries
+            .where((entry) => entry.metadata.portfolios.isNotEmpty)
+            .toList();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    Theme.of(context);
     return Material(
       color: Colors.transparent,
       child: SafeArea(
@@ -251,93 +276,187 @@ class _DividendCalendarSheetState extends State<DividendCalendarSheet>
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: Container(
-            color: Colors.white,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+  color: Colors.white,
+  child: Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      const SizedBox(height: 12),
+      Container(
+        width: 44,
+        height: 4,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+
+      // Header premium
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 16, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Calendrier des dividendes',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                      letterSpacing: .2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 6,
+                    width: 96,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      gradient: const LinearGradient(
+                        colors: [_gold, _wine],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Filtre sur tes favoris et portefeuilles',
+                    style: TextStyle(
+                      color: _muted,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Row(
               children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(2),
+                Tooltip(
+                  message: 'Actualiser',
+                  child: InkWell(
+                    onTap: _loadCalendar,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _chipBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _line),
+                      ),
+                      child: const Icon(
+                        Icons.refresh_rounded,
+                        size: 20,
+                        color: _wine,
+                      ),
+                    ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Calendrier des dividendes',
-                              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Filtre sur tes favoris et portefeuilles',
-                              style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
-                            ),
-                          ],
-                        ),
+                const SizedBox(width: 10),
+                Tooltip(
+                  message: 'Fermer',
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).maybePop(),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: _chipBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _line),
                       ),
-                      IconButton(
-                        tooltip: 'Actualiser',
-                        onPressed: _loadCalendar,
-                        icon: const Icon(Icons.refresh_rounded),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 20,
+                        color: _ink,
                       ),
-                      IconButton(
-                        tooltip: 'Fermer',
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                ),
-                TabBar(
-                  controller: _tabController,
-                  labelColor: Colors.black,
-                  unselectedLabelColor: Colors.black45,
-                  indicatorColor: Colors.black,
-                  tabs: const [
-                    Tab(text: 'Liste'),
-                    Tab(text: 'Calendrier'),
-                  ],
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: _tabController.index == 0
-                      ? Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
-                          child: _DividendFilterChips(
-                            current: _filter,
-                            onChanged: _changeFilter,
-                          ),
-                        )
-                      : const SizedBox(height: 12),
-                ),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _loading
-                        ? const Center(child: CircularProgressIndicator())
-                        : (_error != null)
-                            ? _CalendarError(message: _error!, onRetry: _loadCalendar)
-                            : TabBarView(
-                                controller: _tabController,
-                                children: [
-                                  _CalendarList(entries: _filteredEntries),
-                                  _CalendarPlanner(entries: _filteredEntries),
-                                ],
-                              ),
+                    ),
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+
+      // TabBar segmented
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _chipBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _line),
           ),
+          child: TabBar(
+            controller: _tabController,
+            indicator: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: const LinearGradient(
+                colors: [_gold, _wine],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .10),
+                  blurRadius: 14,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.black87,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+            tabs: const [Tab(text: 'Liste'), Tab(text: 'Calendrier')],
+          ),
+        ),
+      ),
+
+      AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: _tabController.index == 0
+            ? Padding(
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+                child: _DividendFilterChips(
+                  current: _filter,
+                  onChanged: _changeFilter,
+                ),
+              )
+            : const SizedBox(height: 8),
+      ),
+
+      Expanded(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _loading
+              ? Center(
+                  child: CircularProgressIndicator(
+                    color: _wine,
+                    backgroundColor: _gold.withValues(alpha: .20),
+                    strokeWidth: 3,
+                  ),
+                )
+              : (_error != null)
+                  ? _CalendarError(message: _error!, onRetry: _loadCalendar)
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _CalendarList(entries: _filteredEntries),
+                        _CalendarPlanner(entries: _filteredEntries),
+                      ],
+                    ),
+        ),
+      ),
+    ],
+  ),
+),
         ),
       ),
     );
@@ -376,30 +495,37 @@ class _CalendarList extends StatelessWidget {
     final map = LinkedHashMap<String, List<_DividendCalendarEntry>>();
     for (final entry in entries) {
       final date = entry.primaryDate;
-      final key = date == null
-          ? 'À planifier'
-          : '${_monthLabels[date.month - 1]} ${date.year}';
+      final key =
+          date == null
+              ? 'À planifier'
+              : '${_monthLabels[date.month - 1]} ${date.year}';
       map.putIfAbsent(key, () => <_DividendCalendarEntry>[]).add(entry);
     }
     return map;
   }
 
   String _formatAmount(double amount, String? currency) {
-    final formatted = amount.abs() >= 1 ? amount.toStringAsFixed(2) : amount.toStringAsFixed(4);
-    return currency != null && currency.isNotEmpty ? '$formatted $currency' : formatted;
+    final formatted =
+        amount.abs() >= 1
+            ? amount.toStringAsFixed(2)
+            : amount.toStringAsFixed(4);
+    return currency != null && currency.isNotEmpty
+        ? '$formatted $currency'
+        : formatted;
   }
 
   void _openInfo(BuildContext context, _DividendCalendarEntry entry) {
     showCupertinoModalBottomSheet(
       context: context,
       expand: true,
-      builder: (_) => InfoPage(
-        ticker: entry.metadata.symbol,
-        initialName: entry.metadata.name,
-        initialExchange: entry.metadata.exchange,
-        initialCurrency: entry.metadata.currency,
-        initialQuoteType: entry.metadata.quoteType,
-      ),
+      builder:
+          (_) => InfoPage(
+            ticker: entry.metadata.symbol,
+            initialName: entry.metadata.name,
+            initialExchange: entry.metadata.exchange,
+            initialCurrency: entry.metadata.currency,
+            initialQuoteType: entry.metadata.quoteType,
+          ),
     );
   }
 
@@ -407,17 +533,65 @@ class _CalendarList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (entries.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Aucun dividende à venir pour le moment.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(color: Colors.black54),
-          ),
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-      );
-    }
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(Icons.event_busy_rounded,
+                  color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Aucun dividende à venir',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Ajoute des favoris ou des positions en portefeuille pour suivre leurs prochains paiements.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
     final grouped = _groupEntries();
     final labels = grouped.keys.toList();
@@ -434,22 +608,29 @@ class _CalendarList extends StatelessWidget {
             children: [
               Text(
                 label[0].toUpperCase() + label.substring(1),
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 12),
               ...groupEntries.map((entry) {
                 final event = entry.event;
                 final amount = event.amount;
-                final amountText = amount != null
-                    ? _formatAmount(amount, event.currency ?? entry.metadata.currency)
-                    : '—';
+                final amountText =
+                    amount != null
+                        ? _formatAmount(
+                          amount,
+                          event.currency ?? entry.metadata.currency,
+                        )
+                        : '—';
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _DividendCard(
                     title: '${entry.metadata.symbol} · ${entry.metadata.name}',
-                    subtitle: entry.metadata.exchange.isNotEmpty
-                        ? '${entry.metadata.exchange.toUpperCase()} · ${entry.metadata.quoteType.toUpperCase()}'
-                        : entry.metadata.quoteType.toUpperCase(),
+                    subtitle:
+                        entry.metadata.exchange.isNotEmpty
+                            ? '${entry.metadata.exchange.toUpperCase()} · ${entry.metadata.quoteType.toUpperCase()}'
+                            : entry.metadata.quoteType.toUpperCase(),
                     exDate: _formatDate(event.exDate),
                     payDate: _formatDate(event.paymentDate),
                     amount: amountText,
@@ -474,22 +655,70 @@ class _CalendarPlanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final datedEntries = entries
-        .where((entry) => entry.calendarDate != null)
-        .toList();
+    final theme = Theme.of(context);
+    final datedEntries =
+        entries.where((entry) => entry.calendarDate != null).toList();
 
     if (datedEntries.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Aucun dividende daté à afficher pour l’instant.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-          ),
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-      );
-    }
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(Icons.calendar_month_rounded,
+                  color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Aucun dividende daté',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Les dates seront affichées dès qu’elles seront disponibles.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
     final eventsByDate = SplayTreeMap<DateTime, List<_DividendCalendarEntry>>();
     final months = SplayTreeSet<DateTime>((a, b) => a.compareTo(b));
@@ -497,7 +726,9 @@ class _CalendarPlanner extends StatelessWidget {
     for (final entry in datedEntries) {
       final date = entry.calendarDate!;
       final dayKey = DateTime(date.year, date.month, date.day);
-      eventsByDate.putIfAbsent(dayKey, () => <_DividendCalendarEntry>[]).add(entry);
+      eventsByDate
+          .putIfAbsent(dayKey, () => <_DividendCalendarEntry>[])
+          .add(entry);
       months.add(DateTime(date.year, date.month));
     }
 
@@ -510,10 +741,7 @@ class _CalendarPlanner extends StatelessWidget {
         final month = monthList[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
-          child: _MonthCalendar(
-            month: month,
-            eventsByDate: eventsByDate,
-          ),
+          child: _MonthCalendar(month: month, eventsByDate: eventsByDate),
         );
       },
     );
@@ -526,9 +754,18 @@ class _MonthCalendar extends StatelessWidget {
   final DateTime month;
   final SplayTreeMap<DateTime, List<_DividendCalendarEntry>> eventsByDate;
 
-  static const List<String> _weekdayLabels = <String>['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+  static const List<String> _weekdayLabels = <String>[
+    'L',
+    'M',
+    'M',
+    'J',
+    'V',
+    'S',
+    'D',
+  ];
 
-  int _daysInMonth(DateTime month) => DateTime(month.year, month.month + 1, 0).day;
+  int _daysInMonth(DateTime month) =>
+      DateTime(month.year, month.month + 1, 0).day;
 
   @override
   Widget build(BuildContext context) {
@@ -549,11 +786,14 @@ class _MonthCalendar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${_CalendarList._monthLabels[month.month - 1]} ${month.year}'.replaceFirstMapped(
-            RegExp('^.'),
-            (match) => match.group(0)!.toUpperCase(),
+          '${_CalendarList._monthLabels[month.month - 1]} ${month.year}'
+              .replaceFirstMapped(
+                RegExp('^.'),
+                (match) => match.group(0)!.toUpperCase(),
+              ),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
         GridView.builder(
@@ -568,7 +808,9 @@ class _MonthCalendar extends StatelessWidget {
             return Center(
               child: Text(
                 _weekdayLabels[index],
-                style: theme.textTheme.labelMedium?.copyWith(color: Colors.black54),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: Colors.black54,
+                ),
               ),
             );
           },
@@ -587,8 +829,11 @@ class _MonthCalendar extends StatelessWidget {
               return const SizedBox.shrink();
             }
             final date = _dateForCell(index);
-            final events = eventsByDate[DateTime(date.year, date.month, date.day)] ?? const <_DividendCalendarEntry>[];
-            final isToday = DateTime.now().difference(date).inDays == 0 &&
+            final events =
+                eventsByDate[DateTime(date.year, date.month, date.day)] ??
+                const <_DividendCalendarEntry>[];
+            final isToday =
+                DateTime.now().difference(date).inDays == 0 &&
                 DateTime.now().month == date.month &&
                 DateTime.now().year == date.year;
 
@@ -597,11 +842,16 @@ class _MonthCalendar extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: isToday
-                      ? Colors.black.withValues(alpha: 0.05)
-                      : Colors.black.withValues(alpha: 0.02),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+  color: isToday
+      ? detailsColor2.withValues(alpha: 0.08)
+      : Colors.black.withValues(alpha: 0.02),
+  borderRadius: BorderRadius.circular(10),
+  border: Border.all(
+    color: isToday
+        ? detailsColor2.withValues(alpha: 0.20)
+        : const Color(0xFFE6E8EB),
+  ),
+),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -618,15 +868,18 @@ class _MonthCalendar extends StatelessWidget {
                         child: Wrap(
                           spacing: 4,
                           runSpacing: 4,
-                          children: events
-                              .map(
-                                (entry) => _CalendarDot(
-                                  symbol: entry.metadata.symbol,
-                                  amount: entry.event.amount,
-                                  currency: entry.event.currency ?? entry.metadata.currency,
-                                ),
-                              )
-                              .toList(),
+                          children:
+                              events
+                                  .map(
+                                    (entry) => _CalendarDot(
+                                      symbol: entry.metadata.symbol,
+                                      amount: entry.event.amount,
+                                      currency:
+                                          entry.event.currency ??
+                                          entry.metadata.currency,
+                                    ),
+                                  )
+                                  .toList(),
                         ),
                       ),
                     ),
@@ -651,20 +904,23 @@ class _CalendarDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final amountText = amount == null
-        ? ''
-        : amount!.abs() >= 1
+    final amountText =
+        amount == null
+            ? ''
+            : amount!.abs() >= 1
             ? amount!.toStringAsFixed(2)
             : amount!.toStringAsFixed(4);
-    final label = amount == null
-        ? symbol
-        : '$symbol · $amountText${currency != null && currency!.isNotEmpty ? ' $currency' : ''}';
+    final label =
+        amount == null
+            ? symbol
+            : '$symbol · $amountText${currency != null && currency!.isNotEmpty ? ' $currency' : ''}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(10),
-      ),
+  color: const Color(0xFFF0F1F3),
+  borderRadius: BorderRadius.circular(10),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+),
       child: Text(
         label,
         style: theme.textTheme.labelSmall?.copyWith(
@@ -725,7 +981,9 @@ class _DividendCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     title,
-                    style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -763,25 +1021,67 @@ class _DividendCard extends StatelessWidget {
               ),
             ),
             if (isFavorite || portfolios.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: [
-                  if (isFavorite)
-                    const Chip(
-                      label: Text('Favori'),
-                      avatar: Icon(Icons.favorite_rounded, size: 16),
-                    ),
-                  ...portfolios.map(
-                    (name) => Chip(
-                      label: Text(name),
-                      avatar: const Icon(Icons.folder_special_rounded, size: 16),
-                    ),
-                  ),
-                ],
+  const SizedBox(height: 12),
+  Wrap(
+    spacing: 8,
+    runSpacing: 6,
+    children: [
+      if (isFavorite)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: detailsColor2.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: detailsColor2.withValues(alpha: 0.25),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.favorite_rounded, size: 16, color: detailsColor2),
+              SizedBox(width: 6),
+              Text(
+                'Favori',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: detailsColor2,
+                ),
               ),
             ],
+          ),
+        ),
+      ...portfolios.map(
+        (name) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F1F3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE6E8EB)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.folder_special_rounded,
+                size: 16,
+                color: Colors.black87,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  ),
+],
           ],
         ),
       ),
@@ -801,9 +1101,10 @@ class _CalendarBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
-      ),
+  color: const Color(0xFFF0F1F3),
+  borderRadius: BorderRadius.circular(12),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -814,7 +1115,9 @@ class _CalendarBadge extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             value,
-            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -840,13 +1143,31 @@ class _DividendFilterChips extends StatelessWidget {
     );
   }
 
-  Widget _buildChip(BuildContext context, String label, _DividendFilter filter) {
+  Widget _buildChip(
+    BuildContext context,
+    String label,
+    _DividendFilter filter,
+  ) {
     final selected = current == filter;
     return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onChanged(filter),
-    );
+  label: Text(
+    label,
+    style: TextStyle(
+      fontWeight: FontWeight.w700,
+      color: selected ? Colors.white : Colors.black87,
+    ),
+  ),
+  selected: selected,
+  onSelected: (_) => onChanged(filter),
+  selectedColor: detailsColor2,
+  backgroundColor: const Color(0xFFF0F1F3),
+  side: BorderSide(
+    color: selected
+        ? detailsColor2.withValues(alpha: .35)
+        : const Color(0xFFE6E8EB),
+  ),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+);
   }
 }
 
@@ -857,29 +1178,100 @@ class _CalendarError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+Widget build(BuildContext context) {
+  return Center(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Réessayer'),
+            InkWell(
+              onTap: onRetry,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: const LinearGradient(
+                    colors: [detailsColor1, detailsColor2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 10),
+                    Text(
+                      'Réessayer',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _TrackedSymbol {
@@ -908,6 +1300,8 @@ class _DividendCalendarEntry {
   final _TrackedSymbol metadata;
   final DividendEvent event;
 
-  DateTime? get primaryDate => event.exDate ?? event.paymentDate ?? event.declarationDate;
-  DateTime? get calendarDate => event.paymentDate ?? event.exDate ?? event.declarationDate;
+  DateTime? get primaryDate =>
+      event.exDate ?? event.paymentDate ?? event.declarationDate;
+  DateTime? get calendarDate =>
+      event.paymentDate ?? event.exDate ?? event.declarationDate;
 }

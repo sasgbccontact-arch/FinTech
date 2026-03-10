@@ -6,12 +6,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
-
+import 'package:fintech/core/constants.dart';
 import '../models/chart_models.dart';
 import '../services/portfolio_service.dart';
 import '../services/yahoo_finance_service.dart';
 import '../utils/portfolio_dialogs.dart';
 import 'info_page.dart';
+import 'favorites_page.dart';
+import 'game_page.dart';
 
 /// Tableau de bord des portefeuilles – liste et fiche analytique animée.
 class PortfolioDashboardPage extends StatefulWidget {
@@ -22,8 +24,14 @@ class PortfolioDashboardPage extends StatefulWidget {
 }
 
 class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
-  static const Color _bg = Color(0xFFF5F6F7);
-  static const Color _muted = Colors.black54;
+// Palette (same style as SearchPage)
+static const Color _bg = backgroundColor;
+static const Color _ink = textColor;
+static const Color _muted = Colors.black54;
+static const Color _line = Color(0xFFE6E8EB);
+static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
+static const Color _chipBg = Color(0xFFF0F1F3);
 
   bool _creating = false;
 
@@ -31,171 +39,295 @@ class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      return Container(
-        color: _bg,
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.lock_outline_rounded, color: _muted, size: 32),
-            SizedBox(height: 12),
-            Text(
-              'Connectez-vous pour gérer vos portefeuilles',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: _muted, fontSize: 16, fontWeight: FontWeight.w500),
+      return Scaffold(
+        backgroundColor: _bg,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: _line),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.lock_outline_rounded, color: _muted, size: 34),
+                    SizedBox(height: 12),
+                    Text(
+                      'Connectez-vous pour gérer vos portefeuilles',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _muted,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
+          ),
         ),
       );
     }
 
-    final stream = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('portfolios')
-        .orderBy('createdAt', descending: false)
-        .snapshots();
+    final stream =
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('portfolios')
+            .orderBy('createdAt', descending: false)
+            .snapshots();
 
-    return Container(
-      color: _bg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Tableau de bord',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                          letterSpacing: .2,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Créez et suivez vos portefeuilles d\'actions.',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: _muted,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _buildCreateButton(),
-              ],
+    return Scaffold(
+      backgroundColor: _bg,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 18),
+            Padding(
+  padding: const EdgeInsets.symmetric(horizontal: 20),
+  child: Row(
+    children: [
+      Tooltip(
+        message: 'Favoris',
+        child: InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const FavoritesPage()),
+          ),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: _chipBg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _line),
+            ),
+            child: const Icon(
+              Icons.star_rounded,
+              color: Colors.orange,
+              size: 20,
             ),
           ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: stream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.error_outline_rounded, color: Colors.black38, size: 32),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Impossible de charger vos portefeuilles pour le moment.',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: _muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                final docs = snapshot.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-                if (docs.isEmpty) {
-                  return _EmptyPortfolioState(onCreate: _creating ? null : _createPortfolio);
-                }
-
-                final portfolios = docs.map((doc) {
-                  final data = doc.data();
-                  final name = (data['name'] as String? ?? '').trim();
-                  final createdAt = data['createdAt'];
-                  final updatedAt = data['updatedAt'];
-                  final count = (data['positionsCount'] as num?)?.toInt() ?? 0;
-                  return _PortfolioSummary(
-                    id: doc.id,
-                    ref: doc.reference,
-                    name: name.isEmpty ? 'Portefeuille' : name,
-                    positionsCount: count,
-                    createdAt: createdAt is Timestamp ? createdAt.toDate() : null,
-                    updatedAt: updatedAt is Timestamp ? updatedAt.toDate() : null,
-                  );
-                }).toList();
-
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: portfolios.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final portfolio = portfolios[index];
-                    return _PortfolioCard(
-                      summary: portfolio,
-                      onTap: () => _openPortfolioDetail(portfolio),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+        ),
       ),
-    );
-  }
-
-  Widget _buildCreateButton() {
-    final bool disabled = _creating;
-    return ElevatedButton.icon(
-      onPressed: disabled ? null : _createPortfolio,
-      style: ElevatedButton.styleFrom(
-        elevation: 0,
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      icon: disabled
-          ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tableau de bord',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: _ink,
+                letterSpacing: .2,
               ),
-            )
-          : const Icon(Icons.add_rounded, size: 18),
-      label: Text(disabled ? 'Création…' : 'Nouveau'),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 6,
+              width: 96,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                gradient: const LinearGradient(
+                  colors: [_gold, _wine],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Créez et suivez vos portefeuilles d'actions.",
+              style: TextStyle(
+                fontSize: 14,
+                color: _muted,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 12),
+      _buildCreateButton(),
+    ],
+  ),
+),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _GamePortfolioShortcut(uid: user.uid),
+            ),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: stream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: _wine,
+                        backgroundColor: _gold.withValues(alpha: .20),
+                        strokeWidth: 3,
+                      ),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Colors.black38,
+                              size: 32,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Impossible de charger vos portefeuilles pour le moment.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(
+                                context,
+                              ).textTheme.bodyMedium?.copyWith(color: _muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  final docs =
+                      snapshot.data?.docs ??
+                      <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                  if (docs.isEmpty) {
+                    return _EmptyPortfolioState(
+                      onCreate: _creating ? null : _createPortfolio,
+                    );
+                  }
+
+                  final portfolios =
+                      docs.map((doc) {
+                        final data = doc.data();
+                        final name = (data['name'] as String? ?? '').trim();
+                        final createdAt = data['createdAt'];
+                        final updatedAt = data['updatedAt'];
+                        final count =
+                            (data['positionsCount'] as num?)?.toInt() ?? 0;
+                        return _PortfolioSummary(
+                          id: doc.id,
+                          ref: doc.reference,
+                          name: name.isEmpty ? 'Portefeuille' : name,
+                          positionsCount: count,
+                          createdAt:
+                              createdAt is Timestamp ? createdAt.toDate() : null,
+                          updatedAt:
+                              updatedAt is Timestamp ? updatedAt.toDate() : null,
+                        );
+                      }).toList();
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: portfolios.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      final portfolio = portfolios[index];
+                      return _PortfolioCard(
+                        summary: portfolio,
+                        onTap: () => _openPortfolioDetail(portfolio),
+                        onDelete:
+                            () => _deletePortfolio(portfolio.id, portfolio.name),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
+
+ Widget _buildCreateButton() {
+  final bool disabled = _creating;
+
+  return InkWell(
+    onTap: disabled ? null : _createPortfolio,
+    borderRadius: BorderRadius.circular(14),
+    child: AnimatedOpacity(
+      duration: const Duration(milliseconds: 150),
+      opacity: disabled ? 0.7 : 1,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient: const LinearGradient(
+            colors: [_gold, _wine],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .12),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            disabled
+                ?  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      color: _wine,
+                      backgroundColor: _gold.withValues(alpha: .20),
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 10),
+            Text(
+              disabled ? 'Création…' : 'Nouveau',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
 
   Future<void> _createPortfolio() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Connectez-vous pour créer un portefeuille.')),
+        const SnackBar(
+          content: Text('Connectez-vous pour créer un portefeuille.'),
+        ),
       );
       return;
     }
@@ -209,25 +341,86 @@ class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
     try {
       await PortfolioService.createPortfolio(uid: user.uid, name: name);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Portefeuille "$name" créé.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Portefeuille "$name" créé.')));
     } on FirebaseException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Impossible de créer le portefeuille (${e.message ?? e.code}).'),
+          content: Text(
+            'Impossible de créer le portefeuille (${e.message ?? e.code}).',
+          ),
         ),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de la création du portefeuille.')),
+        const SnackBar(
+          content: Text('Erreur lors de la création du portefeuille.'),
+        ),
       );
     } finally {
       if (mounted) {
         setState(() => _creating = false);
       }
+    }
+  }
+
+  Future<void> _deletePortfolio(String id, String name) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Supprimer le portefeuille ?'),
+            content: Text(
+              'Voulez-vous vraiment supprimer "$name" ?\nCette action est irréversible.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  'Annuler',
+                  style: TextStyle(color: Colors.black),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Supprimer',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final ref = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('portfolios')
+          .doc(id);
+      // Suppression des positions (sous-collection)
+      final positions = await ref.collection('positions').get();
+      for (final doc in positions.docs) {
+        await doc.reference.delete();
+      }
+      await ref.delete();
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Portefeuille "$name" supprimé.')),
+        );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la suppression.')),
+        );
     }
   }
 
@@ -262,10 +455,21 @@ class _PortfolioSummary {
 }
 
 class _PortfolioCard extends StatelessWidget {
-  const _PortfolioCard({required this.summary, required this.onTap});
+  const _PortfolioCard({
+    required this.summary,
+    required this.onTap,
+    this.onDelete,
+    this.backgroundColor,
+    this.iconBackgroundColor,
+    this.iconTextColor,
+  });
 
   final _PortfolioSummary summary;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
+  final Color? backgroundColor;
+  final Color? iconBackgroundColor;
+  final Color? iconTextColor;
 
   @override
   Widget build(BuildContext context) {
@@ -290,7 +494,7 @@ class _PortfolioCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: backgroundColor ?? Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFE6E8EB)),
           boxShadow: [
@@ -308,14 +512,19 @@ class _PortfolioCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: Colors.black,
+                color: iconBackgroundColor ?? Colors.black,
                 borderRadius: BorderRadius.circular(16),
               ),
               alignment: Alignment.center,
               child: Text(
-                summary.name.substring(0, summary.name.length >= 3 ? 3 : summary.name.length).toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
+                summary.name
+                    .substring(
+                      0,
+                      summary.name.length >= 3 ? 3 : summary.name.length,
+                    )
+                    .toUpperCase(),
+                style: TextStyle(
+                  color: iconTextColor ?? Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.1,
@@ -330,32 +539,46 @@ class _PortfolioCard extends StatelessWidget {
                   Text(
                     summary.name,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
-                        ),
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          fontWeight: FontWeight.w500,
-                        ),
+                      color: Colors.black.withValues(alpha: 0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   if (updatedText != null) ...[
                     const SizedBox(height: 6),
                     Text(
                       updatedText,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.black45,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        color: Colors.black45,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: Colors.black38, size: 26),
+            if (onDelete != null)
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.black38,
+                ),
+                tooltip: 'Supprimer',
+              ),
+            if (onDelete == null)
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.black38,
+                size: 26,
+              ),
           ],
         ),
       ),
@@ -363,30 +586,86 @@ class _PortfolioCard extends StatelessWidget {
   }
 }
 
-typedef _OpenPositionCallback = void Function(
-  String symbol,
-  String? name,
-  String? exchange,
-  String? currency,
-  String? quoteType,
-);
+typedef _OpenPositionCallback =
+    void Function(
+      String symbol,
+      String? name,
+      String? exchange,
+      String? currency,
+      String? quoteType,
+    );
+
+typedef _DeletePositionCallback =
+    Future<bool> Function(String positionId, String symbol);
+
+class _GamePortfolioShortcut extends StatelessWidget {
+  const _GamePortfolioShortcut({required this.uid});
+  final String uid;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('games')
+          .doc('portofolio')
+          .collection('positions')
+          .snapshots(),
+      builder: (context, snapshot) {
+        final int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+        
+        // Création d'un résumé fictif pour réutiliser le composant _PortfolioCard
+        final summary = _PortfolioSummary(
+          id: 'game_portfolio',
+          ref: FirebaseFirestore.instance.collection('users').doc(uid), // Dummy ref
+          name: 'Portefeuille de Jeu',
+          positionsCount: count,
+          createdAt: null,
+          updatedAt: null, // On ne montre pas la date de maj pour simplifier
+        );
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _PortfolioCard(
+            summary: summary,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MarketSimulationPage()),
+              );
+            },
+            backgroundColor: Colors.indigo.shade50,
+            iconBackgroundColor: Colors.indigo,
+            iconTextColor: Colors.white,
+          ),
+        );
+      },
+    );
+  }
+}
 
 class _PortfolioDetailSheet extends StatefulWidget {
   const _PortfolioDetailSheet({required this.summary});
 
   final _PortfolioSummary summary;
+  
 
   @override
   State<_PortfolioDetailSheet> createState() => _PortfolioDetailSheetState();
 }
 
 class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
+  static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
+
   @override
   Widget build(BuildContext context) {
-    final stream = widget.summary.ref
-        .collection('positions')
-        .orderBy('addedAt', descending: true)
-        .snapshots();
+    final stream =
+        widget.summary.ref
+            .collection('positions')
+            .orderBy('addedAt', descending: true)
+            .snapshots();
     final maxHeight = MediaQuery.of(context).size.height * 0.88;
 
     return SafeArea(
@@ -397,7 +676,13 @@ class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
           stream: stream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(
+                child: CircularProgressIndicator(
+                  color: _wine,
+                  backgroundColor: _gold.withValues(alpha: .20),
+                  strokeWidth: 3,
+                ),
+              );
             }
             if (snapshot.hasError) {
               return _PortfolioAnalyticsError(
@@ -406,11 +691,14 @@ class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
               );
             }
 
-            final docs = snapshot.data?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-            final positions = docs
-                .map(_PortfolioPositionSnapshot.fromDoc)
-                .where((p) => p.symbol.isNotEmpty)
-                .toList();
+            final docs =
+                snapshot.data?.docs ??
+                <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+            final positions =
+                docs
+                    .map(_PortfolioPositionSnapshot.fromDoc)
+                    .where((p) => p.symbol.isNotEmpty)
+                    .toList();
 
             if (positions.isEmpty) {
               return const _PortfolioPositionsEmpty();
@@ -420,6 +708,7 @@ class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
               summary: widget.summary,
               positions: positions,
               onOpenPosition: _openInfo,
+              onDeletePosition: _deletePosition,
             );
           },
         ),
@@ -438,19 +727,72 @@ class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
       await showCupertinoModalBottomSheet(
         context: context,
         expand: true,
-        builder: (ctx) => InfoPage(
-          ticker: symbol,
-          initialName: name,
-          initialExchange: exchange,
-          initialCurrency: currency,
-          initialQuoteType: quoteType,
-        ),
+        builder:
+            (ctx) => InfoPage(
+              ticker: symbol,
+              initialName: name,
+              initialExchange: exchange,
+              initialCurrency: currency,
+              initialQuoteType: quoteType,
+            ),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Impossible d'ouvrir la fiche de l'action.")),
+        const SnackBar(
+          content: Text("Impossible d'ouvrir la fiche de l'action."),
+        ),
       );
+    }
+  }
+
+  Future<bool> _deletePosition(String positionId, String symbol) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: Text('Vendre $symbol ?'),
+            content: const Text(
+              'Voulez-vous retirer cette position du portefeuille ?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  'Annuler',
+                  style: TextStyle(color: Colors.black),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Vendre',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return false;
+
+    try {
+      await widget.summary.ref.collection('positions').doc(positionId).delete();
+      await widget.summary.ref.update({
+        'positionsCount': FieldValue.increment(-1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Position $symbol vendue.')));
+      return true;
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la vente.')),
+        );
+      return false;
     }
   }
 }
@@ -460,19 +802,25 @@ class _PortfolioPositionsView extends StatefulWidget {
     required this.summary,
     required this.positions,
     required this.onOpenPosition,
+    required this.onDeletePosition,
   });
 
   final _PortfolioSummary summary;
   final List<_PortfolioPositionSnapshot> positions;
   final _OpenPositionCallback onOpenPosition;
+  final _DeletePositionCallback onDeletePosition;
+  
 
   @override
-  State<_PortfolioPositionsView> createState() => _PortfolioPositionsViewState();
+  State<_PortfolioPositionsView> createState() =>
+      _PortfolioPositionsViewState();
 }
 
 class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
   Future<_PortfolioAnalytics>? _future;
   String _signature = '';
+  static const Color _gold = detailsColor1;
+static const Color _wine = detailsColor2;
 
   @override
   void initState() {
@@ -490,9 +838,12 @@ class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
   }
 
   void _scheduleComputation() {
-    final future = widget.positions.isEmpty
-        ? Future<_PortfolioAnalytics>.value(_PortfolioAnalytics.empty(widget.positions))
-        : _computeAnalytics(widget.positions);
+    final future =
+        widget.positions.isEmpty
+            ? Future<_PortfolioAnalytics>.value(
+              _PortfolioAnalytics.empty(widget.positions),
+            )
+            : _computeAnalytics(widget.positions);
     setState(() {
       _signature = _signatureFor(widget.positions);
       _future = future;
@@ -504,8 +855,15 @@ class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
     return FutureBuilder<_PortfolioAnalytics>(
       future: _future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting || _future == null) {
-          return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting ||
+            _future == null) {
+          return Center(
+            child: CircularProgressIndicator(
+              color: _wine,
+              backgroundColor: _gold.withValues(alpha: .20),
+              strokeWidth: 3,
+            ),
+          );
         }
         if (snapshot.hasError) {
           return _PortfolioAnalyticsError(
@@ -514,7 +872,8 @@ class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
           );
         }
 
-        final analytics = snapshot.data ?? _PortfolioAnalytics.empty(widget.positions);
+        final analytics =
+            snapshot.data ?? _PortfolioAnalytics.empty(widget.positions);
         if (analytics.positions.isEmpty) {
           return const _PortfolioPositionsEmpty();
         }
@@ -523,6 +882,7 @@ class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
           summary: widget.summary,
           analytics: analytics,
           onOpenPosition: widget.onOpenPosition,
+          onDeletePosition: widget.onDeletePosition,
           onRefreshRequested: _scheduleComputation,
         );
       },
@@ -535,12 +895,14 @@ class _PortfolioAnalyticsView extends StatelessWidget {
     required this.summary,
     required this.analytics,
     required this.onOpenPosition,
+    required this.onDeletePosition,
     required this.onRefreshRequested,
   });
 
   final _PortfolioSummary summary;
   final _PortfolioAnalytics analytics;
   final _OpenPositionCallback onOpenPosition;
+  final _DeletePositionCallback onDeletePosition;
   final VoidCallback onRefreshRequested;
 
   @override
@@ -576,14 +938,16 @@ class _PortfolioAnalyticsView extends StatelessWidget {
                           Text(
                             summary.name,
                             style: theme.textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.black87,
-                                ),
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
                           ),
                           if (summary.updatedAt != null)
                             Text(
                               'Mis à jour ${_relativeDate(summary.updatedAt!)}',
-                              style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.black54,
+                              ),
                             ),
                         ],
                       ),
@@ -606,7 +970,9 @@ class _PortfolioAnalyticsView extends StatelessWidget {
           ),
           SliverToBoxAdapter(child: _OverviewSection(analytics: analytics)),
           if (analytics.history.points.length > 1)
-            SliverToBoxAdapter(child: _PerformanceSection(analytics: analytics)),
+            SliverToBoxAdapter(
+              child: _PerformanceSection(analytics: analytics),
+            ),
           SliverToBoxAdapter(
             child: _InsightsSection(
               analytics: analytics,
@@ -618,27 +984,52 @@ class _PortfolioAnalyticsView extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Text(
                 'Positions',
-                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final position = analytics.positions[index];
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: index == analytics.positions.length - 1 ? 0 : 12),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final position = analytics.positions[index];
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: index == analytics.positions.length - 1 ? 0 : 12,
+                  ),
+                  child: Dismissible(
+                    key: Key(position.snapshot.id),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        color: Colors.red.shade700,
+                      ),
+                    ),
+                    confirmDismiss:
+                        (_) => onDeletePosition(
+                          position.snapshot.id,
+                          position.snapshot.symbol,
+                        ),
                     child: _PositionTile(
                       analytics: position,
                       onTap: () {
-                        final fallbackName = position.snapshot.displayName.isNotEmpty
-                            ? position.snapshot.displayName
-                            : position.snapshot.symbol;
+                        final fallbackName =
+                            position.snapshot.displayName.isNotEmpty
+                                ? position.snapshot.displayName
+                                : position.snapshot.symbol;
                         final rawType = position.snapshot.quoteType;
                         final type =
-                            rawType.isEmpty || rawType.toUpperCase() == 'UNKNOWN'
+                            rawType.isEmpty ||
+                                    rawType.toUpperCase() == 'UNKNOWN'
                                 ? null
                                 : rawType;
                         onOpenPosition(
@@ -650,10 +1041,9 @@ class _PortfolioAnalyticsView extends StatelessWidget {
                         );
                       },
                     ),
-                  );
-                },
-                childCount: analytics.positions.length,
-              ),
+                  ),
+                );
+              }, childCount: analytics.positions.length),
             ),
           ),
         ],
@@ -669,21 +1059,29 @@ class _OverviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final changeColor = analytics.totalChangeValue == null
-        ? Colors.black
-        : analytics.totalChangeValue! >= 0
+    final changeColor =
+        analytics.totalChangeValue == null
+            ? Colors.black
+            : analytics.totalChangeValue! >= 0
             ? Colors.green.shade600
             : Colors.red.shade600;
 
-    final valueText = analytics.totalValue != null
-        ? _formatCurrency(analytics.totalValue!, analytics.singleCurrency)
-        : 'Multi devises';
-    final changeText = analytics.totalChangeValue != null
-        ? _formatCurrency(analytics.totalChangeValue!, analytics.singleCurrency, signed: true)
-        : '—';
-    final changeSubtitle = analytics.totalChangePercent != null
-        ? _formatSignedPercent(analytics.totalChangePercent!)
-        : 'Variation indisponible';
+    final valueText =
+        analytics.totalValue != null
+            ? _formatCurrency(analytics.totalValue!, analytics.singleCurrency)
+            : 'Multi devises';
+    final changeText =
+        analytics.totalChangeValue != null
+            ? _formatCurrency(
+              analytics.totalChangeValue!,
+              analytics.singleCurrency,
+              signed: true,
+            )
+            : '—';
+    final changeSubtitle =
+        analytics.totalChangePercent != null
+            ? _formatSignedPercent(analytics.totalChangePercent!)
+            : 'Variation indisponible';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -692,7 +1090,9 @@ class _OverviewSection extends StatelessWidget {
         children: [
           Text(
             'Aperçu',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
           Row(
@@ -709,7 +1109,10 @@ class _OverviewSection extends StatelessWidget {
                 child: _MetricCard(
                   title: 'Valeur',
                   value: valueText,
-                  subtitle: analytics.totalValue != null ? 'Cours instantané' : 'Addition brute des devises',
+                  subtitle:
+                      analytics.totalValue != null
+                          ? 'Cours instantané'
+                          : 'Addition brute des devises',
                 ),
               ),
             ],
@@ -755,10 +1158,10 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
   @override
   Widget build(BuildContext context) {
     final analytics = widget.analytics;
-    final hasValue = analytics.totalValue != null && analytics.singleCurrency != null;
-    final simulatedValue = hasValue
-        ? analytics.totalValue! * (1 + _scenarioPercent / 100)
-        : null;
+    final hasValue =
+        analytics.totalValue != null && analytics.singleCurrency != null;
+    final simulatedValue =
+        hasValue ? analytics.totalValue! * (1 + _scenarioPercent / 100) : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
@@ -769,21 +1172,29 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
             children: [
               Text(
                 'Performance',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const Spacer(),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
-                child: simulatedValue == null
-                    ? const SizedBox.shrink()
-                    : Text(
-                        _formatCurrency(simulatedValue, analytics.singleCurrency!),
-                        key: ValueKey<double>(simulatedValue),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
-                            ),
-                      ),
+                child:
+                    simulatedValue == null
+                        ? const SizedBox.shrink()
+                        : Text(
+                          _formatCurrency(
+                            simulatedValue,
+                            analytics.singleCurrency!,
+                          ),
+                          key: ValueKey<double>(simulatedValue),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
               ),
             ],
           ),
@@ -811,7 +1222,13 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
             children: [
               for (final percent in const [0.0, 5.0, -5.0, 10.0])
                 ChoiceChip(
-                  label: Text(percent == 0 ? 'Réel' : (percent > 0 ? '+${percent.toInt()} %' : '${percent.toInt()} %')),
+                  label: Text(
+                    percent == 0
+                        ? 'Réel'
+                        : (percent > 0
+                            ? '+${percent.toInt()} %'
+                            : '${percent.toInt()} %'),
+                  ),
                   selected: _scenarioPercent == percent,
                   onSelected: (_) => setState(() => _scenarioPercent = percent),
                 ),
@@ -824,7 +1241,10 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
 }
 
 class _InsightsSection extends StatelessWidget {
-  const _InsightsSection({required this.analytics, required this.onOpenPosition});
+  const _InsightsSection({
+    required this.analytics,
+    required this.onOpenPosition,
+  });
 
   final _PortfolioAnalytics analytics;
   final _OpenPositionCallback onOpenPosition;
@@ -860,12 +1280,15 @@ class _InsightsSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: cards
-            .map((card) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: card,
-                ))
-            .toList(),
+        children:
+            cards
+                .map(
+                  (card) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: card,
+                  ),
+                )
+                .toList(),
       ),
     );
   }
@@ -899,7 +1322,12 @@ class _InsightCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 12),
           child,
         ],
@@ -918,20 +1346,23 @@ class _DistributionChips extends StatelessWidget {
     if (slices.isEmpty) {
       return Text(
         'Insuffisant pour établir une répartition.',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: Colors.black54),
       );
     }
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: slices
-          .map(
-            (slice) => Chip(
-              label: Text('${slice.label} · ${slice.percentageString}'),
-              backgroundColor: Colors.black.withValues(alpha: 0.04),
-            ),
-          )
-          .toList(),
+      children:
+          slices
+              .map(
+                (slice) => Chip(
+                  label: Text('${slice.label} · ${slice.percentageString}'),
+                  backgroundColor: Colors.black.withValues(alpha: 0.04),
+                ),
+              )
+              .toList(),
     );
   }
 }
@@ -949,7 +1380,8 @@ class _ConcentrationCard extends StatelessWidget {
 
     String label;
     if (analytics.bestPerformer != null) {
-      label = '${analytics.bestPerformer!.snapshot.displayName.isNotEmpty ? analytics.bestPerformer!.snapshot.displayName : analytics.bestPerformer!.snapshot.symbol} : ${_formatPercent(topWeight * 100)}';
+      label =
+          '${analytics.bestPerformer!.snapshot.displayName.isNotEmpty ? analytics.bestPerformer!.snapshot.displayName : analytics.bestPerformer!.snapshot.symbol} : ${_formatPercent(topWeight * 100)}';
     } else {
       label = _formatPercent(topWeight * 100);
     }
@@ -975,11 +1407,16 @@ class _ConcentrationCard extends StatelessWidget {
               value: topWeight.clamp(0.0, 1.0),
               minHeight: 10,
               backgroundColor: Colors.black.withValues(alpha: 0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(alert ? Colors.redAccent : Colors.black87),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                alert ? Colors.redAccent : Colors.black87,
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          Text(label, style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54)),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+          ),
         ],
       ),
     );
@@ -996,50 +1433,66 @@ class _TimelineCard extends StatelessWidget {
     if (entries.isEmpty) {
       return Text(
         'Aucun ajout récent.',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: Colors.black54),
       );
     }
     return Column(
-      children: entries
-          .map(
-            (entry) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      entry.symbol.substring(0, entry.symbol.length >= 3 ? 3 : entry.symbol.length).toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.name,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+      children:
+          entries
+              .map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        Text(
-                          'Ajouté ${_relativeDate(entry.date)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                        alignment: Alignment.center,
+                        child: Text(
+                          entry.symbol
+                              .substring(
+                                0,
+                                entry.symbol.length >= 3
+                                    ? 3
+                                    : entry.symbol.length,
+                              )
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.name,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              'Ajouté ${_relativeDate(entry.date)}',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          )
-          .toList(),
+                ),
+              )
+              .toList(),
     );
   }
 }
@@ -1053,10 +1506,15 @@ class _FocusPosition extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final snapshot = analytics.snapshot;
-    final changeText = analytics.changePercent != null
-        ? _formatSignedPercent(analytics.changePercent!)
-        : analytics.changeValue != null
-            ? _formatCurrency(analytics.changeValue!, snapshot.currency, signed: true)
+    final changeText =
+        analytics.changePercent != null
+            ? _formatSignedPercent(analytics.changePercent!)
+            : analytics.changeValue != null
+            ? _formatCurrency(
+              analytics.changeValue!,
+              snapshot.currency,
+              signed: true,
+            )
             : 'Variation indisponible';
 
     final rawType = snapshot.quoteType;
@@ -1064,13 +1522,14 @@ class _FocusPosition extends StatelessWidget {
         rawType.isEmpty || rawType.toUpperCase() == 'UNKNOWN' ? null : rawType;
 
     return InkWell(
-      onTap: () => onOpen(
-        snapshot.symbol,
-        snapshot.displayName,
-        snapshot.exchange,
-        snapshot.currency,
-        quoteType,
-      ),
+      onTap:
+          () => onOpen(
+            snapshot.symbol,
+            snapshot.displayName,
+            snapshot.exchange,
+            snapshot.currency,
+            quoteType,
+          ),
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1079,7 +1538,11 @@ class _FocusPosition extends StatelessWidget {
             CircleAvatar(
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
-              child: Text(snapshot.symbol.isEmpty ? '?' : snapshot.symbol[0].toUpperCase()),
+              child: Text(
+                snapshot.symbol.isEmpty
+                    ? '?'
+                    : snapshot.symbol[0].toUpperCase(),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1087,12 +1550,18 @@ class _FocusPosition extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    snapshot.displayName.isNotEmpty ? snapshot.displayName : snapshot.symbol,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    snapshot.displayName.isNotEmpty
+                        ? snapshot.displayName
+                        : snapshot.symbol,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   Text(
                     'Poids ${_formatPercent(analytics.weight * 100)} · $changeText',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.black54),
                   ),
                 ],
               ),
@@ -1116,25 +1585,41 @@ class _PositionTile extends StatelessWidget {
     final snapshot = analytics.snapshot;
     final theme = Theme.of(context);
 
-    final title = snapshot.displayName.isNotEmpty ? snapshot.displayName : snapshot.symbol;
+    final title =
+        snapshot.displayName.isNotEmpty
+            ? snapshot.displayName
+            : snapshot.symbol;
     final subtitleParts = <String>[];
     subtitleParts.add(snapshot.symbol.toUpperCase());
-    if (snapshot.exchange.isNotEmpty) subtitleParts.add(snapshot.exchange.toUpperCase());
-    if (snapshot.currency.isNotEmpty) subtitleParts.add(snapshot.currency.toUpperCase());
+    if (snapshot.exchange.isNotEmpty)
+      subtitleParts.add(snapshot.exchange.toUpperCase());
+    if (snapshot.currency.isNotEmpty)
+      subtitleParts.add(snapshot.currency.toUpperCase());
 
-    final valueText = analytics.value != null
-        ? _formatCurrency(analytics.value!, snapshot.currency)
-        : '—';
-    final changeText = analytics.changePercent != null
-        ? _formatSignedPercent(analytics.changePercent!)
-        : analytics.changeValue != null
-            ? _formatCurrency(analytics.changeValue!, snapshot.currency, signed: true)
+    final valueText =
+        analytics.value != null
+            ? _formatCurrency(analytics.value!, snapshot.currency)
+            : '—';
+    final changeText =
+        analytics.changePercent != null
+            ? _formatSignedPercent(analytics.changePercent!)
+            : analytics.changeValue != null
+            ? _formatCurrency(
+              analytics.changeValue!,
+              snapshot.currency,
+              signed: true,
+            )
             : null;
-    final changeColor = analytics.changePercent != null
-        ? (analytics.changePercent! >= 0 ? Colors.green.shade600 : Colors.red.shade600)
-        : (analytics.changeValue != null
-            ? (analytics.changeValue! >= 0 ? Colors.green.shade600 : Colors.red.shade600)
-            : Colors.black54);
+    final changeColor =
+        analytics.changePercent != null
+            ? (analytics.changePercent! >= 0
+                ? Colors.green.shade600
+                : Colors.red.shade600)
+            : (analytics.changeValue != null
+                ? (analytics.changeValue! >= 0
+                    ? Colors.green.shade600
+                    : Colors.red.shade600)
+                : Colors.black54);
 
     return InkWell(
       onTap: onTap,
@@ -1164,8 +1649,13 @@ class _PositionTile extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: Text(
-                snapshot.symbol.isNotEmpty ? snapshot.symbol.substring(0, 2).toUpperCase() : '?',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                snapshot.symbol.isNotEmpty
+                    ? snapshot.symbol.substring(0, 2).toUpperCase()
+                    : '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -1177,12 +1667,16 @@ class _PositionTile extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitleParts.join(' · '),
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.black54,
+                    ),
                   ),
                 ],
               ),
@@ -1191,11 +1685,19 @@ class _PositionTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(valueText, style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  valueText,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 if (changeText != null)
                   Text(
                     changeText,
-                    style: theme.textTheme.labelSmall?.copyWith(color: changeColor, fontWeight: FontWeight.w600),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: changeColor,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
               ],
             ),
@@ -1207,7 +1709,10 @@ class _PositionTile extends StatelessWidget {
 }
 
 class _PortfolioAnalyticsError extends StatelessWidget {
-  const _PortfolioAnalyticsError({required this.message, required this.onRetry});
+  const _PortfolioAnalyticsError({
+    required this.message,
+    required this.onRetry,
+  });
 
   final String message;
   final VoidCallback onRetry;
@@ -1250,7 +1755,11 @@ class _PortfolioPositionsEmpty extends StatelessWidget {
             Text(
               'Aucune action dans ce portefeuille.\nAjoutez-en depuis la fiche Info.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: 15, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: Colors.black54,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -1287,16 +1796,29 @@ class _SparklineChart extends StatelessWidget {
               left: 12,
               bottom: 8,
               child: Text(
-                _formatHistoryLabel(points.first.value, series.currency, series.normalized),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.black54),
+                _formatHistoryLabel(
+                  points.first.value,
+                  series.currency,
+                  series.normalized,
+                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: Colors.black54),
               ),
             ),
             Positioned(
               right: 12,
               top: 8,
               child: Text(
-                _formatHistoryLabel(points.last.value, series.currency, series.normalized),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.black87, fontWeight: FontWeight.w700),
+                _formatHistoryLabel(
+                  points.last.value,
+                  series.currency,
+                  series.normalized,
+                ),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.black87,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -1319,11 +1841,13 @@ class _SparklinePainter extends CustomPainter {
     final fillPath = Path();
     final minValue = points.map((p) => p.value).reduce(math.min);
     final maxValue = points.map((p) => p.value).reduce(math.max);
-    final range = (maxValue - minValue).abs() < 1e-6 ? 1.0 : maxValue - minValue;
+    final range =
+        (maxValue - minValue).abs() < 1e-6 ? 1.0 : maxValue - minValue;
     final first = points.first;
 
     double translateX(int index) => (index / (points.length - 1)) * size.width;
-    double translateY(double value) => size.height - ((value - minValue) / range) * size.height;
+    double translateY(double value) =>
+        size.height - ((value - minValue) / range) * size.height;
 
     path.moveTo(translateX(0), translateY(first.value));
     fillPath.moveTo(translateX(0), size.height);
@@ -1340,28 +1864,35 @@ class _SparklinePainter extends CustomPainter {
     fillPath.lineTo(translateX(points.length - 1), size.height);
     fillPath.close();
 
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = color;
-    final fillPaint = Paint()
-      ..style = PaintingStyle.fill
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [color.withValues(alpha: 0.25), color.withValues(alpha: 0.02)],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    final paint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = color;
+    final fillPaint =
+        Paint()
+          ..style = PaintingStyle.fill
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              color.withValues(alpha: 0.25),
+              color.withValues(alpha: 0.02),
+            ],
+          ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _SparklinePainter oldDelegate) => !identical(oldDelegate.points, points) || oldDelegate.color != color;
+  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
+      !identical(oldDelegate.points, points) || oldDelegate.color != color;
 }
 
 class _PortfolioPositionSnapshot {
   const _PortfolioPositionSnapshot({
+    required this.id,
     required this.symbol,
     required this.displayName,
     required this.exchange,
@@ -1375,6 +1906,7 @@ class _PortfolioPositionSnapshot {
     required this.addedAt,
   });
 
+  final String id;
   final String symbol;
   final String displayName;
   final String exchange;
@@ -1390,7 +1922,9 @@ class _PortfolioPositionSnapshot {
   double? get value => price != null ? price! * quantity : null;
   double? get changeValue => change != null ? change! * quantity : null;
 
-  static _PortfolioPositionSnapshot fromDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+  static _PortfolioPositionSnapshot fromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data();
     final addedAtRaw = data['addedAt'];
     DateTime? addedAt;
@@ -1402,6 +1936,7 @@ class _PortfolioPositionSnapshot {
     final changePercentValue = data['regularMarketChangePercent'];
     final costBasisValue = data['costBasis'];
     return _PortfolioPositionSnapshot(
+      id: doc.id,
       symbol: (data['symbol'] as String? ?? '').trim(),
       displayName: (data['displayName'] as String? ?? '').trim(),
       exchange: (data['exchange'] as String? ?? '').trim(),
@@ -1409,7 +1944,8 @@ class _PortfolioPositionSnapshot {
       quoteType: (data['quoteType'] as String? ?? 'UNKNOWN').trim(),
       price: priceValue is num ? priceValue.toDouble() : null,
       change: changeValue is num ? changeValue.toDouble() : null,
-      changePercent: changePercentValue is num ? changePercentValue.toDouble() : null,
+      changePercent:
+          changePercentValue is num ? changePercentValue.toDouble() : null,
       quantity: quantity <= 0 ? 1.0 : quantity,
       costBasis: costBasisValue is num ? costBasisValue.toDouble() : null,
       addedAt: addedAt,
@@ -1443,7 +1979,11 @@ class _DistributionSlice {
 }
 
 class _TimelineEntry {
-  const _TimelineEntry({required this.symbol, required this.name, required this.date});
+  const _TimelineEntry({
+    required this.symbol,
+    required this.name,
+    required this.date,
+  });
 
   final String symbol;
   final String name;
@@ -1498,7 +2038,9 @@ class _PortfolioAnalytics {
   final List<_TimelineEntry> timeline;
   final _HistorySeries history;
 
-  factory _PortfolioAnalytics.empty(List<_PortfolioPositionSnapshot> positions) {
+  factory _PortfolioAnalytics.empty(
+    List<_PortfolioPositionSnapshot> positions,
+  ) {
     return _PortfolioAnalytics(
       positions: const [],
       totalValue: null,
@@ -1510,20 +2052,29 @@ class _PortfolioAnalytics {
       concentrationRatio: 0,
       currencyDistribution: const [],
       exchangeDistribution: const [],
-      timeline: positions
-          .where((p) => p.addedAt != null)
-          .map((p) => _TimelineEntry(
-                symbol: p.symbol,
-                name: p.displayName.isNotEmpty ? p.displayName : p.symbol,
-                date: p.addedAt!,
-              ))
-          .toList(),
-      history: const _HistorySeries(points: <_HistoryPoint>[], currency: null, normalized: true),
+      timeline:
+          positions
+              .where((p) => p.addedAt != null)
+              .map(
+                (p) => _TimelineEntry(
+                  symbol: p.symbol,
+                  name: p.displayName.isNotEmpty ? p.displayName : p.symbol,
+                  date: p.addedAt!,
+                ),
+              )
+              .toList(),
+      history: const _HistorySeries(
+        points: <_HistoryPoint>[],
+        currency: null,
+        normalized: true,
+      ),
     );
   }
 }
 
-Future<_PortfolioAnalytics> _computeAnalytics(List<_PortfolioPositionSnapshot> positions) async {
+Future<_PortfolioAnalytics> _computeAnalytics(
+  List<_PortfolioPositionSnapshot> positions,
+) async {
   final currencySet = <String>{};
   for (final position in positions) {
     if (position.currency.isNotEmpty) {
@@ -1562,71 +2113,101 @@ Future<_PortfolioAnalytics> _computeAnalytics(List<_PortfolioPositionSnapshot> p
   double? totalChangePercent;
   if (totalWeightForPercent > 0) {
     totalChangePercent = weightedPercentSum / totalWeightForPercent;
-  } else if (hasChangeValue && totalValueOrNull != null && (totalValueOrNull - totalChangeValueOrNull!).abs() > 1e-6) {
+  } else if (hasChangeValue &&
+      totalValueOrNull != null &&
+      (totalValueOrNull - totalChangeValueOrNull!).abs() > 1e-6) {
     final previousValue = totalValueOrNull - totalChangeValueOrNull;
-    totalChangePercent = previousValue.abs() < 1e-6 ? null : (totalChangeValueOrNull / previousValue) * 100;
+    totalChangePercent =
+        previousValue.abs() < 1e-6
+            ? null
+            : (totalChangeValueOrNull / previousValue) * 100;
   }
 
-  final positionsAnalytics = positions.map((position) {
-    final value = position.value;
-    final changeValue = position.changeValue;
-    final changePercent = position.changePercent;
-    double weight;
-    if (value != null && totalValueOrNull != null && totalValueOrNull > 0) {
-      weight = value / totalValueOrNull;
-    } else {
-      weight = 1 / positions.length;
-    }
-    return _PositionAnalytics(
-      snapshot: position,
-      value: value,
-      changeValue: changeValue,
-      changePercent: changePercent,
-      weight: weight,
-    );
-  }).toList();
+  final positionsAnalytics =
+      positions.map((position) {
+        final value = position.value;
+        final changeValue = position.changeValue;
+        final changePercent = position.changePercent;
+        double weight;
+        if (value != null && totalValueOrNull != null && totalValueOrNull > 0) {
+          weight = value / totalValueOrNull;
+        } else {
+          weight = 1 / positions.length;
+        }
+        return _PositionAnalytics(
+          snapshot: position,
+          value: value,
+          changeValue: changeValue,
+          changePercent: changePercent,
+          weight: weight,
+        );
+      }).toList();
 
   _PositionAnalytics? bestPerformer;
   _PositionAnalytics? worstPerformer;
   for (final position in positionsAnalytics) {
-    final score = position.changePercent ?? (position.changeValue != null && position.value != null && position.value!.abs() > 1e-6
-        ? (position.changeValue! / (position.value! - position.changeValue!)) * 100
-        : null);
+    final score =
+        position.changePercent ??
+        (position.changeValue != null &&
+                position.value != null &&
+                position.value!.abs() > 1e-6
+            ? (position.changeValue! /
+                    (position.value! - position.changeValue!)) *
+                100
+            : null);
     if (score == null) continue;
-    if (bestPerformer == null || score > (bestPerformer.changePercent ?? double.negativeInfinity)) {
+    if (bestPerformer == null ||
+        score > (bestPerformer.changePercent ?? double.negativeInfinity)) {
       bestPerformer = position;
     }
-    if (worstPerformer == null || score < (worstPerformer.changePercent ?? double.infinity)) {
+    if (worstPerformer == null ||
+        score < (worstPerformer.changePercent ?? double.infinity)) {
       worstPerformer = position;
     }
   }
 
   final concentrationRatio = positionsAnalytics
       .map((p) => p.weight)
-      .fold<double>(0, (previousValue, element) => element > previousValue ? element : previousValue);
+      .fold<double>(
+        0,
+        (previousValue, element) =>
+            element > previousValue ? element : previousValue,
+      );
 
   final currencyDistribution = _buildDistribution(
     positionsAnalytics,
-    (p) => p.snapshot.currency.isNotEmpty ? p.snapshot.currency.toUpperCase() : 'N/A',
+    (p) =>
+        p.snapshot.currency.isNotEmpty
+            ? p.snapshot.currency.toUpperCase()
+            : 'N/A',
     totalValueOrNull,
   );
   final exchangeDistribution = _buildDistribution(
     positionsAnalytics,
-    (p) => p.snapshot.exchange.isNotEmpty ? p.snapshot.exchange.toUpperCase() : 'N/A',
+    (p) =>
+        p.snapshot.exchange.isNotEmpty
+            ? p.snapshot.exchange.toUpperCase()
+            : 'N/A',
     totalValueOrNull,
   );
 
-  final timeline = positions
-      .where((p) => p.addedAt != null)
-      .map((p) => _TimelineEntry(
-            symbol: p.symbol,
-            name: p.displayName.isNotEmpty ? p.displayName : p.symbol,
-            date: p.addedAt!,
-          ))
-      .toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
+  final timeline =
+      positions
+          .where((p) => p.addedAt != null)
+          .map(
+            (p) => _TimelineEntry(
+              symbol: p.symbol,
+              name: p.displayName.isNotEmpty ? p.displayName : p.symbol,
+              date: p.addedAt!,
+            ),
+          )
+          .toList()
+        ..sort((a, b) => b.date.compareTo(a.date));
 
-  final history = await _buildAggregatedHistory(positions, singleCurrency: singleCurrency);
+  final history = await _buildAggregatedHistory(
+    positions,
+    singleCurrency: singleCurrency,
+  );
 
   return _PortfolioAnalytics(
     positions: positionsAnalytics,
@@ -1654,14 +2235,18 @@ List<_DistributionSlice> _buildDistribution(
   final total = totalValue ?? analytics.length.toDouble();
   for (final position in analytics) {
     final key = keySelector(position);
-    final weight = totalValue != null && position.value != null
-        ? position.value!
-        : 1.0;
+    final weight =
+        totalValue != null && position.value != null ? position.value! : 1.0;
     map[key] = (map[key] ?? 0) + weight;
   }
   if (total <= 0) return const [];
   return map.entries
-      .map((e) => _DistributionSlice(label: e.key, weight: (e.value / total).clamp(0.0, 1.0)))
+      .map(
+        (e) => _DistributionSlice(
+          label: e.key,
+          weight: (e.value / total).clamp(0.0, 1.0),
+        ),
+      )
       .toList()
     ..sort((a, b) => b.weight.compareTo(a.weight));
 }
@@ -1671,7 +2256,11 @@ Future<_HistorySeries> _buildAggregatedHistory(
   required String? singleCurrency,
 }) async {
   if (positions.isEmpty) {
-    return const _HistorySeries(points: <_HistoryPoint>[], currency: null, normalized: true);
+    return const _HistorySeries(
+      points: <_HistoryPoint>[],
+      currency: null,
+      normalized: true,
+    );
   }
 
   DateTime earliest = DateTime.now();
@@ -1684,10 +2273,21 @@ Future<_HistorySeries> _buildAggregatedHistory(
   final interval = _pickInterval(DateTime.now().difference(earliest));
   final futures = positions.map((position) async {
     try {
-      final points = await YahooFinanceService.fetchHistoricalSeries(position.symbol, interval);
-      return _SymbolHistory(position: position, interval: interval, points: points);
+      final points = await YahooFinanceService.fetchHistoricalSeries(
+        position.symbol,
+        interval,
+      );
+      return _SymbolHistory(
+        position: position,
+        interval: interval,
+        points: points,
+      );
     } catch (_) {
-      return _SymbolHistory(position: position, interval: interval, points: const <HistoricalPoint>[]);
+      return _SymbolHistory(
+        position: position,
+        interval: interval,
+        points: const <HistoricalPoint>[],
+      );
     }
   });
 
@@ -1697,16 +2297,22 @@ Future<_HistorySeries> _buildAggregatedHistory(
   final map = SplayTreeMap<DateTime, double>();
 
   for (final history in histories) {
-    final filtered = history.points
-        .where((point) => history.position.addedAt == null || !point.time.isBefore(history.position.addedAt!))
-        .toList();
+    final filtered =
+        history.points
+            .where(
+              (point) =>
+                  history.position.addedAt == null ||
+                  !point.time.isBefore(history.position.addedAt!),
+            )
+            .toList();
     if (filtered.isEmpty) {
       if (history.position.price != null) {
         final now = DateTime.now();
         final key = _normalizeHistoryTime(now, history.interval);
-        final contribution = normalized
-            ? history.position.quantity
-            : history.position.price! * history.position.quantity;
+        final contribution =
+            normalized
+                ? history.position.quantity
+                : history.position.price! * history.position.quantity;
         map[key] = (map[key] ?? 0) + contribution;
       }
       continue;
@@ -1722,41 +2328,58 @@ Future<_HistorySeries> _buildAggregatedHistory(
 
     for (final point in filtered) {
       final key = _normalizeHistoryTime(point.time, history.interval);
-      final contribution = normalized
-          ? (baseline.abs() < 1e-6
-              ? history.position.quantity
-              : (point.close / baseline) * history.position.quantity)
-          : point.close * history.position.quantity;
+      final contribution =
+          normalized
+              ? (baseline.abs() < 1e-6
+                  ? history.position.quantity
+                  : (point.close / baseline) * history.position.quantity)
+              : point.close * history.position.quantity;
       map[key] = (map[key] ?? 0) + contribution;
     }
 
     if (history.position.price != null) {
       final key = _normalizeHistoryTime(DateTime.now(), history.interval);
-      final contribution = normalized
-          ? (baseline.abs() < 1e-6
-              ? history.position.quantity
-              : (history.position.price! / baseline) * history.position.quantity)
-          : history.position.price! * history.position.quantity;
+      final contribution =
+          normalized
+              ? (baseline.abs() < 1e-6
+                  ? history.position.quantity
+                  : (history.position.price! / baseline) *
+                      history.position.quantity)
+              : history.position.price! * history.position.quantity;
       map[key] = (map[key] ?? 0) + contribution;
     }
   }
 
   if (map.isEmpty) {
-    return const _HistorySeries(points: <_HistoryPoint>[], currency: null, normalized: true);
+    return const _HistorySeries(
+      points: <_HistoryPoint>[],
+      currency: null,
+      normalized: true,
+    );
   }
 
-  final points = map.entries.map((e) => _HistoryPoint(time: e.key, value: e.value)).toList();
+  final points =
+      map.entries
+          .map((e) => _HistoryPoint(time: e.key, value: e.value))
+          .toList();
   if (normalized) {
     final firstValue = points.first.value;
     if (firstValue.abs() > 1e-6) {
       for (var i = 0; i < points.length; i++) {
         final point = points[i];
-        points[i] = _HistoryPoint(time: point.time, value: (point.value / firstValue) * 100);
+        points[i] = _HistoryPoint(
+          time: point.time,
+          value: (point.value / firstValue) * 100,
+        );
       }
     }
   }
 
-  return _HistorySeries(points: points, currency: currency, normalized: normalized);
+  return _HistorySeries(
+    points: points,
+    currency: currency,
+    normalized: normalized,
+  );
 }
 
 class _SymbolHistory {
@@ -1801,9 +2424,10 @@ DateTime _normalizeHistoryTime(DateTime time, ChartInterval interval) {
     case '5m':
     case '15m':
     case '30m':
-      final step = granularity == '5m'
-          ? 5
-          : granularity == '15m'
+      final step =
+          granularity == '5m'
+              ? 5
+              : granularity == '15m'
               ? 15
               : 30;
       final minute = (time.minute ~/ step) * step;
@@ -1836,7 +2460,8 @@ String _formatCurrency(double value, String? currency, {bool signed = false}) {
 }
 
 String _formatSignedPercent(double value) {
-  final fixed = value.abs() >= 100 ? value.toStringAsFixed(1) : value.toStringAsFixed(2);
+  final fixed =
+      value.abs() >= 100 ? value.toStringAsFixed(1) : value.toStringAsFixed(2);
   return value >= 0 ? '+$fixed %' : '$fixed %';
 }
 
@@ -1868,7 +2493,12 @@ String _relativeDate(DateTime date) {
 }
 
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.title, required this.value, this.subtitle, this.accent});
+  const _MetricCard({
+    required this.title,
+    required this.value,
+    this.subtitle,
+    this.accent,
+  });
 
   final String title;
   final String value;
@@ -1898,18 +2528,26 @@ class _MetricCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54)),
+          Text(
+            title,
+            style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+          ),
           const SizedBox(height: 6),
           Text(
             value,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: color),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
           if (subtitle != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 subtitle!,
-                style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.black54,
+                ),
               ),
             ),
         ],
@@ -1945,7 +2583,10 @@ class _BestWorstCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Variations marquantes', style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54)),
+          Text(
+            'Variations marquantes',
+            style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+          ),
           const SizedBox(height: 8),
           if (best != null)
             _bestWorstRow(best!, positive: true, textTheme: theme.textTheme),
@@ -1968,30 +2609,35 @@ class _BestWorstCard extends StatelessWidget {
     required bool positive,
     required TextTheme textTheme,
   }) {
-    final name = analytics.snapshot.displayName.isNotEmpty
-        ? analytics.snapshot.displayName
-        : analytics.snapshot.symbol;
-    final percent = analytics.changePercent != null
-        ? _formatSignedPercent(analytics.changePercent!)
-        : (analytics.changeValue != null
-            ? _formatCurrency(
-                analytics.changeValue!,
-                analytics.snapshot.currency,
-                signed: true,
-              )
-            : '—');
+    final name =
+        analytics.snapshot.displayName.isNotEmpty
+            ? analytics.snapshot.displayName
+            : analytics.snapshot.symbol;
+    final percent =
+        analytics.changePercent != null
+            ? _formatSignedPercent(analytics.changePercent!)
+            : (analytics.changeValue != null
+                ? _formatCurrency(
+                  analytics.changeValue!,
+                  analytics.snapshot.currency,
+                  signed: true,
+                )
+                : '—');
     return Row(
       children: [
-        Icon(positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-            color: positive ? Colors.green.shade600 : Colors.red.shade600, size: 20),
+        Icon(
+          positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+          color: positive ? Colors.green.shade600 : Colors.red.shade600,
+          size: 20,
+        ),
         const SizedBox(width: 8),
         Expanded(
-        child: Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-        ),
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
         ),
         const SizedBox(width: 8),
         Text(
@@ -2019,12 +2665,20 @@ class _EmptyPortfolioState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.workspaces_outline, color: Colors.black38, size: 40),
+            const Icon(
+              Icons.workspaces_outline,
+              color: Colors.black38,
+              size: 40,
+            ),
             const SizedBox(height: 12),
             const Text(
               'Crée ton premier portefeuille\npour suivre tes actions favorites.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: Colors.black54,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -2034,8 +2688,13 @@ class _EmptyPortfolioState extends StatelessWidget {
                 elevation: 0,
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               label: const Text('Créer un portefeuille'),
             ),

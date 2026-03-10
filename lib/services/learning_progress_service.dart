@@ -94,7 +94,9 @@ class LearningProgress {
 
     Map<String, double> _readStage(dynamic value) {
       if (value is Map<String, dynamic>) {
-        return value.map((key, raw) => MapEntry(key, (raw as num?)?.toDouble() ?? 0));
+        return value.map(
+          (key, raw) => MapEntry(key, (raw as num?)?.toDouble() ?? 0),
+        );
       }
       return const <String, double>{};
     }
@@ -132,7 +134,8 @@ class LearningProgress {
   }
 
   Map<String, dynamic> toMap() {
-    Timestamp? _ts(DateTime? date) => date == null ? null : Timestamp.fromDate(date);
+    Timestamp? _ts(DateTime? date) =>
+        date == null ? null : Timestamp.fromDate(date);
     return {
       'streak': streak,
       'hearts': hearts,
@@ -198,11 +201,13 @@ class LearningProgress {
       completedQuizIds: completedQuizIds ?? this.completedQuizIds,
       completedLessonIds: completedLessonIds ?? this.completedLessonIds,
       completedScenarioIds: completedScenarioIds ?? this.completedScenarioIds,
-      completedChallengeIds: completedChallengeIds ?? this.completedChallengeIds,
+      completedChallengeIds:
+          completedChallengeIds ?? this.completedChallengeIds,
       stageProgress: stageProgress ?? this.stageProgress,
       lastActivityDate: lastActivityDate ?? this.lastActivityDate,
       heartsLastReset: heartsLastReset ?? this.heartsLastReset,
-      lastGoalCompletedDate: lastGoalCompletedDate ?? this.lastGoalCompletedDate,
+      lastGoalCompletedDate:
+          lastGoalCompletedDate ?? this.lastGoalCompletedDate,
     );
   }
 
@@ -228,15 +233,20 @@ class LearningProgressService {
   LearningProgressService._();
 
   static DocumentReference<Map<String, dynamic>> _doc(String uid) {
-    return FirebaseFirestore.instance.collection('users').doc(uid).collection('learning').doc('progress');
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('learning')
+        .doc('progress');
   }
 
   /// Charge la progression et applique les resets quotidiens (XP journalier, coeurs).
   static Future<LearningProgress> loadProgress(String uid) async {
     final snap = await _doc(uid).get();
-    var progress = snap.exists
-        ? LearningProgress.fromMap(snap.data()!)
-        : LearningProgress.initial();
+    var progress =
+        snap.exists
+            ? LearningProgress.fromMap(snap.data()!)
+            : LearningProgress.initial();
 
     final today = LearningProgress._today();
     if (!LearningProgress.isSameDay(progress.heartsLastReset, today)) {
@@ -247,7 +257,10 @@ class LearningProgressService {
     }
     final last = progress.lastActivityDate;
     final bool wasYesterday = last != null && _isYesterday(last, today);
-    final bool gap = last != null && !LearningProgress.isSameDay(last, today) && !wasYesterday;
+    final bool gap =
+        last != null &&
+        !LearningProgress.isSameDay(last, today) &&
+        !wasYesterday;
     if (gap) {
       progress = progress.copyWith(streak: 0);
     }
@@ -274,6 +287,8 @@ class LearningProgressService {
 
   static bool _isYesterday(DateTime date, DateTime today) {
     final yesterday = DateTime(today.year, today.month, today.day - 1);
-    return date.year == yesterday.year && date.month == yesterday.month && date.day == yesterday.day;
+    return date.year == yesterday.year &&
+        date.month == yesterday.month &&
+        date.day == yesterday.day;
   }
 }

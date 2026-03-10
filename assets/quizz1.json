@@ -1,0 +1,3099 @@
+{
+  "course_title": "Investir en bourse : QCM",
+  "chapters": [
+    {
+      "chapter_title": "Introduction générale à l’investissement",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_1_l1",
+          "lesson_title": "Qu’est-ce que la bourse ?",
+          "questions": [
+            {
+              "question": "Qu’est-ce que la bourse ?",
+              "options": [
+                "Un lieu où les banques prêtent de l’argent aux particuliers",
+                "Un marché où l’on achète et vend des actions",
+                "Un organisme qui fixe les prix des entreprises",
+                "Un compte d’épargne garanti par l’État"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que représente une action ?",
+              "options": [
+                "Un prêt accordé à une entreprise",
+                "Une dette de l’entreprise",
+                "Une part du capital d’une entreprise",
+                "Un bonus versé aux salariés"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi les entreprises vont-elles en bourse ?",
+              "options": [
+                "Pour rembourser leurs dettes",
+                "Pour fixer le prix de leurs produits",
+                "Pour se financer en ouvrant leur capital",
+                "Pour garantir leurs bénéfices"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quels sont les deux principaux moyens de gagner de l’argent en bourse ?",
+              "options": [
+                "Les intérêts et les assurances",
+                "Les salaires et les primes",
+                "L’évolution du prix des actions et les dividendes",
+                "Les taxes et les subventions"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_1_l2",
+          "lesson_title": "L’histoire de la bourse",
+          "questions": [
+            {
+              "question": "À quelle période apparaît le concept de la Bourse ?",
+              "options": [
+                "Au Xe siècle",
+                "Au XIIe siècle",
+                "Au XVe siècle",
+                "Au XVIIIe siècle"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel type de marché caractérise les débuts de la Bourse ?",
+              "options": [
+                "Un marché réglementé par l’État",
+                "Un marché électronique",
+                "Un marché de gré à gré",
+                "Un marché réservé aux banques"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Dans quelle ville la Bourse moderne a-t-elle vu le jour au XIIIe siècle ?",
+              "options": [
+                "Londres",
+                "Paris",
+                "Bruges",
+                "Amsterdam"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quel pays développe au XVIIe siècle un concept de Bourse permettant de financer les entreprises ?",
+              "options": [
+                "La France",
+                "L’Angleterre",
+                "Les Pays-Bas",
+                "L’Allemagne"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quelle affirmation concernant la Bourse de Paris aujourd’hui est correcte ?",
+              "options": [
+                "Elle fonctionne uniquement sur un lieu physique",
+                "Elle est gérée par l’État français",
+                "Elle est entièrement dématérialisée et gérée par Euronext",
+                "Elle a été créée au XIXe siècle"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_1_l3",
+          "lesson_title": "Pourquoi investir aujourd’hui est devenu essentiel",
+          "questions": [
+            {
+              "question": "Quel est le principal objectif des particuliers lorsqu'ils investissent ?",
+              "options": [
+                "Obtenir un gain rapide",
+                "Protéger son pouvoir d’achat à long terme",
+                "Suivre les tendances boursières",
+                "Éviter toute forme de risque"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel concept financier permet à l’argent investi de croître davantage lorsqu’il est réinvesti ?",
+              "options": [
+                "L’effet de levier",
+                "Les dividendes",
+                "Les intérêts composés",
+                "L’inflation"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi le temps est-il considéré comme un avantage en bourse ?",
+              "options": [
+                "Parce que les marchés sont plus prévisibles sur le court terme",
+                "Parce que la patience permet à l’investissement de croître progressivement",
+                "Parce que le prix des actions reste stable avec le temps",
+                "Parce que l’État garantit les gains à long terme"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle qualité est essentielle pour un investisseur particulier selon le texte ?",
+              "options": [
+                "La rapidité",
+                "La patience",
+                "L’audace",
+                "La chance"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_1_l4",
+          "lesson_title": "Les fausses croyances les plus répandues au sujet de la bourse",
+          "questions": [
+            {
+              "question": "Peut-on commencer à investir en bourse avec une somme modeste ?",
+              "options": [
+                "Non, il faut toujours un capital très important",
+                "Oui, même quelques centaines d’euros suffisent si on réinvestit correctement",
+                "Non, la Bourse est réservée aux professionnels",
+                "Oui, mais seulement pour acheter des obligations"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Combien de temps faut-il consacrer à se former pour investir efficacement ?",
+              "options": [
+                "Plusieurs années avant de commencer",
+                "Une fois la formation initiale faite, le temps nécessaire devient minime",
+                "Il n’est jamais nécessaire de se former",
+                "Seulement quelques minutes par jour"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Faut-il être plus intelligent que la moyenne pour réussir en Bourse ?",
+              "options": [
+                "Oui, l’intelligence est le principal facteur de succès",
+                "Non, le bon sens, la logique et le contrôle des émotions sont suffisants",
+                "Oui, sinon on perd toujours de l’argent",
+                "Non, mais il faut absolument suivre tous les conseils des experts"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que doit faire un investisseur face à la peur de passer à l’action ?",
+              "options": [
+                "Ne jamais investir pour éviter les erreurs",
+                "Sortir de sa zone de confort et accepter que des erreurs se produisent",
+                "Attendre que le marché soit sûr à 100%",
+                "Investir uniquement après avoir observé le marché pendant 10 ans"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter_title": "Comprendre les actions et les instruments financiers de base",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_2_l1",
+          "lesson_title": "Qu’est-ce qu’une action ?",
+          "questions": [
+            {
+              "question": "Qu’est-ce qu’une action représente ?",
+              "options": [
+                "Une part de propriété dans une entreprise",
+                "Une dette de l’entreprise envers l’investisseur",
+                "Une garantie bancaire",
+                "Un type de dividende"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que confèrent les actions à leurs détenteurs ?",
+              "options": [
+                "Des droits de vote et des intérêts économiques",
+                "Un remboursement garanti par la société",
+                "Un accès à des crédits bancaires",
+                "Des obligations fiscales"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle différence existe entre Classe A et Classe B ?",
+              "options": [
+                "Classe A : droit de vote supérieur, Classe B : droit standard",
+                "Classe A : actions à dividende, Classe B : sans dividende",
+                "Classe A : actions pour les employés, Classe B : pour le public",
+                "Classe A : obligations convertibles, Classe B : actions classiques"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Acheter une action permet de :",
+              "options": [
+                "Devenir actionnaire de la société",
+                "Obtenir automatiquement des dividendes fixes",
+                "Garantir le remboursement du capital investi",
+                "Avoir accès à des prêts bancaires"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi existe-t-il plusieurs classes d’actions ?",
+              "options": [
+                "Pour différencier les droits de vote",
+                "Pour limiter les dividendes",
+                "Pour interdire certaines personnes de voter",
+                "Pour garantir un prix minimal par action"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l2",
+          "lesson_title": "Pourquoi une entreprise est-elle cotée en bourse ?",
+          "questions": [
+            {
+              "question": "Quel est l’objectif principal pour une entreprise de se financer sur les marchés financiers ?",
+              "options": [
+                "Lever des capitaux pour financer sa croissance",
+                "Éviter de payer des impôts",
+                "Garantir des dividendes élevés à ses employés",
+                "Obtenir des prêts obligatoires de l’État"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels types de financement précèdent la cotation en bourse ?",
+              "options": [
+                "Business angels ou venture capitalists",
+                "Obligations gouvernementales",
+                "ETF et trackers",
+                "Fonds indiciels"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que permet une introduction en bourse (IPO) ?",
+              "options": [
+                "Evaluer l’entreprise et émettre des actions pour lever des fonds",
+                "Réduire le nombre d’actions disponibles",
+                "Transformer toutes les actions en obligations",
+                "Garantir un dividende fixe"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi une entreprise peut-elle préférer lever des capitaux via la bourse plutôt qu’un emprunt bancaire ?",
+              "options": [
+                "Les banques peuvent refuser de prêter, surtout aux start-ups",
+                "Les investisseurs garantissent un revenu fixe",
+                "Les obligations rapportent plus que les actions",
+                "L’État subventionne automatiquement l’entreprise"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel autre objectif un investisseur comme un business angel peut-il avoir ?",
+              "options": [
+                "Revendre ses parts lors d’un « exit » ou rachat",
+                "Assurer un dividende élevé",
+                "Prendre le contrôle total de l’entreprise",
+                "Fixer le prix des actions"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l4",
+          "lesson_title": "Que peut-il arriver au cours d’une action ?",
+          "questions": [
+            {
+              "question": "Qu’est-ce qu’un *stock split* ?",
+              "options": [
+                "Diviser une action en plusieurs actions de valeur nominale plus faible",
+                "Augmenter le prix d’une action existante",
+                "Supprimer certaines actions du marché",
+                "Transformer les actions en obligations"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Qu’est-ce qu’un *reverse stock split* ?",
+              "options": [
+                "Consolider les actions pour éviter un prix trop bas",
+                "Fractionner les actions pour plus de liquidité",
+                "Verser un dividende spécial",
+                "Annuler les actions détenues par les petits investisseurs"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Une action peut-elle tomber à zéro ?",
+              "options": [
+                "Oui, si l’entreprise fait faillite totale",
+                "Non, le marché garantit toujours une valeur minimale",
+                "Seulement pour les ETF",
+                "Seulement si elle verse un dividende"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi le cours d’une action peut-il baisser après le versement d’un dividende ?",
+              "options": [
+                "Parce que le montant du dividende est détaché du cours",
+                "Parce que les investisseurs vendent automatiquement",
+                "Parce que l’entreprise perd de l’argent",
+                "Parce que la Bourse l’impose"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel principe fait fluctuer le cours d’une action ?",
+              "options": [
+                "L’offre et la demande",
+                "La taille de l’entreprise",
+                "Le nombre d’employés",
+                "La fiscalité"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l5",
+          "lesson_title": "Qu’est-ce qu’un dividende ?",
+          "questions": [
+            {
+              "question": "Que représente un dividende ?",
+              "options": [
+                "Une part du bénéfice distribuée aux actionnaires",
+                "Un remboursement du capital investi",
+                "Une taxe versée par l’entreprise",
+                "Une obligation pour l’investisseur"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que se passe-t-il lors du détachement d’un dividende ?",
+              "options": [
+                "Le cours de l’action diminue du montant du dividende",
+                "L’action augmente automatiquement",
+                "Le dividende est multiplié",
+                "Le capital de l’entreprise augmente"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi les entreprises versent-elles des dividendes ?",
+              "options": [
+                "Pour fidéliser les actionnaires et signaler leur solidité",
+                "Pour rembourser les dettes de l’entreprise",
+                "Pour payer les employés",
+                "Pour réduire la valeur de l’action"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quand est décidé le versement d’un dividende ?",
+              "options": [
+                "Lors de l’assemblée générale",
+                "Après le reverse stock split",
+                "Lors du trading quotidien",
+                "Lors de l’introduction en bourse"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Le versement d’un dividende crée-t-il de la richesse ?",
+              "options": [
+                "Non, c’est un simple déplacement de capital",
+                "Oui, le montant est un gain garanti",
+                "Oui, le prix de l’action augmente",
+                "Non, sauf pour les ETF"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l6",
+          "lesson_title": "Pourquoi les entreprises versent-elles des dividendes ?",
+          "questions": [
+            {
+              "question": "Quelle est une raison fréquente pour qu'une entreprise verse un dividende ?",
+              "options": [
+                "L'entreprise est mature et n'a plus besoin de réinvestir tous ses bénéfices",
+                "L'entreprise souhaite augmenter artificiellement le prix de l'action",
+                "L'entreprise veut réduire le nombre d'actionnaires",
+                "L'entreprise veut emprunter davantage"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi verser un dividende peut-il fidéliser certains actionnaires ?",
+              "options": [
+                "Parce que les actionnaires réguliers reçoivent un revenu et sont incités à rester",
+                "Parce que cela diminue le nombre d'actions en circulation",
+                "Parce que cela augmente automatiquement le prix de l'action",
+                "Parce que cela garantit une performance future"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel signal un dividende peut-il envoyer aux investisseurs ?",
+              "options": [
+                "Un signal de solidité de l'entreprise",
+                "Un signal que l'entreprise est en difficulté",
+                "Un signal que l'entreprise va fusionner",
+                "Un signal que l'entreprise arrête ses activités"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est une limite de l'interprétation d'un dividende comme signal de solidité ?",
+              "options": [
+                "Une entreprise peut s'endetter pour verser un dividende, ce qui peut masquer une situation fragile",
+                "Un dividende garantit toujours la solidité financière",
+                "Un dividende ne peut jamais être réduit",
+                "Les dividendes sont obligatoires pour toutes les entreprises"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment se comportent généralement les entreprises en forte croissance concernant les dividendes ?",
+              "options": [
+                "Elles réinvestissent la plupart de leurs bénéfices et versent peu ou pas de dividende",
+                "Elles versent toujours un dividende élevé pour attirer des investisseurs",
+                "Elles versent des dividendes uniquement en actions",
+                "Elles ne peuvent jamais verser de dividendes"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l7",
+          "lesson_title": "Faut-il investir dans des actions versant des dividendes ?",
+          "questions": [
+            {
+              "question": "Quelle est la principale raison pour laquelle certaines actions versant des dividendes surperforment ?",
+              "options": [
+                "Elles combinent la plus-value du prix et le revenu des dividendes",
+                "Elles garantissent toujours un rendement fixe",
+                "Elles ne subissent jamais de baisse de cours",
+                "Elles sont toujours émises par des entreprises en forte croissance"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la différence entre performance classique et performance totale ?",
+              "options": [
+                "Classique : variation du prix ; Totale : prix + dividendes",
+                "Classique : dividendes uniquement ; Totale : prix uniquement",
+                "Classique : actions sans dividendes ; Totale : actions avec dividendes",
+                "Classique : obligations ; Totale : ETF"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Est-il vrai que toutes les entreprises versant des dividendes sont de bons investissements ?",
+              "options": [
+                "Non, certaines peuvent sous-performer",
+                "Oui, systématiquement",
+                "Oui, seulement si elles sont cotées à Paris",
+                "Non, seulement les REITs sont fiables"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Est-il possible pour une entreprise qui ne verse pas de dividendes de surperformer ?",
+              "options": [
+                "Oui, certaines entreprises réinvestissent et peuvent générer de fortes plus-values",
+                "Non, les dividendes sont indispensables à la performance",
+                "Non, elles sont toujours moins performantes",
+                "Oui, mais seulement si elles sont des ETF"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que doit faire un investisseur avant d’acheter une action versant des dividendes ?",
+              "options": [
+                "Faire preuve de discernement et analyser l’entreprise",
+                "Acheter systématiquement toutes les actions avec dividendes",
+                "Se concentrer uniquement sur le rendement annoncé",
+                "Ignorer l’historique de l’entreprise"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l8",
+          "lesson_title": "Les différents types d’actions",
+          "questions": [
+            {
+              "question": "Quelle est la caractéristique principale des sociétés classiques (corporations) ?",
+              "options": [
+                "Actions courantes, dividendes soumis à l’impôt sur le revenu après impôt sur les sociétés",
+                "Dividendes versés uniquement sous forme de remboursement de capital",
+                "Dividendes garantis et non imposables",
+                "Actions uniquement réservées aux investisseurs institutionnels"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la spécificité des Master Limited Partnerships (MLP) ?",
+              "options": [
+                "Dividendes versés sous forme de remboursement de capital, fiscalité réduite",
+                "Dividendes versés uniquement en actions",
+                "Dividendes non distribués aux investisseurs",
+                "Dividendes imposés comme revenu ordinaire à taux normal"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Dans quel secteur se trouvent principalement les MLP ?",
+              "options": [
+                "Énergie",
+                "Immobilier",
+                "Technologie",
+                "Banque"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelles sont les caractéristiques principales des REIT ?",
+              "options": [
+                "Fonds immobiliers cotés, grande liquidité, versent une grande partie des loyers et plus-values",
+                "Sociétés d’énergie versant des dividendes en capital",
+                "Actions technologiques avec dividendes variables",
+                "Fonds non cotés avec forte volatilité"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelles informations sont spécifiques à l’analyse des REIT ?",
+              "options": [
+                "FFO, AFFO, ratio LTV et valeur nette d’actif",
+                "PER et beta uniquement",
+                "Taux d’intérêt et maturité des obligations",
+                "PIB du pays et taux d’inflation"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l9",
+          "lesson_title": "Pourquoi éviter les actions à très fort rendement",
+          "questions": [
+            {
+              "question": "Selon l'étude sur le S&P 500, quel quintile d’entreprises a été le plus performant ?",
+              "options": [
+                "Le deuxième quintile, offrant un bon rendement mais sans excès",
+                "Le premier quintile, offrant le rendement le plus élevé",
+                "Le troisième quintile, rendement moyen",
+                "Le cinquième quintile, rendement le plus faible"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que signifie un rendement annoncé supérieur à 6 ou 7% ?",
+              "options": [
+                "Cela peut être risqué et cacher un problème de solidité",
+                "C’est toujours un excellent indicateur de performance",
+                "C’est un signe que l’action va forcément augmenter",
+                "Cela garantit un dividende stable"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel indicateur doit être surveillé en parallèle du rendement ?",
+              "options": [
+                "Le taux de distribution des bénéfices",
+                "Le nombre d’actions émises",
+                "Le cours moyen des ETF",
+                "Le prix du pétrole"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que peut indiquer un taux de distribution supérieur à 50% ?",
+              "options": [
+                "Que l’entreprise réinvestit insuffisamment et risque de compromettre sa croissance",
+                "Que l’entreprise est extrêmement solide",
+                "Que l’entreprise va augmenter son dividende chaque année",
+                "Que l’action ne peut pas être achetée"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la conclusion à retenir sur les actions à très fort rendement ?",
+              "options": [
+                "Une forte rentabilité peut être bonne, mais seulement si elle s’accompagne d’un faible taux de distribution",
+                "Il faut toujours choisir les actions avec le rendement le plus élevé",
+                "Les actions à fort rendement sont toujours à éviter",
+                "Le rendement n’a aucune importance dans le choix d’une action"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l10",
+          "lesson_title": "La vérité au sujet des obligations",
+          "questions": [
+            {
+              "question": "Qu’est-ce qu’une obligation ?",
+              "options": [
+                "Une dette : l’investisseur prête de l’argent à un État ou une entreprise",
+                "Une part de propriété d’une entreprise",
+                "Un fonds immobilier coté",
+                "Un contrat d’assurance"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels sont les principaux avantages des obligations ?",
+              "options": [
+                "Volatilité plus faible et risque de défaut relativement faible",
+                "Rendement illimité et garanti",
+                "Dividendes élevés et croissants",
+                "Possibilité de voter en assemblée générale"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’inconvénient principal des obligations ?",
+              "options": [
+                "Les revenus (intérêts) sont fixes et ne suivent pas l’inflation",
+                "Elles peuvent être fractionnées comme un stock split",
+                "Elles offrent une performance totale incluant dividendes",
+                "Elles permettent de surperformer toujours le marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que se passe-t-il lorsque les taux d’intérêt montent ?",
+              "options": [
+                "Le prix des obligations déjà en circulation chute",
+                "Le prix des obligations existantes augmente automatiquement",
+                "Les obligations deviennent exonérées d’impôt",
+                "Les obligations se transforment en actions"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi les obligations protègent-elles mal contre l’inflation ?",
+              "options": [
+                "Parce que les intérêts sont fixes et ne suivent pas la hausse des prix",
+                "Parce qu’elles sont très volatiles",
+                "Parce qu’elles versent des dividendes élevés",
+                "Parce qu’elles offrent un rendement total garanti"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l11",
+          "lesson_title": "Qu’est-ce qu’un ETF (Exchange Traded Fund) ?",
+          "questions": [
+            {
+              "question": "Qu’est-ce qu’un ETF ?",
+              "options": [
+                "Un fonds d’investissement coté en bourse qui réplique la performance d’un indice ou d’un panier d’actifs",
+                "Une action avec droit de vote renforcé",
+                "Une obligation à taux variable",
+                "Une société de gestion de portefeuille"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que signifie la *valeur liquidative* d’un ETF ?",
+              "options": [
+                "Le prix d’une part de l’ETF à un instant donné",
+                "Le montant total des dividendes versés",
+                "La capitalisation boursière de l’entreprise sous-jacente",
+                "Le rendement historique de l’ETF"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle méthode de réplication consiste à acheter toutes les actions de l’indice dans les mêmes proportions ?",
+              "options": [
+                "Réplication physique complète",
+                "Réplication synthétique",
+                "Réplication physique par échantillonnage",
+                "Hedged replication"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que mesure le *tracking error* ?",
+              "options": [
+                "L’écart entre la performance de l’ETF et celle de son indice de référence",
+                "La volatilité quotidienne de l’ETF",
+                "Le montant des frais de gestion",
+                "Le rendement total incluant dividendes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel risque est couvert par un ETF *hedged* ?",
+              "options": [
+                "Le risque de change",
+                "Le risque de défaut de l’entreprise",
+                "Le risque de volatilité du marché",
+                "Le risque de dividende non versé"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l12",
+          "lesson_title": "La vérité au sujet des trackers (ETF)",
+          "questions": [
+            {
+              "question": "Quel est l’inconvénient principal d’investir dans un ETF répliquant un indice ?",
+              "options": [
+                "On se ferme la porte à surperformer l’indice tout en conservant son risque",
+                "On bénéficie automatiquement de dividendes croissants",
+                "On possède toutes les actions sous-jacentes",
+                "Les frais de gestion sont inexistants"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi les frais des ETF peuvent-ils impacter le rendement à long terme ?",
+              "options": [
+                "Même s’ils sont faibles (<1 %), ils s’accumulent sur le long terme",
+                "Parce qu’ils empêchent le versement des dividendes",
+                "Parce qu’ils modifient la valeur liquidative quotidienne",
+                "Parce qu’ils garantissent un rendement minimum"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est un inconvénient de la diversification excessive via un ETF ?",
+              "options": [
+                "La performance individuelle peut être diluée et la sélection qualitative impossible",
+                "Le risque de défaut des entreprises augmente",
+                "Les actions sous-jacentes deviennent gratuites",
+                "L’ETF devient automatiquement hedgé contre le change"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi certains investisseurs pourraient préférer détenir des actions directement plutôt qu’un ETF ?",
+              "options": [
+                "Pour bénéficier du droit de vote en assemblée générale",
+                "Pour réduire le tracking error à zéro",
+                "Pour éviter les dividendes",
+                "Pour augmenter le frais de gestion"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle remarque est faite concernant les entreprises versant des dividendes réguliers ?",
+              "options": [
+                "Elles ont historiquement surperformé leur indice de référence",
+                "Elles doivent être obligatoirement incluses dans tous les ETF",
+                "Elles versent automatiquement des dividendes doublés à leurs actionnaires",
+                "Elles annulent le tracking error des ETF"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l13",
+          "lesson_title": "L’illusion des fonds d’investissement traditionnels",
+          "questions": [
+            {
+              "question": "Quelle est la principale critique concernant les frais des fonds d’investissement ?",
+              "options": [
+                "Ils sont toujours trop élevés (gestion, frais d’entrée, etc.)",
+                "Ils ne concernent que les dividendes",
+                "Ils sont toujours inférieurs à 0,5%",
+                "Ils garantissent la performance du fonds"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel problème peut poser le manque de transparence d’un fonds ?",
+              "options": [
+                "On ne connaît pas la composition exacte du portefeuille",
+                "Les dividendes sont doublés",
+                "Le fonds devient un ETF automatiquement",
+                "Les frais sont automatiquement remboursés"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment se comporte généralement la performance des fonds par rapport au marché ?",
+              "options": [
+                "Elle est aléatoire et généralement inférieure à celle du marché",
+                "Elle est toujours supérieure à celle du marché",
+                "Elle est fixe et garantie à 5%",
+                "Elle suit exactement le S&P 500"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est un inconvénient concernant les dividendes dans un fonds ?",
+              "options": [
+                "Ils sont parfois automatiquement réinvestis et non perçus directement",
+                "Ils sont toujours versés deux fois par an",
+                "Ils augmentent automatiquement le capital du fonds",
+                "Ils annulent tous les frais de gestion"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que paie un investisseur en investissant dans un fonds d’investissement ?",
+              "options": [
+                "Il prend tous les risques et rémunère le gestionnaire, quel que soit le résultat",
+                "Il est garanti de doubler son capital",
+                "Il ne paie que les frais de courtage",
+                "Il obtient automatiquement un droit de vote sur toutes les actions"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter_title": "Réalités, risques et idées reçues sur la bourse",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_3_l1",
+          "lesson_title": "La bourse est-elle risquée et éthique ?",
+          "questions": [
+            {
+              "question": "Pour réussir en bourse, que faut-il avant tout ?",
+              "options": [
+                "Une stratégie claire, stable, et une rigueur dans son application",
+                "Avoir fait au moins cinq ans d’études en finance",
+                "Disposer de décennies d’expérience",
+                "Miser uniquement sur des actions à très fort rendement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que permet une approche structurée de l’investissement (ex : actions à dividendes) ?",
+              "options": [
+                "De maîtriser les risques et bénéficier de gains potentiels",
+                "De garantir un profit immédiat",
+                "De supprimer totalement les pertes possibles",
+                "De prédire exactement les cours de la bourse"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi certains considèrent la bourse comme « immorale » ?",
+              "options": [
+                "Par rejet du capitalisme",
+                "Parce qu’elle est toujours risquée",
+                "Parce que l’État l’interdit",
+                "Parce que les dividendes sont imposés"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment un investisseur contribue-t-il à l’économie réelle ?",
+              "options": [
+                "En finançant la croissance, l’innovation, l’emploi et la valeur des entreprises",
+                "En spéculant uniquement sur les fluctuations de prix",
+                "En investissant dans des actions uniquement étrangères",
+                "En évitant les entreprises responsables"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Est-il possible d’investir de manière éthique ?",
+              "options": [
+                "Oui, en choisissant des entreprises responsables et utiles à la société",
+                "Non, investir en bourse est toujours immoral",
+                "Oui, mais uniquement en évitant les dividendes",
+                "Non, seule l’économie souterraine est éthique"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_3_l2",
+          "lesson_title": "Faut-il prédire les cours pour gagner en bourse ?",
+          "questions": [
+            {
+              "question": "Qu’est-ce qui impacte fortement la qualité des décisions d’investissement ?",
+              "options": [
+                "La fatigue physique et psychologique",
+                "La couleur du graphique boursier",
+                "La prédiction exacte des cours",
+                "L’achat d’actions à très haut rendement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi plus nous prenons de décisions, moins elles sont justes ?",
+              "options": [
+                "Parce que l’énergie mentale s’épuise",
+                "Parce que le marché devient plus volatil",
+                "Parce que les dividendes diminuent",
+                "Parce que le capital minimum augmente"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi le trading peut-il être compliqué ?",
+              "options": [
+                "À cause du grand nombre de décisions à prendre",
+                "Parce que les actions ne versent jamais de dividendes",
+                "Parce que les ETF ne suivent jamais les indices",
+                "Parce que le trading est interdit pour les particuliers"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que signifie FOMO ?",
+              "options": [
+                "Fear Of Missing Out",
+                "Finance Of Market Operations",
+                "Fund Of Mutual Options",
+                "Free Option Management"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est l’attitude recommandée face à la FOMO ?",
+              "options": [
+                "Rester concentré sur sa propre stratégie",
+                "Acheter uniquement les actions les plus médiatisées",
+                "Suivre les conseils de tous les experts en ligne",
+                "Tenter de prédire tous les mouvements du marché"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_3_l3",
+          "lesson_title": "Les effets de foule et les bulles spéculatives",
+          "questions": [
+            {
+              "question": "Comment la foule agit-elle généralement sur les marchés financiers ?",
+              "options": [
+                "Par mimétisme et rapidement, sans réflexion",
+                "Avec une stratégie individualisée et lente",
+                "En analysant méthodiquement toutes les informations",
+                "En augmentant automatiquement la rentabilité"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la capacité de réflexion collective de la foule comparée à celle des individus isolés ?",
+              "options": [
+                "Inférieure",
+                "Supérieure",
+                "Égale",
+                "Nulle"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Dans quelles situations l’effet de foule est-il le plus susceptible d’apparaître ?",
+              "options": [
+                "Lors d’un manque ou d’un trop-plein d’informations, ou d’événements rapides",
+                "Quand tous les investisseurs sont des experts",
+                "Quand le marché est stable et prévisible",
+                "Quand les dividendes augmentent"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel risque majeur la foule peut-elle provoquer sur les marchés ?",
+              "options": [
+                "La formation de bulles spéculatives",
+                "L’augmentation automatique du rendement des actions",
+                "La suppression de tous les risques",
+                "La hausse obligatoire des dividendes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la bonne attitude pour éviter les dangers de l’effet de foule ?",
+              "options": [
+                "Ne pas suivre la foule sans un regard critique",
+                "Suivre automatiquement la majorité",
+                "Acheter uniquement les actions les plus populaires",
+                "Se concentrer sur les rumeurs médiatiques"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_3_l4",
+          "lesson_title": "Les crises financières et économiques",
+          "questions": [
+            {
+              "question": "Quelle est la principale différence entre une crise financière et une crise économique ?",
+              "options": [
+                "La crise financière touche surtout le secteur financier, la crise économique touche tous les agents",
+                "La crise économique touche seulement les banques",
+                "La crise financière affecte uniquement les particuliers",
+                "Les deux crises affectent exactement les mêmes acteurs"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle crise survient généralement en premier ?",
+              "options": [
+                "La crise financière",
+                "La crise économique",
+                "Elles surviennent toujours simultanément",
+                "Aucune des deux"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels acteurs sont principalement touchés par une crise financière ?",
+              "options": [
+                "Banques, investisseurs, État",
+                "Tous les consommateurs",
+                "Les entreprises uniquement",
+                "Les travailleurs uniquement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels sont les signes typiques d’une crise économique ?",
+              "options": [
+                "Augmentation du chômage et baisse de la croissance",
+                "Augmentation des dividendes",
+                "Hausse des prix des actions uniquement",
+                "Croissance économique forte"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi l’impact d’une crise économique est-il considéré comme plus sévère que celui d’une crise financière ?",
+              "options": [
+                "Parce qu’elle concerne tous les agents économiques",
+                "Parce qu’elle ne touche que les banques",
+                "Parce qu’elle n’affecte que les investisseurs",
+                "Parce qu’elle ne touche que l’État"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_3_l5",
+          "lesson_title": "Pourquoi les actionnaires ne sont pas des parasites",
+          "questions": [
+            {
+              "question": "Sur quel marché les investisseurs professionnels interviennent-ils principalement ?",
+              "options": [
+                "Marché primaire",
+                "Marché secondaire",
+                "Marché obligataire",
+                "Marché immobilier"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Où opèrent principalement les investisseurs individuels ?",
+              "options": [
+                "Marché secondaire",
+                "Marché primaire",
+                "Marché obligataire",
+                "Marché des matières premières"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est le rôle principal d’un actionnaire individuel pour une entreprise ?",
+              "options": [
+                "Partenaire stratégique aidant la croissance de l’entreprise",
+                "Fournir uniquement des prêts à taux fixe",
+                "Décider seul des salaires des dirigeants",
+                "Gérer les opérations quotidiennes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels leviers récompensent normalement la prise de risque de l’actionnaire ?",
+              "options": [
+                "Plus-values et dividendes",
+                "Intérêts fixes et loyers",
+                "Subventions et aides fiscales",
+                "Actions gratuites uniquement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi un actionnaire fait-il un pari sur le futur ?",
+              "options": [
+                "Parce qu’il investit en espérant que l’entreprise se développe",
+                "Parce qu’il reçoit toujours un dividende garanti",
+                "Parce qu’il ne prend aucun risque",
+                "Parce qu’il peut contrôler la direction de l’entreprise seul"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_3_l6",
+          "lesson_title": "Les avantages des investisseurs particuliers face aux professionnels",
+          "questions": [
+            {
+              "question": "Quel est l’avantage principal d’un investisseur particulier par rapport aux professionnels ?",
+              "options": [
+                "Pouvoir investir de petites sommes avec flexibilité",
+                "Recevoir automatiquement des conseils des banques",
+                "Accéder à des actions non cotées uniquement",
+                "Être exempté de toute fiscalité"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi les professionnels ont-ils un champ d’opportunités limité ?",
+              "options": [
+                "À cause de la taille de leurs capitaux, qui impacte les cours",
+                "Parce qu’ils ne connaissent pas le marché",
+                "Parce qu’ils ne peuvent pas acheter d’actions",
+                "Parce qu’ils n’ont pas accès aux plateformes de trading"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel avantage de vision a un investisseur particulier ?",
+              "options": [
+                "Il peut adopter une véritable vision long terme",
+                "Il est obligé de réaliser des gains à court terme",
+                "Il doit liquider ses positions régulièrement",
+                "Il dépend des décisions d’autres investisseurs"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que peut faire un investisseur particulier pendant un krach boursier ?",
+              "options": [
+                "Renforcer ses positions",
+                "Retirer automatiquement ses fonds",
+                "Subir des pertes sans aucune possibilité d’action",
+                "Attendre la fin du marché secondaire pour vendre"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la phrase qui résume l’avantage stratégique de la taille de l’investisseur particulier ?",
+              "options": [
+                "Votre taille est votre force : vous pouvez être agile, patient, et rationnel",
+                "Votre taille est un handicap car vous êtes limité",
+                "Votre taille vous oblige à suivre les professionnels",
+                "Votre taille ne change rien à votre stratégie"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_3_l7",
+          "lesson_title": "Les erreurs les plus courantes à éviter en bourse",
+          "questions": [
+            {
+              "question": "Quelle est la principale leçon à tirer du film *Le loup de Wall Street* pour un investisseur débutant ?",
+              "options": [
+                "Ne pas se laisser séduire par des gains rapides et tape-à-l’œil",
+                "Suivre les conseils de tous les traders célèbres",
+                "Investir uniquement dans les startups",
+                "Miser sur le marché des crypto-monnaies"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi faut-il se méfier des rendements trop attractifs ?",
+              "options": [
+                "Ils cachent souvent un risque disproportionné",
+                "Ils sont garantis par l’État",
+                "Ils rapportent toujours plus que les dividendes",
+                "Ils sont uniquement valables pour les ETF"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’inconvénient majeur de devoir se lever au milieu de la nuit pour trader ?",
+              "options": [
+                "Cela perturbe le rythme de vie et peut provoquer fatigue et stress",
+                "Cela garantit des gains plus élevés",
+                "Cela réduit les frais de courtage",
+                "Cela permet de prédire l’avenir du marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est le danger principal de l’effet de levier ?",
+              "options": [
+                "Amplifier les pertes et risquer l’endettement",
+                "Augmenter automatiquement les dividendes",
+                "Réduire la volatilité du portefeuille",
+                "Garantir un rendement minimal"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi il est inutile de « jouer à Madame Irma » en bourse ?",
+              "options": [
+                "Personne ne peut prédire l’avenir des marchés, même les experts",
+                "Les tendances sont toujours stables",
+                "Les analystes peuvent garantir les gains",
+                "Les actions suivent toujours les dividendes"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter_title": "Principes économiques et fonctionnement des marchés",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_4_l1",
+          "lesson_title": "Les grands cycles économiques et leur influence sur les marchés",
+          "questions": [
+            {
+              "question": "Qu’est-ce que l’inflation ?",
+              "options": [
+                "Une augmentation généralisée des prix qui réduit le pouvoir d’achat",
+                "Une baisse des prix sur tous les biens et services",
+                "Une stagnation économique prolongée",
+                "Une augmentation de la valeur de la monnaie"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est une cause fréquente de l’inflation ?",
+              "options": [
+                "Augmentation du coût des matières premières",
+                "Baisse du chômage uniquement",
+                "Réduction de la masse monétaire",
+                "Réduction des salaires"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Qu’est-ce que l’hyperinflation ?",
+              "options": [
+                "Une hausse extrême et incontrôlée des prix",
+                "Une baisse généralisée des prix",
+                "Une stagnation économique avec chômage faible",
+                "Une politique de taux d’intérêt négatifs"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi la déflation est-elle dangereuse pour l’économie ?",
+              "options": [
+                "Elle entraîne baisse des revenus, hausse du chômage et multiplication des faillites",
+                "Elle augmente automatiquement le pouvoir d’achat",
+                "Elle stimule l’investissement des entreprises",
+                "Elle réduit le poids des dettes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "La stagflation se caractérise par :",
+              "options": [
+                "Croissance faible, chômage élevé et inflation persistante",
+                "Croissance forte, chômage faible et baisse des prix",
+                "Inflation nulle avec récession",
+                "Déflation et chômage faible"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l2",
+          "lesson_title": "Les tendances haussières et baissières",
+          "questions": [
+            {
+              "question": "Qu’est-ce qu’un bear market ?",
+              "options": [
+                "Une baisse d’au moins 20% des marchés sur une période minimale de 60 jours",
+                "Une hausse prolongée des marchés sur plusieurs années",
+                "Une correction comprise entre 10% et 20%",
+                "Une stagnation totale des marchés"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle émotion domine généralement dans un bull market ?",
+              "options": [
+                "L’avidité et la confiance",
+                "La peur et la prudence",
+                "L’incertitude et la panique",
+                "La lassitude et le désintérêt"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la différence principale entre une correction et un bear market ?",
+              "options": [
+                "Une correction correspond à une baisse entre 10% et 20% sur une période courte, tandis qu’un bear market dépasse 20% sur 60 jours minimum",
+                "Une correction dure plusieurs années, un bear market quelques semaines",
+                "Une correction ne concerne que certaines entreprises, un bear market concerne seulement les indices",
+                "Une correction est une hausse, un bear market est une baisse"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment réagir idéalement en période de baisse ?",
+              "options": [
+                "Ne pas paniquer et envisager l’achat d’actions de qualité à prix attractifs",
+                "Vendre immédiatement toutes ses positions",
+                "Acheter uniquement les actions les plus volatiles",
+                "Ignorer totalement le marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la principale recommandation pour un investisseur face à ces tendances ?",
+              "options": [
+                "Rester rationnel, concentré sur la valeur réelle des entreprises et non sur les cours à court terme",
+                "Suivre aveuglément les mouvements de la foule",
+                "Acheter uniquement pendant les bull markets",
+                "Se retirer complètement des marchés en période d’incertitude"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l3",
+          "lesson_title": "Pourquoi et comment le cours d’une action varie",
+          "questions": [
+            {
+              "question": "Quel est le rôle principal du marché selon ce texte ?",
+              "options": [
+                "Il est là pour servir l’investisseur et non pour guider ses décisions",
+                "Il prédit toujours l’avenir des entreprises",
+                "Il garantit des gains rapides",
+                "Il protège les investisseurs contre les pertes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Parmi les facteurs suivants, lequel peut influencer le cours d’une action sans affecter les fondamentaux de l’entreprise ?",
+              "options": [
+                "Une simple rumeur",
+                "L’augmentation de ses revenus sur 5 ans",
+                "La croissance réelle du marché",
+                "Le dividende versé régulièrement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi les publications financières ne doivent-elles pas toujours inciter à des réactions immédiates ?",
+              "options": [
+                "Parce qu’elles reflètent des périodes passées et non la situation actuelle",
+                "Parce qu’elles sont toujours fausses",
+                "Parce que les investisseurs ne s’y intéressent pas",
+                "Parce qu’elles n’influencent jamais le cours"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’impact d’une guidance optimiste sur le cours d’une action ?",
+              "options": [
+                "Elle peut faire grimper le cours",
+                "Elle fait automatiquement baisser le cours",
+                "Elle n’a aucun impact",
+                "Elle bloque la volatilité du marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que signifie une chute du cours lors d’un krach selon ce texte ?",
+              "options": [
+                "Une perte de confiance des investisseurs, pas forcément une dégradation des fondamentaux",
+                "Une destruction irréversible de la richesse de l’entreprise",
+                "Une indication que tous les dirigeants sont incompétents",
+                "Une augmentation automatique du dividende"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l4",
+          "lesson_title": "L’impact des gouvernements sur les marchés financiers",
+          "questions": [
+            {
+              "question": "Comment la politique fiscale influence-t-elle directement les marchés financiers ?",
+              "options": [
+                "En modulant les taux d’intérêt, ce qui affecte emprunts, consommation et investissement",
+                "En augmentant uniquement les dividendes des entreprises",
+                "En fixant les cours des actions",
+                "En interdisant certaines entreprises de se développer"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que signifie l’expression « planche à billets » dans le contexte économique ?",
+              "options": [
+                "Injection massive de devises dans l’économie pouvant provoquer de l’inflation",
+                "Réduction des impôts pour les particuliers",
+                "Augmentation des taux d’intérêt pour freiner la consommation",
+                "Vente forcée d’actions par l’État"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’objectif des subventions gouvernementales ou des taxes sur les produits importés ?",
+              "options": [
+                "Protéger et encourager l’économie locale en rendant les produits étrangers moins compétitifs",
+                "Garantir des dividendes élevés pour les actionnaires",
+                "Fixer les salaires dans les entreprises",
+                "Encourager l’exportation uniquement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi certaines entreprises peuvent-elles se délocaliser selon le texte ?",
+              "options": [
+                "En raison de niveaux d’imposition élevés ou de réglementations contraignantes",
+                "Pour suivre les cours boursiers mondiaux",
+                "Pour éviter de verser des dividendes",
+                "Pour acheter des actions moins chères"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi faut-il rester prudent avec les entreprises dont l’État est actionnaire ?",
+              "options": [
+                "Elles sont exposées aux décisions politiques et à des enjeux dépassant la seule performance économique",
+                "Elles ne peuvent jamais verser de dividendes",
+                "Elles ne sont jamais impactées par l’économie mondiale",
+                "Elles ont toujours un cours d’action garanti"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l5",
+          "lesson_title": "L’impact de la géopolitique sur les marchés financiers",
+          "questions": [
+            {
+              "question": "Quelle est la réaction générale des marchés financiers face à l’incertitude géopolitique ?",
+              "options": [
+                "Ils détestent l’incertitude et réagissent souvent fortement",
+                "Ils restent toujours stables",
+                "Ils augmentent systématiquement",
+                "Ils suivent uniquement les prévisions économiques"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Lors des guerres aux États-Unis, quel comportement a été observé historiquement sur les actions ?",
+              "options": [
+                "Les actions ont souvent mieux performé ou sont restées stables",
+                "Les actions ont systématiquement chuté de plus de 50%",
+                "Les actions ont perdu toute valeur",
+                "Les actions n’ont été influencées que par les obligations"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi les obligations peuvent-elles devenir plus instables en période de guerre ?",
+              "options": [
+                "À cause des besoins énormes en ressources et de l’incertitude sur la dette publique",
+                "Parce qu’elles sont garanties par l’État",
+                "Parce que leur rendement augmente automatiquement",
+                "Parce que les entreprises ne peuvent plus verser de dividendes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Qu’ont connu l’Allemagne et la Chine après la Seconde Guerre mondiale en termes de performance boursière ?",
+              "options": [
+                "Des gains exceptionnels sur 11 ans (4373% pour l’Allemagne et 1565% pour la Chine)",
+                "Une chute totale des marchés pendant 50 ans",
+                "Une stabilité parfaite sans gains ni pertes",
+                "Une baisse temporaire suivie d’une stagnation"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle leçon principale l’investisseur doit retenir face aux crises géopolitiques ?",
+              "options": [
+                "Les bonnes entreprises sur le long terme s’en sortent toujours, la patience et le sang-froid sont récompensés",
+                "Il faut vendre toutes ses actions dès qu’un conflit éclate",
+                "Les marchés ne récupèrent jamais après un conflit",
+                "Les gains à court terme sont toujours garantis pendant les crises"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l6",
+          "lesson_title": "Pourquoi les marchés sont haussiers sur le long terme",
+          "questions": [
+            {
+              "question": "Quelle est la première raison qui permet au marché d’être haussier sur le long terme ?",
+              "options": [
+                "La couverture de l’inflation",
+                "L’augmentation du chômage",
+                "La baisse des actions technologiques",
+                "La diminution de la demande"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi les prix des actions peuvent augmenter pendant une période d’inflation ?",
+              "options": [
+                "Parce que les prix des produits et services des entreprises augmentent, ce qui augmente leurs bénéfices",
+                "Parce que l’État imprime plus d’actions",
+                "Parce que les obligations deviennent gratuites",
+                "Parce que les dividendes sont supprimés"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment l’anticipation de l’augmentation des bénéfices influence-t-elle les marchés ?",
+              "options": [
+                "Les investisseurs achètent des actions en espérant des profits futurs, ce qui fait monter les cours",
+                "Les investisseurs vendent toutes leurs actions",
+                "Les entreprises diminuent leurs bénéfices prévisionnels",
+                "La demande reste stable"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel rôle jouent les nouvelles technologies dans la hausse des marchés ?",
+              "options": [
+                "Elles augmentent la productivité et réduisent les coûts, soutenant la croissance et les bénéfices des entreprises",
+                "Elles ralentissent le marché en augmentant les coûts",
+                "Elles n’ont aucun impact sur les actions",
+                "Elles font baisser les indices boursiers"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi le marché est-il structurellement haussier sur le long terme ?",
+              "options": [
+                "Parce qu’il reflète la croissance des meilleures et plus solides entreprises",
+                "Parce que toutes les actions augmentent sans exception",
+                "Parce que les gouvernements garantissent les gains",
+                "Parce que les investisseurs individuels achètent toujours les mêmes actions"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l7",
+          "lesson_title": "Le comportement des dividendes en période de récession",
+          "questions": [
+            {
+              "question": "Quel est le rôle principal de l’investisseur concernant les dividendes ?",
+              "options": [
+                "Parier sur des entreprises solides et fiables dans le versement de leurs dividendes",
+                "Acheter uniquement des actions sans dividendes",
+                "Vendre toutes les actions dès qu’une récession arrive",
+                "Parier sur des entreprises nouvelles sans historique de dividendes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que se passe-t-il généralement pour les entreprises robustes pendant une récession ?",
+              "options": [
+                "Elles continuent généralement à verser des dividendes",
+                "Elles suspendent systématiquement les dividendes",
+                "Elles doublent toujours leurs dividendes",
+                "Elles sont forcées par l’État à supprimer les dividendes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment les actions à dividendes performent-elles par rapport aux actions sans dividendes en période de récession ?",
+              "options": [
+                "Elles ont tendance à mieux performer",
+                "Elles chutent davantage",
+                "Elles restent totalement stables",
+                "Elles deviennent illiquides"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Selon les données historiques américaines, comment le dividende moyen a-t-il évolué pendant les récessions ?",
+              "options": [
+                "Il a baissé de seulement 0,5%",
+                "Il a augmenté de 10%",
+                "Il a chuté de 33,9%",
+                "Il a été totalement supprimé"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que peut-on dire du versement des dividendes en période de crise courte ?",
+              "options": [
+                "Les grandes entreprises sont généralement capables de continuer à verser leurs dividendes",
+                "Les dividendes sont toujours supprimés",
+                "Les dividendes doublent automatiquement",
+                "Les investisseurs reçoivent des dividendes uniquement après la fin de la crise"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l8",
+          "lesson_title": "Les anomalies de marché",
+          "questions": [
+            {
+              "question": "Quel est l’effet Janvier sur le marché des actions ?",
+              "options": [
+                "Janvier est historiquement favorable aux actions",
+                "Janvier est historiquement le pire mois pour les actions",
+                "Les actions restent stables en janvier",
+                "L’effet Janvier n’existe que pour les obligations"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle pratique contribue à l’effet Janvier pour les gérants de fonds ?",
+              "options": [
+                "Le *window dressing*",
+                "L’investissement dans des startups",
+                "La suppression des dividendes",
+                "L’augmentation automatique des frais de gestion"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi certains particuliers vendent-ils des actions en moins-value en fin d’année ?",
+              "options": [
+                "Pour réduire l’imposition sur les plus-values",
+                "Pour augmenter la valeur des dividendes",
+                "Pour anticiper une hausse des actions en janvier",
+                "Pour créer une bulle artificielle"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Parmi ces effets de marché, lequel est historiquement considéré comme le pire mois pour les actions ?",
+              "options": [
+                "Septembre",
+                "Janvier",
+                "Juin",
+                "Décembre"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que faut-il retenir de ces anomalies de marché ?",
+              "options": [
+                "Elles sont amusantes à observer mais ne doivent pas guider les décisions d’investissement long terme",
+                "Elles garantissent des gains rapides",
+                "Elles s’appliquent uniquement aux investisseurs particuliers",
+                "Elles remplacent l’analyse des fondamentaux"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_4_l9",
+          "lesson_title": "Faut-il s’intéresser aux introductions en bourse (IPO) ?",
+          "questions": [
+            {
+              "question": "Qu’est-ce qu’une introduction en bourse (IPO) ?",
+              "options": [
+                "Le moment où une entreprise devient cotée en bourse",
+                "La distribution de dividendes aux actionnaires",
+                "La fusion de deux entreprises",
+                "L’achat de ses propres actions par l’entreprise"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi un investisseur orienté dividendes pourrait ne pas s’intéresser à une IPO ?",
+              "options": [
+                "Parce que le versement de dividendes est trop incertain",
+                "Parce que le cours est toujours trop bas",
+                "Parce qu’une IPO est uniquement réservée aux fonds institutionnels",
+                "Parce que les IPO génèrent automatiquement des pertes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est le principal risque d’investir lors d’une IPO ?",
+              "options": [
+                "L’entreprise n’est pas encore mature et les informations financières sont limitées",
+                "Le dividende sera toujours supprimé",
+                "Les actions sont garanties de perdre de la valeur",
+                "Le marché refuse toute transaction"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’avantage possible d’investir dans une IPO ?",
+              "options": [
+                "Réaliser une plus-value sur le cours de l’action",
+                "Obtenir un dividende immédiat",
+                "Accéder aux votes de tous les actionnaires institutionnels",
+                "Réduire automatiquement ses impôts"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment peut-on qualifier globalement l’investissement dans une IPO ?",
+              "options": [
+                "Aléatoire : peut bien se passer ou mal tourner pour tout le monde",
+                "Toujours sûr et rentable",
+                "Sans risque pour les investisseurs particuliers",
+                "Risque uniquement fiscal"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter_title": "Mettre en place sa stratégie d’investissement",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_5_l1",
+          "lesson_title": "Définir son profil d’investisseur",
+          "questions": [
+            {
+              "question": "Pourquoi est-il important de définir son profil d’investisseur avant d’investir ?",
+              "options": [
+                "Pour connaître son aversion au risque et établir une stratégie claire",
+                "Pour investir uniquement dans les actions à dividendes",
+                "Pour copier automatiquement les positions des professionnels",
+                "Pour éviter de payer des impôts sur les gains"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est le principal risque de l’effet de levier ?",
+              "options": [
+                "Amplifier les pertes autant que les gains",
+                "Garantir un rendement fixe",
+                "Réduire l’impact fiscal des investissements",
+                "Protéger contre les crises financières"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi est-il dangereux de copier les positions d’un autre investisseur ?",
+              "options": [
+                "Parce que son profil ou ses objectifs peuvent être différents des vôtres",
+                "Parce que tous les investisseurs débutants perdent de l’argent",
+                "Parce que les actions copiées ne versent jamais de dividendes",
+                "Parce que la Bourse interdit le suivi des autres investisseurs"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que peut entraîner un stress chronique lié à l’investissement ?",
+              "options": [
+                "Des troubles du sommeil et de l’insomnie",
+                "Des gains financiers garantis",
+                "Une augmentation automatique de votre capital",
+                "La suppression de l’effet de levier"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la qualité essentielle pour réussir en Bourse selon cette sous-section ?",
+              "options": [
+                "La patience et la maîtrise de soi",
+                "La cupidité et la rapidité",
+                "La dépendance aux conseils de forums financiers",
+                "L’utilisation systématique de l’effet de levier"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l2",
+          "lesson_title": "Les grandes stratégies d’investissement",
+          "questions": [
+            {
+              "question": "Quelles sont les deux grandes stratégies d’investissement en Bourse ?",
+              "options": [
+                "Stratégie passive et stratégie active",
+                "Stratégie courte et stratégie longue",
+                "Stratégie technique et stratégie émotionnelle",
+                "Stratégie internationale et stratégie locale"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Qu’est-ce que l’analyse quantitative ?",
+              "options": [
+                "Une approche scientifique et mathématique complémentaire aux analyses fondamentale et technique",
+                "Une méthode d’investissement uniquement basée sur les dividendes",
+                "L’achat systématique de toutes les actions disponibles",
+                "Une stratégie visant à prédire les mouvements exacts du marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la philosophie du *Value Investing* ?",
+              "options": [
+                "Acheter des actions sous-évaluées et solides pour profiter de leur valeur réelle",
+                "Acheter uniquement des actions de sociétés en forte croissance",
+                "Acheter uniquement des actions versant des dividendes",
+                "Investir dans des start-ups sans historique financier"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’objectif principal du *Growth Investing* ?",
+              "options": [
+                "Acheter des actions d’entreprises avec un fort potentiel de croissance future",
+                "Acheter des actions sous-évaluées par rapport à leur valeur patrimoniale",
+                "Acheter uniquement des actions versant des dividendes",
+                "Réaliser des transactions très rapides pour profiter des fluctuations du marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "En *Income Investing*, l’investisseur mise sur :",
+              "options": [
+                "Les dividendes pour les réinvestir et profiter des intérêts composés",
+                "La revente rapide d’actions pour générer du profit immédiat",
+                "Les entreprises en faillite",
+                "Les cryptomonnaies uniquement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la principale différence entre le *Dollar Cost Averaging (DCA)* et le *Dollar Value Averaging (DVA)* ?",
+              "options": [
+                "DCA investit un montant fixe régulièrement, tandis que DVA ajuste le montant selon la performance pour atteindre un objectif de valeur",
+                "DCA investit uniquement en début d’année, DVA en fin d’année",
+                "DCA nécessite des dividendes, DVA non",
+                "DCA est une stratégie active, DVA est passive"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est le principal inconvénient du DCA dans un marché haussier ?",
+              "options": [
+                "Une partie du capital reste non investie et ne profite pas de la hausse",
+                "Il nécessite trop de calculs mathématiques",
+                "Il ne permet pas de réinvestir les dividendes",
+                "Il est interdit pour les investisseurs débutants"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l3",
+          "lesson_title": "Combien investir quand on débute ?",
+          "questions": [
+            {
+              "question": "Quelle est la première étape avant d’investir en Bourse ?",
+              "options": [
+                "Se constituer un matelas de sécurité pour couvrir les imprévus",
+                "Acheter le maximum d’actions possible",
+                "Attendre que le marché soit haussier",
+                "Suivre les conseils d’un ami investisseur"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Peut-on devenir actionnaire avec un petit montant ?",
+              "options": [
+                "Oui, il suffit de posséder une seule action",
+                "Non, il faut investir au moins 10 000 €",
+                "Non, il faut acheter un portefeuille complet",
+                "Oui, mais seulement après avoir suivi une formation financière"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la ressource la plus précieuse pour un investisseur débutant ?",
+              "options": [
+                "Le temps",
+                "L’argent investi",
+                "Les conseils des experts",
+                "La chance"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi la régularité et la patience sont-elles importantes en Bourse ?",
+              "options": [
+                "Elles permettent aux plus-values et aux dividendes réinvestis de profiter des intérêts composés",
+                "Elles garantissent des gains rapides",
+                "Elles permettent d’éviter totalement les risques",
+                "Elles permettent d’acheter des actions gratuitement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle erreur ne pas commettre lorsqu’on débute ?",
+              "options": [
+                "S’attendre à devenir millionnaire en quelques mois ou années",
+                "Commencer à investir avec prudence",
+                "Réinvestir les dividendes",
+                "Se former avant d’investir"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels obstacles peuvent ralentir la croissance exponentielle de vos gains ?",
+              "options": [
+                "Les frais, l’imposition et les crises financières",
+                "L’achat régulier d’actions",
+                "La répartition du capital sur plusieurs entreprises",
+                "Les dividendes réinvestis"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l4",
+          "lesson_title": "PEA ou compte-titres : quelles différences ?",
+          "questions": [
+            {
+              "question": "Qu’est-ce que le PEA ?",
+              "options": [
+                "Un support d’investissement français permettant d’acheter des actions françaises et certaines actions européennes, ainsi que quelques ETF",
+                "Un compte bancaire classique",
+                "Un produit exclusivement américain",
+                "Un livret d’épargne avec intérêts garantis"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’avantage principal du PEA ?",
+              "options": [
+                "Fiscal : après 5 ans de détention, les gains sont exonérés d’impôt sur le revenu",
+                "Possibilité d’investir dans tous les produits financiers",
+                "Ne nécessite aucun capital minimum",
+                "Garantie de gain annuel"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la limite de versement sur un PEA ?",
+              "options": [
+                "150 000 €",
+                "50 000 €",
+                "500 000 €",
+                "Il n’y a pas de limite"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Qu’est-ce qu’un compte-titres ?",
+              "options": [
+                "Un compte permettant d’investir dans tous types de produits financiers, sans limite de montant ni contraintes de détention",
+                "Un produit d’épargne réglementé",
+                "Un support exclusivement pour les actions françaises",
+                "Un type de livret fiscalisé"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle imposition s’applique aux plus-values sur un compte-titres ?",
+              "options": [
+                "30% (17,2% prélèvements sociaux + 12,8% impôt sur le revenu)",
+                "Exonérées après 5 ans",
+                "17,2% uniquement",
+                "50% du montant investi"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi peut-il être intéressant d’avoir à la fois un PEA et un compte-titres ?",
+              "options": [
+                "Pour bénéficier d’une fiscalité avantageuse sur le marché français et profiter des opportunités à l’étranger",
+                "Pour doubler ses gains",
+                "Pour éviter toute imposition",
+                "Pour investir uniquement dans des obligations"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l5",
+          "lesson_title": "Comment bien choisir son courtier ?",
+          "questions": [
+            {
+              "question": "Pourquoi est-il déconseillé d’ouvrir un PEA ou un compte-titres auprès d’une banque traditionnelle physique ?",
+              "options": [
+                "À cause des frais de courtage élevés",
+                "Parce qu’elles n’offrent pas de comptes-titres",
+                "Parce qu’elles ne permettent pas d’acheter des actions françaises",
+                "Parce qu’elles sont réglementées"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels frais doivent être privilégiés lors du choix d’un courtier ?",
+              "options": [
+                "Principalement les frais de passage d’ordre, avec zéro frais pour la détention, l’ouverture et l’inactivité",
+                "Les frais de gestion annuelle",
+                "Les frais de retrait uniquement",
+                "Tous les frais doivent être évités à tout prix, ce qui est impossible"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Pourquoi est-il important de vérifier les marchés et produits accessibles par le courtier ?",
+              "options": [
+                "Pour s’assurer de pouvoir utiliser un PEA et accéder aux marchés étrangers si nécessaire",
+                "Parce que tous les courtiers offrent les mêmes produits",
+                "Pour payer moins de frais",
+                "Ce n’est pas important"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment évaluer la réputation d’un courtier ?",
+              "options": [
+                "Consulter les avis en ligne avec recul et tester le service client avant ouverture",
+                "Ne regarder que les avis positifs sur les forums",
+                "Se fier uniquement à la publicité du courtier",
+                "Vérifier seulement l’âge de l’entreprise"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle condition est indispensable concernant la régulation d’un courtier ?",
+              "options": [
+                "Être régulé par une autorité financière reconnue",
+                "Être le moins cher possible",
+                "Offrir le plus grand nombre de produits financiers",
+                "Avoir un service client en ligne"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que signifie la protection de l’investisseur ?",
+              "options": [
+                "Les fonds et titres des clients doivent être séparés des actifs du courtier et protégés en cas de faillite",
+                "Le courtier garantit un rendement minimal",
+                "Les frais de courtage sont remboursés",
+                "Le courtier assume toutes les pertes éventuelles"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que peuvent indiquer les conditions d’ouverture d’un compte chez un courtier ?",
+              "options": [
+                "Le positionnement du courtier et le type de clientèle qu’il cible",
+                "Le montant des dividendes possibles",
+                "La durée minimale d’investissement",
+                "La performance garantie du portefeuille"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l6",
+          "lesson_title": "Comment acheter des actions",
+          "questions": [
+            {
+              "question": "Par quel intermédiaire accède-t-on aux actions sur les marchés financiers ?",
+              "options": [
+                "Par l’intermédiaire d’un courtier",
+                "Directement en déposant de l’argent à la banque centrale",
+                "En contactant directement l’entreprise",
+                "Par le gouvernement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Qu’est-ce qu’un « ticker » ?",
+              "options": [
+                "Un code mnémonique unique identifiant une action",
+                "Le nom du PDG de l’entreprise",
+                "Le montant minimal pour acheter l’action",
+                "L’indice boursier associé à l’action"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est l’avantage principal d’un ordre au marché ?",
+              "options": [
+                "Exécution immédiate au meilleur prix disponible",
+                "Garantie du prix exact",
+                "Prix fixe sur une période déterminée",
+                "Protection contre la volatilité"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel est le risque principal d’un ordre à cours limité ?",
+              "options": [
+                "L’ordre peut ne pas être exécuté si le prix n’est pas atteint",
+                "Le prix peut être inférieur au prix du marché",
+                "L’ordre est exécuté immédiatement sans contrôle",
+                "L’investisseur paie plus de frais"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que fait un ordre à seuil de déclenchement ?",
+              "options": [
+                "Il se transforme en ordre au marché lorsque le seuil défini est atteint",
+                "Il garantit l’achat à prix fixe",
+                "Il bloque l’action jusqu’à nouvel ordre",
+                "Il suit automatiquement la moyenne du marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "En quoi un ordre à plage de déclenchement diffère-t-il d’un ordre à seuil de déclenchement ?",
+              "options": [
+                "Il ajoute un prix limite pour plus de contrôle, au risque de non-exécution",
+                "Il s’exécute toujours immédiatement",
+                "Il suit le cours de toutes les actions du marché",
+                "Il transforme l’ordre en dividende"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la particularité d’un ordre suiveur ?",
+              "options": [
+                "Le seuil évolue avec le cours, protégeant les gains et suivant la tendance",
+                "Il fixe le prix pour toute la journée",
+                "Il annule automatiquement les pertes",
+                "Il permet d’acheter plusieurs actions gratuitement"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l7",
+          "lesson_title": "Quand peut-on acheter des actions ?",
+          "questions": [
+            {
+              "question": "Les marchés boursiers (exchanges) sont ouverts :",
+              "options": [
+                "24h/24 et 7j/7",
+                "Aux horaires définis par chaque bourse, généralement en continu du lundi au vendredi",
+                "Uniquement le week-end",
+                "Seulement les jours fériés"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle est la plage horaire typique d’Euronext Paris ?",
+              "options": [
+                "0h00 à 24h00",
+                "9h00 à 17h30",
+                "8h00 à 20h00",
+                "12h00 à 18h00"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que se passe-t-il si vous placez un ordre alors que le marché est fermé ?",
+              "options": [
+                "L’ordre est annulé automatiquement",
+                "L’ordre sera exécuté dès la prochaine ouverture du marché",
+                "L’ordre est exécuté immédiatement au dernier prix connu",
+                "Vous recevez un remboursement de votre capital"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "À quelle fréquence Euronext met-elle à jour le cours des actions ?",
+              "options": [
+                "Toutes les 15 secondes",
+                "Toutes les 5 minutes",
+                "Une fois par jour",
+                "Une fois par semaine"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Où apparaissent les actions une fois l’ordre exécuté ?",
+              "options": [
+                "Directement dans votre portefeuille PEA ou compte-titres (CT)",
+                "Sur le site officiel de l’entreprise",
+                "Sur le journal financier le lendemain",
+                "Elles n’apparaissent pas avant un mois"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l8",
+          "lesson_title": "Les différents modes de détention des actions",
+          "questions": [
+            {
+              "question": "Peut-on acheter une fraction d’action ?",
+              "options": [
+                "Non, les actions ne sont jamais fractionnables",
+                "Oui, mais seulement via certains courtiers",
+                "Oui, directement auprès de l’entreprise",
+                "Oui, dans tous les cas, sans restriction"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quels sont les deux modes principaux de détention d’actions ?",
+              "options": [
+                "Au porteur et au nominatif",
+                "Au nominatif et fractionné",
+                "Au porteur et fractionné",
+                "Nominatif administré et fractionné"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la principale caractéristique de l’action détenue au porteur ?",
+              "options": [
+                "L’entreprise connaît l’identité exacte de l’actionnaire",
+                "Le courtier agit comme intermédiaire et l’entreprise ne connaît pas l’actionnaire",
+                "L’actionnaire reçoit automatiquement un dividende majoré",
+                "Elle n’est jamais éligible au PEA"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Parmi les modes nominatif, lequel est éligible au PEA ?",
+              "options": [
+                "Nominatif pur",
+                "Nominatif administré",
+                "Les deux",
+                "Aucun"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quels avantages peuvent être associés à la détention au nominatif ?",
+              "options": [
+                "Accès à des informations sur l’entreprise et avantages spécifiques comme dividende majoré ou actions offertes",
+                "Exonération totale d’impôts",
+                "Possibilité de fractionner librement ses actions",
+                "Garantie de rendement fixe sur l’action"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Qu’est-ce que le club des actionnaires ?",
+              "options": [
+                "Un club payant ouvert à tous",
+                "Un avantage réservé aux détenteurs d’actions, offrant divers privilèges",
+                "Une association pour vendre ses actions plus rapidement",
+                "Une garantie de dividende minimum"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l9",
+          "lesson_title": "Investir dans des actions à devises étrangères",
+          "questions": [
+            {
+              "question": "Qu’implique l’achat d’actions étrangères avec des euros ?",
+              "options": [
+                "Aucun frais supplémentaire",
+                "Une conversion de devises",
+                "Un accès direct au marché boursier étranger sans courtier",
+                "L’obligation de passer par la banque centrale"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle est l’option généralement déconseillée pour convertir des euros en devises étrangères ?",
+              "options": [
+                "Conversion via le courtier",
+                "Conversion automatique",
+                "Conversion via la banque traditionnelle",
+                "Conversion via un ETF"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quels avantages présente la conversion via le courtier ?",
+              "options": [
+                "Taux du marché plus fidèle et frais limités",
+                "Pas besoin de payer des impôts",
+                "Conversion garantie sans risque de change",
+                "Permet de contourner la fiscalité locale"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que faut-il vérifier lorsqu’on utilise la conversion automatique proposée par certains courtiers ?",
+              "options": [
+                "Le taux appliqué et les frais associés",
+                "La couleur du site web du courtier",
+                "Le type d’actions françaises disponibles",
+                "La présence d’un club d’actionnaires"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quand est-il préférable de réaliser les conversions de devises ?",
+              "options": [
+                "Pendant le week-end",
+                "Lorsque le marché des devises est ouvert, en semaine",
+                "Uniquement à la fin de l’année fiscale",
+                "Quand l’action a déjà perdu de la valeur"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l10",
+          "lesson_title": "Quand acheter, vendre ou renforcer ses positions",
+          "questions": [
+            {
+              "question": "Sur quoi doivent principalement se baser vos décisions d’achat, vente ou renforcement d’actions ?",
+              "options": [
+                "Les fluctuations de court terme",
+                "L’analyse des fondamentaux",
+                "Les conseils des forums en ligne",
+                "Les rumeurs médiatiques"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quand est-il généralement recommandé d’acheter une action ?",
+              "options": [
+                "Quand le cours est au plus bas, peu importe l’entreprise",
+                "Lorsque l’entreprise répond à vos critères et que vous avez du capital à investir",
+                "Lors d’une forte hausse récente",
+                "Uniquement en période de crise financière"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle situation ne justifie pas nécessairement la vente d’une action ?",
+              "options": [
+                "Une baisse temporaire du cours",
+                "Une perte durable de croissance attendue",
+                "Une action devenue manifestement surévaluée",
+                "Des difficultés financières importantes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quand peut-il être pertinent de renforcer une position ?",
+              "options": [
+                "Tant que les fondamentaux de l’entreprise restent solides",
+                "Après une forte baisse du marché seulement",
+                "Lorsque l’action est surévaluée",
+                "Uniquement si le dividende augmente"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que ne doit pas constituer un frein pour renforcer une position si les perspectives long terme restent favorables ?",
+              "options": [
+                "La performance du marché global",
+                "Le PRU (Prix de Revient Unitaire)",
+                "La saisonnalité du marché",
+                "Le rendement des obligations"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l11",
+          "lesson_title": "Combien d’actions détenir dans son portefeuille",
+          "questions": [
+            {
+              "question": "Existe-t-il un nombre maximal d’actions que vous pouvez posséder dans une entreprise ?",
+              "options": [
+                "Oui, il ne faut pas dépasser 100 actions",
+                "Non, mais il faut rester cohérent avec la valeur totale investie",
+                "Oui, la loi impose une limite de 50% du capital",
+                "Non, vous pouvez acheter autant que possible sans risque"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Pourquoi est-il déconseillé de concentrer tout son capital sur une seule entreprise ?",
+              "options": [
+                "Parce que cela limite vos dividendes",
+                "Parce que cela augmente le risque spécifique à l’entreprise",
+                "Parce que le marché interdit les grosses positions",
+                "Parce que le PRU devient nul"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Selon les études, à partir de combien de lignes différentes (titres) un portefeuille est-il généralement considéré comme bien diversifié ?",
+              "options": [
+                "5 lignes",
+                "10 lignes",
+                "20 lignes",
+                "50 lignes"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l12",
+          "lesson_title": "La diversification sectorielle",
+          "questions": [
+            {
+              "question": "Pourquoi est-il important de diversifier son portefeuille entre plusieurs secteurs ?",
+              "options": [
+                "Pour maximiser les dividendes",
+                "Pour limiter les risques spécifiques à un secteur",
+                "Parce que la loi l’impose",
+                "Pour payer moins d’impôts"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle est la limite recommandée d’exposition dans un même secteur ?",
+              "options": [
+                "10%",
+                "25%",
+                "50%",
+                "75%"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Parmi les secteurs suivants, lequel est considéré comme défensif et peu affecté par les crises ?",
+              "options": [
+                "Technologie",
+                "Biens de consommation courante",
+                "Industrie",
+                "Biens de consommation cycliques"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel secteur est fortement lié aux prix des matières premières, notamment du pétrole, et distribue souvent des dividendes élevés ?",
+              "options": [
+                "Santé",
+                "Énergie",
+                "Finance",
+                "Télécommunications"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel secteur est orienté vers l’innovation et la croissance future, avec des valorisations souvent élevées ?",
+              "options": [
+                "Technologie",
+                "Immobilier",
+                "Services aux collectivités",
+                "Matériaux de base"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quel secteur est sensible aux taux d’intérêt et peut être complexe à analyser ?",
+              "options": [
+                "Finance",
+                "Industrie",
+                "Biens de consommation courante",
+                "Santé"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels secteurs sont généralement considérés comme défensifs ? (plusieurs réponses possibles)",
+              "options": [
+                "Santé",
+                "Services aux collectivités",
+                "Biens de consommation courante",
+                "Technologie"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l13",
+          "lesson_title": "La diversification géographique",
+          "questions": [
+            {
+              "question": "Pourquoi la diversification géographique peut-elle être pertinente ?",
+              "options": [
+                "Pour réduire les risques politiques, réglementaires et monétaires",
+                "Pour augmenter les dividendes à court terme",
+                "Pour éviter les frais de courtage",
+                "Parce que la loi l’exige"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la limite recommandée d’exposition dans une seule entreprise ?",
+              "options": [
+                "5%",
+                "10%",
+                "25%",
+                "50%"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle est la limite recommandée d’exposition dans un même secteur ?",
+              "options": [
+                "10%",
+                "15%",
+                "25%",
+                "50%"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Pourquoi le marché américain est-il souvent privilégié ?",
+              "options": [
+                "Pour ses volumes d’échanges élevés et sa liquidité",
+                "Parce que les actions y sont moins chères",
+                "Pour des raisons fiscales uniquement",
+                "Parce qu’il est moins volatile"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels sont les critères essentiels avant d’investir dans un pays étranger ? (plusieurs réponses possibles)",
+              "options": [
+                "La capitalisation boursière du marché",
+                "Le volume d’échanges du marché",
+                "La couleur du drapeau",
+                "La langue officielle du pays"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels pays présentent des risques plus élevés mais offrent des opportunités intéressantes ?",
+              "options": [
+                "Les pays émergents",
+                "Les pays développés",
+                "Les pays européens uniquement",
+                "Les pays asiatiques uniquement"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que faut-il privilégier lors d’un investissement à l’étranger ?",
+              "options": [
+                "Des pays avec stabilité politique et économique",
+                "Des pays avec la devise la plus faible",
+                "Des pays sans impôts sur les plus-values",
+                "Des pays où les actions sont les moins chères"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l14",
+          "lesson_title": "Pourquoi trop diversifier peut nuire à la performance",
+          "questions": [
+            {
+              "question": "Quel est l’effet principal d’une diversification excessive sur un portefeuille ?",
+              "options": [
+                "Elle augmente automatiquement les dividendes",
+                "Elle dilue les meilleures positions et limite le potentiel de surperformance",
+                "Elle garantit une performance supérieure au marché",
+                "Elle réduit tous les risques à zéro"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Combien de positions sont généralement considérées comme équilibrées pour un portefeuille ?",
+              "options": [
+                "1 à 5",
+                "5 à 10",
+                "10 à 30",
+                "50 à 100"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Que se passe-t-il si un portefeuille comporte moins de 10 positions ?",
+              "options": [
+                "Le risque spécifique devient trop élevé",
+                "La performance est automatiquement meilleure",
+                "La gestion devient trop lourde",
+                "Les dividendes sont maximisés"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que peut indiquer une surdiversification ?",
+              "options": [
+                "Un manque de stratégie claire",
+                "Une stratégie parfaitement optimisée",
+                "Un portefeuille défensif uniquement",
+                "Une performance garantie supérieure au marché"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quels sont les inconvénients d’un portefeuille trop diversifié ? (plusieurs réponses possibles)",
+              "options": [
+                "Gestion plus lourde",
+                "Dilution des positions performantes",
+                "Limitation du potentiel de surperformance",
+                "Réduction totale des frais"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l15",
+          "lesson_title": "Comment suivre l’évolution de son portefeuille",
+          "questions": [
+            {
+              "question": "Pourquoi est-il déconseillé de regarder son portefeuille trop fréquemment ?",
+              "options": [
+                "Parce que le portefeuille augmente automatiquement sans surveillance",
+                "Parce que chaque fluctuation négative peut provoquer du stress et des décisions impulsives",
+                "Parce que les cours ne changent jamais",
+                "Parce que les dividendes ne sont versés qu’une fois par an"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que signifie l’effet MLA (*Myopic Loss Aversion*) ?",
+              "options": [
+                "Une aversion excessive pour les gains rapides",
+                "Une tendance à sur-réagir négativement aux pertes à court terme",
+                "Une stratégie d’investissement à long terme",
+                "Une méthode pour maximiser les dividendes"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle est la bonne pratique pour suivre son portefeuille ?",
+              "options": [
+                "Regarder tous les jours le cours de chaque action",
+                "Ne jamais vérifier son portefeuille",
+                "Se tenir informé uniquement des actualités importantes des entreprises sélectionnées, comme les résultats financiers",
+                "Vendre dès la première baisse"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "Quel est le principal risque lié à une sur-réaction aux baisses temporaires ?",
+              "options": [
+                "Prendre des décisions impulsives et arbitrer trop souvent",
+                "Obtenir des dividendes plus élevés",
+                "Maximiser les plus-values",
+                "Réduire la fiscalité"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_5_l16",
+          "lesson_title": "Comment calculer la performance de ses investissements",
+          "questions": [
+            {
+              "question": "Pourquoi est-il utile de comparer la performance de son portefeuille à un indice de référence ?",
+              "options": [
+                "Pour savoir si l’on a investi correctement par rapport au marché",
+                "Pour obtenir plus de dividendes",
+                "Pour éviter de payer des impôts",
+                "Pour garantir une performance positive"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle formule correspond au rendement total simple ?",
+              "options": [
+                "Rendement total = (Valeur actuelle - Valeur de départ) / Valeur de départ",
+                "Rendement total = Valeur actuelle * Dividendes",
+                "Rendement total = Dividendes reçus / Prix de revient",
+                "Rendement total = Prix de revient - Valeur finale"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Comment calculer la performance d’une action ?",
+              "options": [
+                "Performance = (Dividendes reçus + Plus-values latentes) / Prix de revient * 100",
+                "Performance = Prix de revient - Dividendes reçus",
+                "Performance = Valorisation finale / Dividendes reçus",
+                "Performance = Prix de revient / Plus-values latentes"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est l’utilité du rendement annualisé ?",
+              "options": [
+                "Comparer la performance de plusieurs périodes en tenant compte des dividendes et de la durée",
+                "Calculer le montant des impôts à payer",
+                "Savoir combien d’actions acheter",
+                "Déterminer le prix exact d’une action"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle formule correspond au taux de rendement composé (annualisé) ?",
+              "options": [
+                "Taux de rendement composé = (Valeur finale / Valeur initiale)^(1/Nombre d'années) - 1",
+                "Taux de rendement composé = (Valeur initiale / Valeur finale) * 100",
+                "Taux de rendement composé = Dividendes reçus * Nombre d'années",
+                "Taux de rendement composé = Valeur finale - Prix de revient"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "chapter_title": "Fiscalité et optimisation",
+      "quizzes": [
+        {
+          "lesson_id": "chapter_6_l1",
+          "lesson_title": "Déclaration d’un compte ouvert à l’étranger",
+          "questions": [
+            {
+              "question": "Que se passe-t-il si votre compte est ouvert en France (PEA ou CTO) ?",
+              "options": [
+                "L’administration fiscale est automatiquement informée",
+                "Vous devez le déclarer chaque année",
+                "Vous ne pouvez pas percevoir de dividendes",
+                "Vous êtes exonéré d’impôt"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que devez-vous faire si votre compte est ouvert à l’étranger ?",
+              "options": [
+                "Le déclarer chaque année via le formulaire CERFA joint à votre déclaration de revenus",
+                "Rien, l’administration est automatiquement informée",
+                "Fermer le compte immédiatement",
+                "Transférer tous les fonds en France"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la conséquence d’une absence de déclaration d’un compte étranger ?",
+              "options": [
+                "Risque de sanctions fiscales et pénalités",
+                "Aucune conséquence",
+                "Le compte devient automatiquement un PEA",
+                "Les dividendes sont doublés"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Le formulaire utilisé pour déclarer un compte étranger est :",
+              "options": [
+                "Le formulaire CERFA",
+                "Le formulaire 2042-K",
+                "Le formulaire 3916",
+                "Le formulaire 1120"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "La déclaration d’un compte étranger doit être faite :",
+              "options": [
+                "Chaque année lors de la déclaration de revenus",
+                "Une seule fois à l’ouverture du compte",
+                "Seulement si le solde dépasse 100 000 €",
+                "Seulement si des dividendes sont perçus"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_6_l2",
+          "lesson_title": "Fiscalité du PEA",
+          "questions": [
+            {
+              "question": "Quand les plus-values d’un PEA sont-elles imposables ?",
+              "options": [
+                "Dès l’ouverture du PEA",
+                "Uniquement en cas de retrait",
+                "Chaque année",
+                "Jamais"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle est la fiscalité des plus-values pour un PEA de moins de 5 ans ?",
+              "options": [
+                "12,8% + 17,2% de prélèvements sociaux",
+                "17,2% uniquement",
+                "0%",
+                "30%"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelle est la fiscalité des plus-values pour un PEA de plus de 5 ans ?",
+              "options": [
+                "12,8% + 17,2%",
+                "17,2% uniquement",
+                "30%",
+                "0%"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel est le plafond de versement pour un PEA individuel ?",
+              "options": [
+                "150 000 €",
+                "300 000 €",
+                "100 000 €",
+                "500 000 €"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Le PEA permet-il d’investir dans toutes les entreprises du monde ?",
+              "options": [
+                "Oui",
+                "Non, seulement dans les sociétés françaises et certaines européennes",
+                "Seulement dans les entreprises américaines",
+                "Seulement dans les startups"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les dividendes étrangers reçus dans un PEA :",
+              "options": [
+                "Ne sont jamais imposés",
+                "Peuvent être soumis à une retenue à la source",
+                "Sont toujours exonérés",
+                "Doivent être déclarés comme revenus français"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_6_l3",
+          "lesson_title": "Fiscalité du compte-titres (CTO)",
+          "questions": [
+            {
+              "question": "Le CTO a-t-il un plafond de versement ou une durée minimale de détention ?",
+              "options": [
+                "Oui, comme le PEA",
+                "Non, il est flexible",
+                "Oui, mais uniquement pour les actions françaises",
+                "Non, mais uniquement pour les ETF"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Comment les plus-values et revenus d’un CTO sont-ils imposés ?",
+              "options": [
+                "12,8% + 17,2% de prélèvements sociaux",
+                "PFU 30% ou impôt sur le revenu selon la TMI, choix annuel irrévocable",
+                "Exonérés après 5 ans",
+                "17,2% seulement"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Les dividendes étrangers reçus dans un CTO :",
+              "options": [
+                "Ne sont jamais imposés",
+                "Peuvent subir une retenue à la source, compensée par un crédit d’impôt",
+                "Sont automatiquement imposés à 30%",
+                "Sont imposés uniquement si le CTO est clôturé"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que se passe-t-il pour un CTO en cas de succession ?",
+              "options": [
+                "Il est automatiquement clôturé",
+                "Il peut être transmis, sans clôture automatique",
+                "Les titres sont vendus immédiatement",
+                "Les plus-values sont exonérées"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Le choix d’imposition pour le CTO (PFU ou impôt sur le revenu) :",
+              "options": [
+                "Peut être changé tous les mois",
+                "Est irrévocable pour l’année en cours",
+                "N’a aucune importance pour les dividendes étrangers",
+                "Est obligatoire pour les PEA également"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_6_l4",
+          "lesson_title": "Déclaration de revenus et IFU",
+          "questions": [
+            {
+              "question": "Où devez-vous déclarer vos revenus de placements ?",
+              "options": [
+                "Dans tous les pays où vous détenez un compte",
+                "Seulement dans votre pays de résidence fiscale",
+                "Uniquement si vous retirez l’argent",
+                "Dans le pays où le courtier est basé"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quel document le courtier fournit-il pour faciliter votre déclaration ?",
+              "options": [
+                "Le relevé bancaire annuel",
+                "L’IFU (Imprimé Fiscal Unique)",
+                "Le certificat de détention",
+                "La déclaration pré-remplie pour l’étranger"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que récapitule l’IFU ?",
+              "options": [
+                "Les seuls dividendes reçus",
+                "Les dividendes et plus-values",
+                "Les apports et retraits sur le compte",
+                "Les frais de courtage uniquement"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Comment éviter la double imposition pour les revenus étrangers ?",
+              "options": [
+                "En ne déclarant que la moitié des revenus",
+                "En remplissant l’annexe spécifique pour revenus étrangers",
+                "En ouvrant un compte dans un autre pays",
+                "En demandant un remboursement au courtier"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_6_l5",
+          "lesson_title": "Principales taxes applicables",
+          "questions": [
+            {
+              "question": "Quelle est la taxe sur les transactions financières (TTF) en France ?",
+              "options": [
+                "0,1%",
+                "0,3% sur l’achat d’actions françaises >1 milliard € de capitalisation",
+                "0,5%",
+                "1%"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Comment peut-on éviter la TTF française ?",
+              "options": [
+                "En vendant rapidement les actions",
+                "En investissant dans des actions étrangères ou françaises de petite capitalisation",
+                "En ouvrant un PEA",
+                "En utilisant un compte-titres"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quelle est la taxe appliquée au Royaume-Uni lors de l’achat d’actions locales ?",
+              "options": [
+                "TTF 0,3%",
+                "Stamp Duty 0,5%",
+                "Stamp Duty 1,5%",
+                "Taxe sur dividendes 0,5%"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "À quoi correspond la Cotisation Subsidiaire Maladie (CSM) ?",
+              "options": [
+                "Une taxe sur les transactions financières",
+                "Une taxe sur les revenus du capital pour les résidents fiscaux français hors PEA",
+                "Une taxe sur les dividendes étrangers",
+                "Une taxe uniquement pour les comptes-titres détenus à l’étranger"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_6_l6",
+          "lesson_title": "Bourse et immobilier : stratégies complémentaires",
+          "questions": [
+            {
+              "question": "Pourquoi détenir à la fois des actions et de l’immobilier peut-il être avantageux ?",
+              "options": [
+                "Cela permet de réduire les impôts",
+                "Cela renforce l’« equity » et un dossier de financement bancaire",
+                "Cela garantit des gains immédiats",
+                "Cela évite toute volatilité"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Quels revenus sont mal perçus par les banques lors d’une demande de financement ?",
+              "options": [
+                "Les revenus locatifs",
+                "Les revenus d’actions et dividendes",
+                "Les revenus provenant de jeux d’argent ou paris sportifs",
+                "Les revenus d’entreprise"
+              ],
+              "correct_answer_index": 2
+            },
+            {
+              "question": "La combinaison actions + immobilier est considérée comme :",
+              "options": [
+                "Une diversification inutile",
+                "Une stratégie complémentaire",
+                "Une stratégie à haut risque uniquement",
+                "Une solution pour éviter la fiscalité"
+              ],
+              "correct_answer_index": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

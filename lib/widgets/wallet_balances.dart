@@ -22,45 +22,17 @@ class WalletBalances extends StatelessWidget {
     if (user == null) {
       return const Text('Connecte-toi pour voir ton solde');
     }
-    final progressStream = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('learning')
-        .doc('progress')
-        .snapshots();
-    final userStream = FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots();
 
     return Padding(
       padding: padding,
-      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: progressStream,
-        builder: (context, progressSnap) {
-          final progressData = progressSnap.data?.data();
-          int? coins = (progressData?['coins'] as num?)?.toInt();
-          int? gems = (progressData?['gems'] as num?)?.toInt();
+      child: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+        builder: (context, userSnap) {
+          final userData = userSnap.data?.data() as Map<String, dynamic>?;
+          final coins = (userData?['coins'] as num?)?.toInt() ?? 0;
+          final gems = (userData?['gems'] as num?)?.toInt() ?? 0;
 
-          if (progressSnap.hasData && (coins != null || gems != null)) {
-            return _buildContent(coins ?? 0, gems ?? 0);
-          }
-
-          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: userStream,
-            builder: (context, userSnap) {
-              final userData = userSnap.data?.data();
-              coins ??= (userData?['coins'] as num?)?.toInt();
-              gems ??= (userData?['gems'] as num?)?.toInt();
-              if (coins == null && gems == null) {
-                if (progressSnap.connectionState == ConnectionState.waiting || userSnap.connectionState == ConnectionState.waiting) {
-                  return const SizedBox(
-                    height: 28,
-                    child: Align(alignment: Alignment.centerLeft, child: LinearProgressIndicator(minHeight: 2)),
-                  );
-                }
-                return const Text('Solde indisponible');
-              }
-              return _buildContent(coins ?? 0, gems ?? 0);
-            },
-          );
+          return _buildContent(coins, gems);
         },
       ),
     );
@@ -126,7 +98,11 @@ class _Badge extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             '$value',
-            style: TextStyle(fontWeight: FontWeight.w800, color: color, fontSize: fontSize),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: color,
+              fontSize: fontSize,
+            ),
           ),
           const SizedBox(width: 4),
           Text(

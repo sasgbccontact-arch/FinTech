@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:fintech/widgets/wallet_balances.dart';
+import 'package:fintech/core/constants.dart';
 
 /// Page Communauté : mini-jeux communautaires basés sur les cours réels.
 /// - Défis “Cible de cours”
@@ -27,7 +28,8 @@ class CommunityPage extends StatefulWidget {
   State<CommunityPage> createState() => _CommunityPageState();
 }
 
-class _CommunityPageState extends State<CommunityPage> with SingleTickerProviderStateMixin {
+class _CommunityPageState extends State<CommunityPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _firestore = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
@@ -47,43 +49,113 @@ class _CommunityPageState extends State<CommunityPage> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F7),
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: const Text('Communauté'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0.5,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(96),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                child: WalletBalances(
-                  auth: _auth,
-                  compact: true,
-                ),
-              ),
-              TabBar(
-                controller: _tabController,
-                labelColor: Colors.black,
-                unselectedLabelColor: Colors.black54,
-                tabs: const [
-                  Tab(text: 'Cibles de cours'),
-                  Tab(text: 'Volatilité'),
-                ],
-              ),
-            ],
+        title: const Text(
+          'Communauté',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: textColor,
+            letterSpacing: .2,
           ),
         ),
+        backgroundColor: backgroundColor,
+        foregroundColor: textColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _TargetTab(firestore: _firestore, auth: _auth),
-          _RangeTab(firestore: _firestore, auth: _auth),
-        ],
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE6E8EB)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: WalletBalances(auth: _auth, compact: true),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  height: 6,
+                  width: 96,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(99),
+                    gradient: const LinearGradient(
+                      colors: [detailsColor1, detailsColor2],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F1F3),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE6E8EB)),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      colors: [detailsColor1, detailsColor2],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .10),
+                        blurRadius: 14,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  dividerColor: Colors.transparent,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.black87,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  tabs: const [
+                    Tab(text: 'Cibles de cours'),
+                    Tab(text: 'Volatilité'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _TargetTab(firestore: _firestore, auth: _auth),
+                  _RangeTab(firestore: _firestore, auth: _auth),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -224,7 +296,8 @@ class _TargetTabState extends State<_TargetTab> {
       children: [
         _HeaderAction(
           title: 'Défis “Cible de cours”',
-          subtitle: 'Choisis une cible, paye un frais de création, gagne la mise des perdants.',
+          subtitle:
+              'Choisis une cible, paye un frais de création, gagne la mise des perdants.',
           buttonLabel: 'Créer un défi',
           onPressed: _openCreate,
         ),
@@ -243,7 +316,13 @@ class _TargetTabState extends State<_TargetTab> {
                 );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+  child: CircularProgressIndicator(
+    color: detailsColor2,
+    backgroundColor: detailsColor1.withValues(alpha: .20),
+    strokeWidth: 3,
+  ),
+);
               }
               final docs = snapshot.data?.docs ?? [];
               if (docs.isEmpty) {
@@ -276,20 +355,25 @@ class _TargetTabState extends State<_TargetTab> {
   Future<void> _openCreate() async {
     final user = widget.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connecte-toi pour créer un défi.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connecte-toi pour créer un défi.')),
+      );
       return;
     }
     final created = await showModalBottomSheet<_CreateResult>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => _CreateTargetSheet(
-        fee7: _fee7,
-        fee30: _fee30,
-        fee90: _fee90,
-        minStake: _minStake,
-        maxStake: _maxStake,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder:
+          (context) => _CreateTargetSheet(
+            fee7: _fee7,
+            fee30: _fee30,
+            fee90: _fee90,
+            minStake: _minStake,
+            maxStake: _maxStake,
+          ),
     );
     if (created == null) return;
 
@@ -297,11 +381,16 @@ class _TargetTabState extends State<_TargetTab> {
     final coinsOk = await _deductCoins(user.uid, totalCost);
     if (!coinsOk) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
       return;
     }
 
-    final creatorName = await _fetchUserName(user.uid, fallback: user.displayName);
+    final creatorName = await _fetchUserName(
+      user.uid,
+      fallback: user.displayName,
+    );
     final ref = widget.firestore.collection('community_games').doc();
     await ref.set({
       'type': 'target',
@@ -329,34 +418,52 @@ class _TargetTabState extends State<_TargetTab> {
       'stake': created.stake,
       'joinedAt': FieldValue.serverTimestamp(),
     });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Défi créé.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Défi créé.')));
   }
 
   Future<void> _joinGame(_CommunityGame game, _Side side, double stake) async {
     final user = widget.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connecte-toi pour rejoindre.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connecte-toi pour rejoindre.')),
+      );
       return;
     }
     if (game.creatorId == user.uid) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible de rejoindre ton propre défi.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de rejoindre ton propre défi.'),
+        ),
+      );
       return;
     }
-    final participantRef = widget.firestore.collection('community_games').doc(game.id).collection('participants').doc(user.uid);
+    final participantRef = widget.firestore
+        .collection('community_games')
+        .doc(game.id)
+        .collection('participants')
+        .doc(user.uid);
     final doc = await participantRef.get();
     if (doc.exists) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Déjà inscrit sur ce défi.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Déjà inscrit sur ce défi.')),
+      );
       return;
     }
     final coinsOk = await _deductCoins(user.uid, stake);
     if (!coinsOk) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
       return;
     }
     final userName = await _fetchUserName(user.uid, fallback: user.displayName);
     await widget.firestore.runTransaction((tx) async {
-      final gameRef = widget.firestore.collection('community_games').doc(game.id);
+      final gameRef = widget.firestore
+          .collection('community_games')
+          .doc(game.id);
       final snapshot = await tx.get(gameRef);
       if (!snapshot.exists) return;
       final data = snapshot.data() as Map<String, dynamic>;
@@ -376,7 +483,9 @@ class _TargetTabState extends State<_TargetTab> {
         'joinedAt': FieldValue.serverTimestamp(),
       });
     });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Inscription enregistrée.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Inscription enregistrée.')));
   }
 }
 
@@ -411,7 +520,8 @@ class _RangeTabState extends State<_RangeTab> {
       children: [
         _HeaderAction(
           title: 'Challenges de volatilité',
-          subtitle: 'Range vs Breakout. Créateur paie des frais, récupère la mise des perdants s’il gagne.',
+          subtitle:
+              'Range vs Breakout. Créateur paie des frais, récupère la mise des perdants s’il gagne.',
           buttonLabel: 'Créer un challenge',
           onPressed: _openCreate,
         ),
@@ -430,11 +540,19 @@ class _RangeTabState extends State<_RangeTab> {
                 );
               }
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return Center(
+  child: CircularProgressIndicator(
+    color: detailsColor2,
+    backgroundColor: detailsColor1.withValues(alpha: .20),
+    strokeWidth: 3,
+  ),
+);
               }
               final docs = snapshot.data?.docs ?? [];
               if (docs.isEmpty) {
-                return const Center(child: Text('Aucun challenge de volatilité.'));
+                return const Center(
+                  child: Text('Aucun challenge de volatilité.'),
+                );
               }
               final games = docs.map(_CommunityGame.fromDoc).toList();
               return ListView.builder(
@@ -463,28 +581,38 @@ class _RangeTabState extends State<_RangeTab> {
   Future<void> _openCreate() async {
     final user = widget.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connecte-toi pour créer.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Connecte-toi pour créer.')));
       return;
     }
     final created = await showModalBottomSheet<_CreateRangeResult>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => _CreateRangeSheet(
-        fee: _fee,
-        minStake: _minStake,
-        maxStake: _maxStake,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder:
+          (context) => _CreateRangeSheet(
+            fee: _fee,
+            minStake: _minStake,
+            maxStake: _maxStake,
+          ),
     );
     if (created == null) return;
     final totalCost = created.stake + created.creationFee;
     final coinsOk = await _deductCoins(user.uid, totalCost);
     if (!coinsOk) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
       return;
     }
-    final creatorName = await _fetchUserName(user.uid, fallback: user.displayName);
+    final creatorName = await _fetchUserName(
+      user.uid,
+      fallback: user.displayName,
+    );
     final ref = widget.firestore.collection('community_games').doc();
     await ref.set({
       'type': 'range',
@@ -512,34 +640,52 @@ class _RangeTabState extends State<_RangeTab> {
       'stake': created.stake,
       'joinedAt': FieldValue.serverTimestamp(),
     });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Challenge créé.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Challenge créé.')));
   }
 
   Future<void> _join(_CommunityGame game, _Side side, double stake) async {
     final user = widget.auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Connecte-toi pour rejoindre.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Connecte-toi pour rejoindre.')),
+      );
       return;
     }
     if (game.creatorId == user.uid) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Impossible de rejoindre ton propre challenge.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de rejoindre ton propre challenge.'),
+        ),
+      );
       return;
     }
-    final participantRef = widget.firestore.collection('community_games').doc(game.id).collection('participants').doc(user.uid);
+    final participantRef = widget.firestore
+        .collection('community_games')
+        .doc(game.id)
+        .collection('participants')
+        .doc(user.uid);
     final doc = await participantRef.get();
     if (doc.exists) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Déjà inscrit sur ce challenge.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Déjà inscrit sur ce challenge.')),
+      );
       return;
     }
     final coinsOk = await _deductCoins(user.uid, stake);
     if (!coinsOk) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Solde insuffisant.')));
       return;
     }
     final userName = await _fetchUserName(user.uid, fallback: user.displayName);
     await widget.firestore.runTransaction((tx) async {
-      final gameRef = widget.firestore.collection('community_games').doc(game.id);
+      final gameRef = widget.firestore
+          .collection('community_games')
+          .doc(game.id);
       final snap = await tx.get(gameRef);
       if (!snap.exists) return;
       final data = snap.data() as Map<String, dynamic>;
@@ -559,7 +705,9 @@ class _RangeTabState extends State<_RangeTab> {
         'joinedAt': FieldValue.serverTimestamp(),
       });
     });
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Participation enregistrée.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Participation enregistrée.')));
   }
 }
 
@@ -621,7 +769,10 @@ class _CreateTargetSheetState extends State<_CreateTargetSheet> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
-    final fee = _horizon == 7 ? widget.fee7 : (_horizon == 30 ? widget.fee30 : widget.fee90);
+    final fee =
+        _horizon == 7
+            ? widget.fee7
+            : (_horizon == 30 ? widget.fee30 : widget.fee90);
     final band = _bands[_horizon] ?? 0.01;
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
@@ -634,12 +785,18 @@ class _CreateTargetSheetState extends State<_CreateTargetSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Créer un défi', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                const Text(
+                  'Créer un défi',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _tickerCtrl,
-                  decoration: const InputDecoration(labelText: 'Ticker (ex: MC.PA, AAPL)'),
-                  validator: (v) => (v == null || v.isEmpty) ? 'Obligatoire' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Ticker (ex: MC.PA, AAPL)',
+                  ),
+                  validator:
+                      (v) => (v == null || v.isEmpty) ? 'Obligatoire' : null,
                   onChanged: _onTickerChanged,
                   focusNode: _tickerFocus,
                 ),
@@ -651,14 +808,21 @@ class _CreateTargetSheetState extends State<_CreateTargetSheet> {
                 ),
                 TextFormField(
                   controller: _targetCtrl,
-                  decoration: const InputDecoration(labelText: 'Cible de cours'),
+                  decoration: const InputDecoration(
+                    labelText: 'Cible de cours',
+                  ),
                   keyboardType: TextInputType.number,
-                  validator: (v) => (v == null || double.tryParse(v) == null) ? 'Nombre requis' : null,
+                  validator:
+                      (v) =>
+                          (v == null || double.tryParse(v) == null)
+                              ? 'Nombre requis'
+                              : null,
                 ),
                 TextFormField(
                   controller: _stakeCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Mise (coins) – min ${widget.minStake.toInt()}, max ${widget.maxStake.toInt()}',
+                    labelText:
+                        'Mise (coins) – min ${widget.minStake.toInt()}, max ${widget.maxStake.toInt()}',
                   ),
                   keyboardType: TextInputType.number,
                   validator: (v) {
@@ -675,23 +839,42 @@ class _CreateTargetSheetState extends State<_CreateTargetSheet> {
                   value: _horizon,
                   decoration: const InputDecoration(labelText: 'Horizon'),
                   items: const [
-                    DropdownMenuItem(value: 7, child: Text('7 jours (band ±0,3%)')),
-                    DropdownMenuItem(value: 30, child: Text('30 jours (band ±1%)')),
-                    DropdownMenuItem(value: 90, child: Text('90 jours (band ±2,5%)')),
+                    DropdownMenuItem(
+                      value: 7,
+                      child: Text('7 jours (band ±0,3%)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 30,
+                      child: Text('30 jours (band ±1%)'),
+                    ),
+                    DropdownMenuItem(
+                      value: 90,
+                      child: Text('90 jours (band ±2,5%)'),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _horizon = v ?? 30),
                 ),
                 const SizedBox(height: 8),
-                Text('Frais de création: ${fee.toStringAsFixed(0)} coins', style: const TextStyle(color: Colors.black54)),
+                Text(
+                  'Frais de création: ${fee.toStringAsFixed(0)} coins',
+                  style: const TextStyle(color: Colors.black54),
+                ),
                 if (_lastPrice != null) ...[
                   const SizedBox(height: 6),
-                  Text('Dernier cours: ${_lastPrice!.toStringAsFixed(2)} ${_currency ?? ''}'),
-                  Text('Zone cible: ±${(band * 100).toStringAsFixed(2)}% autour de la cible'),
+                  Text(
+                    'Dernier cours: ${_lastPrice!.toStringAsFixed(2)} ${_currency ?? ''}',
+                  ),
+                  Text(
+                    'Zone cible: ±${(band * 100).toStringAsFixed(2)}% autour de la cible',
+                  ),
                 ],
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
                     const Spacer(),
                     ElevatedButton(
                       onPressed: _loadingQuote ? null : _submit,
@@ -744,10 +927,13 @@ class _CreateTargetSheetState extends State<_CreateTargetSheet> {
     if (_tickerCtrl.text.isEmpty) return;
     setState(() => _loadingQuote = true);
     try {
-      final quote = await YahooFinanceService.fetchQuote(_tickerCtrl.text.trim());
+      final quote = await YahooFinanceService.fetchQuote(
+        _tickerCtrl.text.trim(),
+      );
       if (!mounted) return;
       setState(() {
-        _lastPrice = quote.regularMarketPrice ?? quote.previousClose ?? quote.open;
+        _lastPrice =
+            quote.regularMarketPrice ?? quote.previousClose ?? quote.open;
         _currency = quote.currency;
         _loadingQuote = false;
       });
@@ -763,7 +949,10 @@ class _CreateTargetSheetState extends State<_CreateTargetSheet> {
     final stake = double.tryParse(_stakeCtrl.text);
     if (target == null || stake == null) return;
     final band = _bands[_horizon] ?? 0.01;
-    final fee = _horizon == 7 ? widget.fee7 : (_horizon == 30 ? widget.fee30 : widget.fee90);
+    final fee =
+        _horizon == 7
+            ? widget.fee7
+            : (_horizon == 30 ? widget.fee30 : widget.fee90);
     final result = _CreateResult(
       ticker: _tickerCtrl.text.trim().toUpperCase(),
       currency: _currency,
@@ -850,12 +1039,16 @@ class _CreateRangeSheetState extends State<_CreateRangeSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Créer un challenge de volatilité', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                const Text(
+                  'Créer un challenge de volatilité',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _tickerCtrl,
                   decoration: const InputDecoration(labelText: 'Ticker'),
-                  validator: (v) => (v == null || v.isEmpty) ? 'Obligatoire' : null,
+                  validator:
+                      (v) => (v == null || v.isEmpty) ? 'Obligatoire' : null,
                   onChanged: _onTickerChanged,
                 ),
                 const SizedBox(height: 6),
@@ -869,18 +1062,30 @@ class _CreateRangeSheetState extends State<_CreateRangeSheet> {
                     Expanded(
                       child: TextFormField(
                         controller: _lowCtrl,
-                        decoration: const InputDecoration(labelText: 'Borne basse'),
+                        decoration: const InputDecoration(
+                          labelText: 'Borne basse',
+                        ),
                         keyboardType: TextInputType.number,
-                        validator: (v) => (v == null || double.tryParse(v) == null) ? 'Nombre requis' : null,
+                        validator:
+                            (v) =>
+                                (v == null || double.tryParse(v) == null)
+                                    ? 'Nombre requis'
+                                    : null,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextFormField(
                         controller: _highCtrl,
-                        decoration: const InputDecoration(labelText: 'Borne haute'),
+                        decoration: const InputDecoration(
+                          labelText: 'Borne haute',
+                        ),
                         keyboardType: TextInputType.number,
-                        validator: (v) => (v == null || double.tryParse(v) == null) ? 'Nombre requis' : null,
+                        validator:
+                            (v) =>
+                                (v == null || double.tryParse(v) == null)
+                                    ? 'Nombre requis'
+                                    : null,
                       ),
                     ),
                   ],
@@ -888,7 +1093,8 @@ class _CreateRangeSheetState extends State<_CreateRangeSheet> {
                 TextFormField(
                   controller: _stakeCtrl,
                   decoration: InputDecoration(
-                    labelText: 'Mise (coins) – min ${widget.minStake.toInt()}, max ${widget.maxStake.toInt()}',
+                    labelText:
+                        'Mise (coins) – min ${widget.minStake.toInt()}, max ${widget.maxStake.toInt()}',
                   ),
                   keyboardType: TextInputType.number,
                   validator: (v) {
@@ -901,20 +1107,30 @@ class _CreateRangeSheetState extends State<_CreateRangeSheet> {
                   },
                 ),
                 const SizedBox(height: 8),
-                Text('Frais de création: ${widget.fee.toStringAsFixed(0)} coins', style: const TextStyle(color: Colors.black54)),
+                Text(
+                  'Frais de création: ${widget.fee.toStringAsFixed(0)} coins',
+                  style: const TextStyle(color: Colors.black54),
+                ),
                 if (_lastPrice != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: Text('Dernier cours: ${_lastPrice!.toStringAsFixed(2)} ${_currency ?? ''}'),
+                    child: Text(
+                      'Dernier cours: ${_lastPrice!.toStringAsFixed(2)} ${_currency ?? ''}',
+                    ),
                   ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Annuler'),
+                    ),
                     const Spacer(),
                     ElevatedButton(
                       onPressed: _loadingQuote ? null : _submit,
-                      child: Text('Publier (${widget.fee.toStringAsFixed(0)} coins)'),
+                      child: Text(
+                        'Publier (${widget.fee.toStringAsFixed(0)} coins)',
+                      ),
                     ),
                   ],
                 ),
@@ -963,10 +1179,13 @@ class _CreateRangeSheetState extends State<_CreateRangeSheet> {
     if (_tickerCtrl.text.isEmpty) return;
     setState(() => _loadingQuote = true);
     try {
-      final quote = await YahooFinanceService.fetchQuote(_tickerCtrl.text.trim());
+      final quote = await YahooFinanceService.fetchQuote(
+        _tickerCtrl.text.trim(),
+      );
       if (!mounted) return;
       setState(() {
-        _lastPrice = quote.regularMarketPrice ?? quote.previousClose ?? quote.open;
+        _lastPrice =
+            quote.regularMarketPrice ?? quote.previousClose ?? quote.open;
         _currency = quote.currency;
         _loadingQuote = false;
       });
@@ -1009,7 +1228,11 @@ class _CreateRangeSheetState extends State<_CreateRangeSheet> {
 /// -------------- COMMON UI --------------
 
 class _TickerSuggestions extends StatelessWidget {
-  const _TickerSuggestions({required this.suggestions, required this.searching, required this.onTap});
+  const _TickerSuggestions({
+    required this.suggestions,
+    required this.searching,
+    required this.onTap,
+  });
   final List<TickerSearchResult> suggestions;
   final bool searching;
   final ValueChanged<TickerSearchResult> onTap;
@@ -1028,18 +1251,31 @@ class _TickerSuggestions extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: ListView.separated(
         shrinkWrap: true,
         itemCount: suggestions.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => const Divider(
+          height: 1,
+          color: Color(0xFFF0F1F3),
+        ),
         itemBuilder: (context, index) {
           final s = suggestions[index];
           return ListTile(
             dense: true,
-            title: Text('${s.symbol} • ${s.displayName}', overflow: TextOverflow.ellipsis),
+            title: Text(
+              '${s.symbol} • ${s.displayName}',
+              overflow: TextOverflow.ellipsis,
+            ),
             subtitle: Text('${s.exchange} ${s.currency}'),
             onTap: () => onTap(s),
           );
@@ -1082,17 +1318,25 @@ class _GameCardState extends State<_GameCard> {
     final oddsShort = g.oddsShort();
     final now = DateTime.now();
     final remaining = g.deadline.difference(now);
-    final remainingText = remaining.isNegative
-        ? 'Échu'
-        : '${remaining.inHours ~/ 24}j ${remaining.inHours % 24}h';
+    final remainingText =
+        remaining.isNegative
+            ? 'Échu'
+            : '${remaining.inHours ~/ 24}j ${remaining.inHours % 24}h';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withOpacity(0.05)),
-      ),
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(18),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: .06),
+      blurRadius: 18,
+      offset: const Offset(0, 10),
+    ),
+  ],
+),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1101,22 +1345,33 @@ class _GameCardState extends State<_GameCard> {
               Expanded(
                 child: Text(
                   g.ticker,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
                 ),
+                decoration: BoxDecoration(
+  color: const Color(0xFFF0F1F3),
+  borderRadius: BorderRadius.circular(12),
+  border: Border.all(color: const Color(0xFFE6E8EB)),
+),
                 child: Text(remainingText, overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text('Créé par ${g.creatorName}', style: const TextStyle(color: Colors.black54), overflow: TextOverflow.ellipsis),
+          Text(
+            'Créé par ${g.creatorName}',
+            style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 8),
           _buildContextLine(),
           const SizedBox(height: 10),
@@ -1128,8 +1383,16 @@ class _GameCardState extends State<_GameCard> {
                   spacing: 8,
                   runSpacing: 6,
                   children: [
-                    _PoolChip(label: widget.sideLabels[0], value: g.longPool, color: Colors.green),
-                    _PoolChip(label: widget.sideLabels[1], value: g.shortPool, color: Colors.redAccent),
+                    _PoolChip(
+                      label: widget.sideLabels[0],
+                      value: g.longPool,
+                      color: Colors.green,
+                    ),
+                    _PoolChip(
+                      label: widget.sideLabels[1],
+                      value: g.shortPool,
+                      color: Colors.redAccent,
+                    ),
                   ],
                 ),
               ),
@@ -1145,7 +1408,7 @@ class _GameCardState extends State<_GameCard> {
                     ),
                     Text(
                       'Cote ${widget.sideLabels[1]}: ${oddsShort.toStringAsFixed(2)}x',
-                      style: const TextStyle(color: Colors.black54),
+                      style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -1165,14 +1428,30 @@ class _GameCardState extends State<_GameCard> {
               ),
               const SizedBox(width: 10),
               ElevatedButton(
-                onPressed: widget.disableJoin ? null : () => _onJoin(_Side.long),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700, foregroundColor: Colors.white),
+                onPressed:
+                    widget.disableJoin ? null : () => _onJoin(_Side.long),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
                 child: Text(widget.sideLabels[0]),
               ),
               const SizedBox(width: 6),
               ElevatedButton(
-                onPressed: widget.disableJoin ? null : () => _onJoin(_Side.short),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700, foregroundColor: Colors.white),
+                onPressed:
+                    widget.disableJoin ? null : () => _onJoin(_Side.short),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
                 child: Text(widget.sideLabels[1]),
               ),
             ],
@@ -1180,7 +1459,7 @@ class _GameCardState extends State<_GameCard> {
           const SizedBox(height: 6),
           Text(
             'Gain potentiel pour 100 coins : ${(oddsLong * 100).toStringAsFixed(0)} / ${(oddsShort * 100).toStringAsFixed(0)}',
-            style: const TextStyle(color: Colors.black54),
+            style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w500),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -1193,25 +1472,38 @@ class _GameCardState extends State<_GameCard> {
     switch (widget.type) {
       case _GameType.target:
         final bandPct = (g.bandPct ?? 0) * 100;
-        return Text('Cible ${g.targetPrice?.toStringAsFixed(2) ?? '?'} ${g.currency ?? ''} • Zone ±${bandPct.toStringAsFixed(2)}%',
-            overflow: TextOverflow.ellipsis);
+        return Text(
+          'Cible ${g.targetPrice?.toStringAsFixed(2) ?? '?'} ${g.currency ?? ''} • Zone ±${bandPct.toStringAsFixed(2)}%',
+          overflow: TextOverflow.ellipsis,
+        );
       case _GameType.duel:
-        return const Text('Duels automatiques CAC40/SBF120 • Horizon 5j', overflow: TextOverflow.ellipsis);
+        return const Text(
+          'Duels automatiques CAC40/SBF120 • Horizon 5j',
+          overflow: TextOverflow.ellipsis,
+        );
       case _GameType.range:
-        return Text('Range ${g.rangeLow?.toStringAsFixed(2)} - ${g.rangeHigh?.toStringAsFixed(2)} ${g.currency ?? ''}',
-            overflow: TextOverflow.ellipsis);
+        return Text(
+          'Range ${g.rangeLow?.toStringAsFixed(2)} - ${g.rangeHigh?.toStringAsFixed(2)} ${g.currency ?? ''}',
+          overflow: TextOverflow.ellipsis,
+        );
     }
   }
 
   Future<void> _onJoin(_Side side) async {
     final stake = double.tryParse(_stakeCtrl.text);
     if (stake == null || stake <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mise invalide')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Mise invalide')));
       return;
     }
     if (stake < widget.minStake || stake > widget.maxStake) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mise entre ${widget.minStake.toInt()} et ${widget.maxStake.toInt()} coins.')),
+        SnackBar(
+          content: Text(
+            'Mise entre ${widget.minStake.toInt()} et ${widget.maxStake.toInt()} coins.',
+          ),
+        ),
       );
       return;
     }
@@ -1220,7 +1512,11 @@ class _GameCardState extends State<_GameCard> {
 }
 
 class _PoolChip extends StatelessWidget {
-  const _PoolChip({required this.label, required this.value, required this.color});
+  const _PoolChip({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   final String label;
   final double value;
@@ -1230,8 +1526,11 @@ class _PoolChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Chip(
       label: Text('$label: ${value.toStringAsFixed(0)}'),
-      backgroundColor: color.withOpacity(0.08),
-      labelStyle: TextStyle(color: color.withOpacity(0.8), fontWeight: FontWeight.w700),
+      backgroundColor: color.withValues(alpha: 0.08),
+      labelStyle: TextStyle(
+        color: color.withValues(alpha: 0.85),
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 }
@@ -1250,28 +1549,103 @@ class _HeaderAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Colors.black54)),
-              ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: .06),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: onPressed,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-            child: Text(buttonLabel),
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .10),
+                    blurRadius: 16,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.groups_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  gradient: const LinearGradient(
+                    colors: [detailsColor1, detailsColor2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .12),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  buttonLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1291,7 +1665,8 @@ Future<bool> _deductCoins(String uid, double amount) async {
       final progressSnap = await tx.get(progressRef);
       final userSnap = await tx.get(userRef);
 
-      double? coinsProgress = (progressSnap.data()?['coins'] as num?)?.toDouble();
+      double? coinsProgress =
+          (progressSnap.data()?['coins'] as num?)?.toDouble();
       double? coinsUser = (userSnap.data()?['coins'] as num?)?.toDouble();
       double? coinsSource = coinsProgress ?? coinsUser;
       if (coinsSource == null) return false;
@@ -1327,5 +1702,7 @@ Future<String> _fetchUserName(String uid, {String? fallback}) async {
   } catch (_) {
     // ignore
   }
-  return (fallback != null && fallback.trim().isNotEmpty) ? fallback.trim() : 'Anonyme';
+  return (fallback != null && fallback.trim().isNotEmpty)
+      ? fallback.trim()
+      : 'Anonyme';
 }

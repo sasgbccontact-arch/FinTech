@@ -35,12 +35,12 @@ class YahooFinanceService {
   // We fetch a broader range and window on-device to the exact interval.
   static const Map<ChartInterval, ChartIntervalMeta> _defaultChartMetas = {
     ChartInterval.oneDay: ChartIntervalMeta(
-      range: '5d',       // ensure multiple intraday points for the last day
+      range: '5d', // ensure multiple intraday points for the last day
       granularity: '1m', // minute bars when available
       intraday: true,
     ),
     ChartInterval.sevenDays: ChartIntervalMeta(
-      range: '1mo',      // fetch a month, then window to the last 7 days
+      range: '1mo', // fetch a month, then window to the last 7 days
       granularity: '1d', // daily bars are reliable across regions
       intraday: false,
     ),
@@ -489,7 +489,11 @@ class YahooFinanceService {
     FinanceRequestException? lastError;
 
     Future<void> _tryCollect(List<FinanceNewsItem> source, String label) async {
-      _log('News attempt "$label" returned ' + source.length.toString() + ' items.');
+      _log(
+        'News attempt "$label" returned ' +
+            source.length.toString() +
+            ' items.',
+      );
       for (final item in source) {
         if (seen.add(item.id)) {
           aggregated.add(item);
@@ -533,7 +537,9 @@ class YahooFinanceService {
       } on TimeoutException {
         throw FinanceRequestException('Actualités indisponibles (timeout).');
       } catch (e) {
-        throw FinanceRequestException('Actualités indisponibles. ${e.toString()}');
+        throw FinanceRequestException(
+          'Actualités indisponibles. ${e.toString()}',
+        );
       }
 
       if (res.statusCode == 401 || res.statusCode == 403) {
@@ -550,7 +556,9 @@ class YahooFinanceService {
         if (_yahooCrumb != null && _yahooCrumb!.isNotEmpty) {
           retryParams['crumb'] = _yahooCrumb!;
         }
-        final retryUri = Uri.parse(_newsEndpoint).replace(queryParameters: retryParams);
+        final retryUri = Uri.parse(
+          _newsEndpoint,
+        ).replace(queryParameters: retryParams);
         _log('Retrying news request: ' + retryUri.toString());
         res = await http
             .get(retryUri, headers: headers)
@@ -604,9 +612,13 @@ class YahooFinanceService {
             .get(uri, headers: _baseHeaders)
             .timeout(const Duration(seconds: 8));
       } on TimeoutException {
-        throw FinanceRequestException('Recherche actualités indisponible (timeout).');
+        throw FinanceRequestException(
+          'Recherche actualités indisponible (timeout).',
+        );
       } catch (e) {
-        throw FinanceRequestException('Recherche actualités indisponible. ${e.toString()}');
+        throw FinanceRequestException(
+          'Recherche actualités indisponible. ${e.toString()}',
+        );
       }
 
       if (res.statusCode != 200) {
@@ -661,7 +673,10 @@ class YahooFinanceService {
         if (aggregated.length >= count) break;
       } on FinanceRequestException catch (e) {
         lastError = e;
-        _log('News API attempt failed (${attempt['region']}/${attempt['lang']}): ' + e.message);
+        _log(
+          'News API attempt failed (${attempt['region']}/${attempt['lang']}): ' +
+              e.message,
+        );
       }
     }
 
@@ -677,11 +692,17 @@ class YahooFinanceService {
             lang: attempt['lang']!,
             newsCount: count * 3,
           );
-          await _tryCollect(items, 'search ${attempt['region']}/${attempt['lang']}');
+          await _tryCollect(
+            items,
+            'search ${attempt['region']}/${attempt['lang']}',
+          );
           if (aggregated.length >= count) break;
         } on FinanceRequestException catch (e) {
           lastError = e;
-          _log('Search fallback failed (${attempt['region']}/${attempt['lang']}): ' + e.message);
+          _log(
+            'Search fallback failed (${attempt['region']}/${attempt['lang']}): ' +
+                e.message,
+          );
         }
       }
     }
@@ -692,17 +713,18 @@ class YahooFinanceService {
 
     aggregated.sort((a, b) => b.publishedAt.compareTo(a.publishedAt));
 
-    final filtered = aggregated.where((item) {
-      final ok = _isNewsRelevant(
-        item,
-        tickerAliases: tickerAliases,
-        textAliases: textAliases,
-      );
-      if (!ok) {
-        _log('Filtered out news item ${item.id} (title="${item.title}").');
-      }
-      return ok;
-    }).toList();
+    final filtered =
+        aggregated.where((item) {
+          final ok = _isNewsRelevant(
+            item,
+            tickerAliases: tickerAliases,
+            textAliases: textAliases,
+          );
+          if (!ok) {
+            _log('Filtered out news item ${item.id} (title="${item.title}").');
+          }
+          return ok;
+        }).toList();
 
     _log(
       'News filtered count=' +
@@ -729,7 +751,9 @@ class YahooFinanceService {
       return await run();
     } on FinanceRequestException catch (e) {
       if (e.message == 'consent_required' && onConsentRequired != null) {
-        _log('Consent required for financial snapshot on $symbol — invoking hook...');
+        _log(
+          'Consent required for financial snapshot on $symbol — invoking hook...',
+        );
         try {
           final ok = await onConsentRequired!.call();
           _log('onConsentRequired returned: ${ok == true ? 'true' : 'false'}');
@@ -769,7 +793,9 @@ class YahooFinanceService {
     return items;
   }
 
-  static Future<FinancialSnapshot> _fetchFinancialSnapshot(String symbol) async {
+  static Future<FinancialSnapshot> _fetchFinancialSnapshot(
+    String symbol,
+  ) async {
     try {
       await _ensureYahooAuth(symbol);
     } on FinanceRequestException {
@@ -807,9 +833,9 @@ class YahooFinanceService {
       if (_yahooCrumb != null && _yahooCrumb!.isNotEmpty) {
         params['crumb'] = _yahooCrumb!;
       }
-      return Uri.parse('$_quoteSummaryEndpoint/$symbolPath').replace(
-        queryParameters: params,
-      );
+      return Uri.parse(
+        '$_quoteSummaryEndpoint/$symbolPath',
+      ).replace(queryParameters: params);
     }
 
     Future<http.Response> _doRequest(Uri uri) {
@@ -827,7 +853,9 @@ class YahooFinanceService {
       }
       final uriString = uri.toString();
       _log('Requesting financial snapshot: ' + uriString);
-      return http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
+      return http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 8));
     }
 
     Uri uri = _buildUri();
@@ -835,9 +863,13 @@ class YahooFinanceService {
     try {
       res = await _doRequest(uri);
     } on TimeoutException {
-      throw FinanceRequestException('Données financières indisponibles (timeout).');
+      throw FinanceRequestException(
+        'Données financières indisponibles (timeout).',
+      );
     } catch (e) {
-      throw FinanceRequestException('Données financières indisponibles. ${e.toString()}');
+      throw FinanceRequestException(
+        'Données financières indisponibles. ${e.toString()}',
+      );
     }
 
     if (res.statusCode == 401 || res.statusCode == 403) {
@@ -857,7 +889,10 @@ class YahooFinanceService {
     if (res.statusCode != 200) {
       final preview =
           res.body.isNotEmpty
-              ? res.body.substring(0, res.body.length > 200 ? 200 : res.body.length)
+              ? res.body.substring(
+                0,
+                res.body.length > 200 ? 200 : res.body.length,
+              )
               : '';
       _log(
         'Financial snapshot non-200 for ' +
@@ -884,7 +919,8 @@ class YahooFinanceService {
         value is Map<String, dynamic> ? value : null;
 
     final summary = _asMap(decoded)?['quoteSummary'];
-    final resultList = summary is Map<String, dynamic> ? summary['result'] : null;
+    final resultList =
+        summary is Map<String, dynamic> ? summary['result'] : null;
     if (resultList is! List || resultList.isEmpty) {
       throw FinanceRequestException('Données financières indisponibles.');
     }
@@ -923,9 +959,9 @@ class YahooFinanceService {
       if (_yahooCrumb != null && _yahooCrumb!.isNotEmpty) {
         params['crumb'] = _yahooCrumb!;
       }
-      return Uri.parse('$_quoteSummaryEndpoint/$symbolPath').replace(
-        queryParameters: params,
-      );
+      return Uri.parse(
+        '$_quoteSummaryEndpoint/$symbolPath',
+      ).replace(queryParameters: params);
     }
 
     Future<http.Response> _doRequest(Uri uri) {
@@ -941,7 +977,9 @@ class YahooFinanceService {
       if (cookie != null && cookie.isNotEmpty) {
         headers['Cookie'] = cookie;
       }
-      return http.get(uri, headers: headers).timeout(const Duration(seconds: 8));
+      return http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 8));
     }
 
     Uri uri = _buildUri();
@@ -949,9 +987,13 @@ class YahooFinanceService {
     try {
       res = await _doRequest(uri);
     } on TimeoutException {
-      throw FinanceRequestException('Calendrier de dividendes indisponible (timeout).');
+      throw FinanceRequestException(
+        'Calendrier de dividendes indisponible (timeout).',
+      );
     } catch (e) {
-      throw FinanceRequestException('Calendrier de dividendes indisponible. ${e.toString()}');
+      throw FinanceRequestException(
+        'Calendrier de dividendes indisponible. ${e.toString()}',
+      );
     }
 
     if (res.statusCode == 401 || res.statusCode == 403) {
@@ -979,7 +1021,9 @@ class YahooFinanceService {
     try {
       decoded = jsonDecode(res.body);
     } catch (e) {
-      throw FinanceRequestException('Réponse Yahoo invalide pour le calendrier de dividendes.');
+      throw FinanceRequestException(
+        'Réponse Yahoo invalide pour le calendrier de dividendes.',
+      );
     }
 
     Map<String, dynamic>? _asMap(dynamic value) =>
@@ -988,12 +1032,18 @@ class YahooFinanceService {
     DateTime? _readDate(dynamic value) {
       if (value == null) return null;
       if (value is num) {
-        return DateTime.fromMillisecondsSinceEpoch(value.toInt() * 1000, isUtc: true).toLocal();
+        return DateTime.fromMillisecondsSinceEpoch(
+          value.toInt() * 1000,
+          isUtc: true,
+        ).toLocal();
       }
       if (value is Map<String, dynamic>) {
         final raw = value['raw'];
         if (raw is num) {
-          return DateTime.fromMillisecondsSinceEpoch(raw.toInt() * 1000, isUtc: true).toLocal();
+          return DateTime.fromMillisecondsSinceEpoch(
+            raw.toInt() * 1000,
+            isUtc: true,
+          ).toLocal();
         }
         final fmt = value['fmt'];
         if (fmt is String) {
@@ -1022,7 +1072,8 @@ class YahooFinanceService {
     }
 
     final summary = _asMap(decoded)?['quoteSummary'];
-    final resultList = summary is Map<String, dynamic> ? summary['result'] : null;
+    final resultList =
+        summary is Map<String, dynamic> ? summary['result'] : null;
     if (resultList is! List || resultList.isEmpty) {
       return null;
     }
@@ -1037,15 +1088,29 @@ class YahooFinanceService {
     final priceMap = _asMap(first['price']);
 
     final cashDividend = _asMap(calendarEvents?['cashDividend']);
-    DateTime? exDate = _readDate(calendarEvents?['exDividendDate'] ?? summaryDetail?['exDividendDate']);
-    DateTime? paymentDate = _readDate(calendarEvents?['dividendDate'] ?? summaryDetail?['dividendDate']);
-    final declarationDate = _readDate(calendarEvents?['dividendDeclDate'] ?? calendarEvents?['declarationDate']);
+    DateTime? exDate = _readDate(
+      calendarEvents?['exDividendDate'] ?? summaryDetail?['exDividendDate'],
+    );
+    DateTime? paymentDate = _readDate(
+      calendarEvents?['dividendDate'] ?? summaryDetail?['dividendDate'],
+    );
+    final declarationDate = _readDate(
+      calendarEvents?['dividendDeclDate'] ?? calendarEvents?['declarationDate'],
+    );
     double? amount = _readNum(cashDividend?['raw'] ?? cashDividend);
-    amount ??= _readNum(summaryDetail?['dividendRate'] ?? summaryDetail?['trailingAnnualDividendRate']);
-    final currency = (summaryDetail?['currency'] ?? priceMap?['currency'])?.toString();
+    amount ??= _readNum(
+      summaryDetail?['dividendRate'] ??
+          summaryDetail?['trailingAnnualDividendRate'],
+    );
+    final currency =
+        (summaryDetail?['currency'] ?? priceMap?['currency'])?.toString();
     final frequency = summaryDetail?['dividendFrequency']?.toString();
     final name =
-        (priceMap?['shortName'] ?? priceMap?['longName'] ?? priceMap?['displayName'] ?? symbol).toString();
+        (priceMap?['shortName'] ??
+                priceMap?['longName'] ??
+                priceMap?['displayName'] ??
+                symbol)
+            .toString();
 
     if (exDate == null && paymentDate != null) {
       exDate = paymentDate.subtract(const Duration(days: 3));
@@ -1625,7 +1690,10 @@ class YahooFinanceService {
       if (i == pts.length - 1) startIdx = i;
     }
 
-    final windowed = pts.sublist(startIdx).where((p) => !p.time.isBefore(bound)).toList(growable: true);
+    final windowed = pts
+        .sublist(startIdx)
+        .where((p) => !p.time.isBefore(bound))
+        .toList(growable: true);
     if (windowed.isEmpty) {
       // If everything was before, keep last few points for context
       final take = pts.length >= 2 ? 2 : 1;
@@ -1640,7 +1708,7 @@ class YahooFinanceService {
     if (now.difference(last.time).inMinutes >= 1) {
       windowed.add(HistoricalPoint(time: now, close: lastClose));
     }
-  
+
     return windowed;
   }
 
@@ -1666,14 +1734,24 @@ class YahooFinanceService {
       throw FinanceRequestException('consent_required');
     }
 
-    final effectiveMeta = chartIntervalMetas[interval] ?? _defaultChartMetas[interval];
+    final effectiveMeta =
+        chartIntervalMetas[interval] ?? _defaultChartMetas[interval];
     if (effectiveMeta == null) {
       _log('No meta found for interval: ' + interval.toString());
       throw FinanceRequestException('interval_unsupported');
     }
-    _log('Chart meta for ' + symbol + ' @ ' + interval.toString() +
-        ' -> range=' + effectiveMeta.range + ', granularity=' + effectiveMeta.granularity +
-        ', intraday=' + (effectiveMeta.intraday ? 'true' : 'false'));
+    _log(
+      'Chart meta for ' +
+          symbol +
+          ' @ ' +
+          interval.toString() +
+          ' -> range=' +
+          effectiveMeta.range +
+          ', granularity=' +
+          effectiveMeta.granularity +
+          ', intraday=' +
+          (effectiveMeta.intraday ? 'true' : 'false'),
+    );
 
     Uri _buildUri() {
       final symbolPath = Uri.encodeComponent(symbol);
@@ -1861,8 +1939,12 @@ class YahooFinanceService {
       _log('No close series in chart payload for ' + symbol);
       return const <HistoricalPoint>[];
     }
-    _log('Series availability -> hasQuoteCloses=' + _hasUsableValues(quoteCloses).toString() +
-        ', hasAdjCloses=' + _hasUsableValues(adjCloses).toString());
+    _log(
+      'Series availability -> hasQuoteCloses=' +
+          _hasUsableValues(quoteCloses).toString() +
+          ', hasAdjCloses=' +
+          _hasUsableValues(adjCloses).toString(),
+    );
 
     final metaSection = _asMap(first['meta']);
     final gmtoffset =
@@ -1910,8 +1992,16 @@ class YahooFinanceService {
       }
     }
 
-    _log('Built raw points: ' + points.length.toString() +
-        (points.isNotEmpty ? (' first=' + points.first.time.toIso8601String() + ' last=' + points.last.time.toIso8601String()) : ''));
+    _log(
+      'Built raw points: ' +
+          points.length.toString() +
+          (points.isNotEmpty
+              ? (' first=' +
+                  points.first.time.toIso8601String() +
+                  ' last=' +
+                  points.last.time.toIso8601String())
+              : ''),
+    );
 
     points.sort((a, b) => a.time.compareTo(b.time));
 
@@ -1921,11 +2011,25 @@ class YahooFinanceService {
     // Continue with optional downsampling on the windowed data
     var series = windowed;
 
-    _log('Windowed series for ' + interval.toString() + ': ' + series.length.toString() +
-        (series.isNotEmpty ? (' first=' + series.first.time.toIso8601String() + ' last=' + series.last.time.toIso8601String()) : ''));
+    _log(
+      'Windowed series for ' +
+          interval.toString() +
+          ': ' +
+          series.length.toString() +
+          (series.isNotEmpty
+              ? (' first=' +
+                  series.first.time.toIso8601String() +
+                  ' last=' +
+                  series.last.time.toIso8601String())
+              : ''),
+    );
     if (series.length <= 1) {
-      _log('WARNING: Only ' + series.length.toString() + ' point(s) after windowing. ' +
-          'This usually means Yahoo returned very sparse data for the selected interval.');
+      _log(
+        'WARNING: Only ' +
+            series.length.toString() +
+            ' point(s) after windowing. ' +
+            'This usually means Yahoo returned very sparse data for the selected interval.',
+      );
     }
 
     if (series.length > 600) {
@@ -2096,11 +2200,10 @@ class YahooFinanceService {
     return quote;
   }
 
+  // ====== REMOVED DUPLICATE METHODS BELOW ======
 
-// ====== REMOVED DUPLICATE METHODS BELOW ======
-
-// (Removed duplicate fetchChartSeries(String symbol, {String range, String interval}) and
-// duplicate fetchHistoricalSeries(String symbol, {String range, String interval}) methods.)
+  // (Removed duplicate fetchChartSeries(String symbol, {String range, String interval}) and
+  // duplicate fetchHistoricalSeries(String symbol, {String range, String interval}) methods.)
 }
 
 class QuoteNotFoundException implements Exception {
@@ -2186,16 +2289,17 @@ class TickerSearchResult {
     final region = (json['region'] ?? '').toString();
     final currency = (json['currency'] ?? '').toString();
 
-  final result = TickerSearchResult(
-    symbol: rawSymbol,
-    displayName: name.isEmpty ? rawSymbol : name,
-    exchange: exchange,
-    quoteType: type.isEmpty ? 'UNKNOWN' : type,
+    final result = TickerSearchResult(
+      symbol: rawSymbol,
+      displayName: name.isEmpty ? rawSymbol : name,
+      exchange: exchange,
+      quoteType: type.isEmpty ? 'UNKNOWN' : type,
       region: region,
       currency: currency,
-  );
+    );
 
-    if (!result.isSupportedInstrument || !result.isSupportedExchange) return null;
+    if (!result.isSupportedInstrument || !result.isSupportedExchange)
+      return null;
     return result;
   }
 }
