@@ -2,12 +2,13 @@ name: Daily Metals Notification
 
 on:
   schedule:
-    # Deux crons pour couvrir heure d'été (CEST, UTC+2) et hiver (CET, UTC+1)
-    # 7h25 UTC  = 9h25 CEST (été)   → fenêtre valide
-    # 8h25 UTC  = 9h25 CET  (hiver) → fenêtre valide
-    # Le script vérifie lui-même l'heure de Paris et sort silencieusement si hors fenêtre.
-    - cron: "25 7 * * *"
-    - cron: "25 8 * * *"
+    # GitHub Actions planifie en UTC et l'exécution réelle peut dériver.
+    # On tente donc toutes les 5 min autour de 9h30 Paris:
+    #   - été  (CEST, UTC+2) : 07:30 -> 07:55 UTC
+    #   - hiver (CET,  UTC+1) : 08:30 -> 08:55 UTC
+    # Le script filtre ensuite sur l'heure de Paris et n'envoie qu'une fois par jour.
+    - cron: "30-55/5 7 * * *"
+    - cron: "30-55/5 8 * * *"
   workflow_dispatch: {}   # Déclenchement manuel (tests)
 
 jobs:

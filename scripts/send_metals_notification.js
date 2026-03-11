@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Notification quotidienne des cours de l'or et de l'argent.
- * Déclenché par GitHub Actions (2 crons : 7h25 UTC et 8h25 UTC).
- * Le script vérifie que l'heure de Paris est dans [9h15, 9h55] avant d'envoyer,
+ * Déclenché par GitHub Actions plusieurs fois autour de 9h30 Paris.
+ * Le script vérifie que l'heure de Paris est dans [9h30, 10h00[ avant d'envoyer,
+ * évite les doublons sur la journée, puis sort silencieusement sinon.
  * SAUF si TRIGGER=workflow_dispatch (test manuel) → envoi immédiat sans vérification.
  *
  * Variables d'environnement :
@@ -27,15 +28,15 @@ const parisHour   = parseInt(parts.find(p => p.type === 'hour').value,   10);
 const parisMinute = parseInt(parts.find(p => p.type === 'minute').value, 10);
 const parisTotal  = parisHour * 60 + parisMinute;
 
-if (!isManual && (parisTotal < 9 * 60 + 15 || parisTotal > 9 * 60 + 55)) {
+if (!isManual && (parisTotal < 9 * 60 + 30 || parisTotal >= 10 * 60)) {
   console.log(
-    `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — hors fenêtre 9h15-9h55, skip.`,
+    `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — hors fenêtre 9h30-10h00, skip.`,
   );
   process.exit(0);
 }
 
 console.log(
-  `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — ${isManual ? 'test manuel, fenêtre ignorée' : 'dans la fenêtre'}, envoi en cours…`,
+  `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — ${isManual ? 'test manuel, fenêtre ignorée' : 'dans la fenêtre'}, vérifications en cours…`,
 );
 
 // ─── 2. Firebase ────────────────────────────────────────────────────────────
@@ -102,6 +103,15 @@ function formatPrice(value, decimals = 2) {
 // ─── 6. Main ────────────────────────────────────────────────────────────────
 
 async function main() {
+  const todayRef = db.collection('metalsPrices').doc(todayKey);
+  const todayDoc = await todayRef.get();
+  const todayData = todayDoc.data() ?? {};
+
+  if (!isManual && todayData.notificationSentAt) {
+    console.log(`[metals] Notification déjà envoyée aujourd'hui (${todayKey}), skip.`);
+    process.exit(0);
+  }
+
   // Fetch simultané des deux cours
   const [gold, silver] = await Promise.all([
     fetchSpot('GC=F'),  // Or (Gold futures)
@@ -119,7 +129,7 @@ async function main() {
   const silverVar = formatVariation(silver, prevSilver);
 
   // Écrire les prix du jour
-  await db.collection('metalsPrices').doc(todayKey).set({
+  await todayRef.set({
     gold,
     silver,
     fetchedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -153,6 +163,28 @@ async function main() {
   };
 
   const response = await admin.messaging().send(message);
+  await todayRef.set({
+    notificationSentAt: admin.firestore.FieldValue.serverTimestamp(),
+    notificationMessageId: response,
+    notificationTrigger: process.env.TRIGGER ?? 'unknown',
+    notificationSentHourParis: timeStr,
+  }, { merge: true });
+
+  try {
+    await db.collection('broadcasts').add({
+      title: `Cours des métaux — ${timeStr}`,
+      body,
+      topic: 'daily_metals',
+      type: 'daily_metals',
+      gold,
+      silver,
+      dateKey: todayKey,
+      messageId: response,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    console.warn('[metals] Notification envoyee mais sauvegarde Firestore impossible:', error);
+  }
   console.log(`[metals] Notification envoyée : ${response}`);
   console.log(`[metals] Or ${formatPrice(gold)}${goldVar} | Argent ${formatPrice(silver, 3)}${silverVar}`);
 }
