@@ -2,8 +2,9 @@
 /**
  * Notification quotidienne des cours de l'or et de l'argent.
  * Déclenché par GitHub Actions plusieurs fois autour de 9h30 Paris.
- * Le script vérifie que l'heure de Paris est dans [9h30, 10h00[ avant d'envoyer,
- * évite les doublons sur la journée, puis sort silencieusement sinon.
+ * Le script privilégie l'envoi dans [9h30, 10h00[, mais autorise une
+ * fenêtre de rattrapage jusqu'à 11h00 Paris si GitHub exécute le cron en retard.
+ * Les tests manuels n'occupent plus le "slot" automatique du jour.
  * SAUF si TRIGGER=workflow_dispatch (test manuel) → envoi immédiat sans vérification.
  *
  * Variables d'environnement :
@@ -28,15 +29,25 @@ const parisHour   = parseInt(parts.find(p => p.type === 'hour').value,   10);
 const parisMinute = parseInt(parts.find(p => p.type === 'minute').value, 10);
 const parisTotal  = parisHour * 60 + parisMinute;
 
-if (!isManual && (parisTotal < 9 * 60 + 30 || parisTotal >= 10 * 60)) {
+const primaryStart = 9 * 60 + 30;
+const primaryEnd = 10 * 60;
+const catchUpEnd = 11 * 60;
+
+if (!isManual && (parisTotal < primaryStart || parisTotal >= catchUpEnd)) {
   console.log(
-    `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — hors fenêtre 9h30-10h00, skip.`,
+    `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — hors fenêtre 9h30-11h00, skip.`,
   );
   process.exit(0);
 }
 
 console.log(
-  `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — ${isManual ? 'test manuel, fenêtre ignorée' : 'dans la fenêtre'}, vérifications en cours…`,
+  `[metals] Heure Paris : ${parisHour}h${String(parisMinute).padStart(2, '0')} — ${
+    isManual
+      ? 'test manuel, fenêtre ignorée'
+      : parisTotal < primaryEnd
+      ? 'dans la fenêtre principale'
+      : 'fenêtre de rattrapage'
+  }, vérifications en cours…`,
 );
 
 // ─── 2. Firebase ────────────────────────────────────────────────────────────
@@ -150,6 +161,10 @@ async function main() {
       body,
     },
     apns: {
+      headers: {
+        'apns-push-type': 'alert',
+        'apns-priority': '10',
+      },
       payload: {
         aps: { sound: 'default' },
       },
@@ -163,12 +178,22 @@ async function main() {
   };
 
   const response = await admin.messaging().send(message);
-  await todayRef.set({
-    notificationSentAt: admin.firestore.FieldValue.serverTimestamp(),
-    notificationMessageId: response,
-    notificationTrigger: process.env.TRIGGER ?? 'unknown',
-    notificationSentHourParis: timeStr,
-  }, { merge: true });
+  await todayRef.set(
+    isManual
+      ? {
+          manualTestSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          manualTestMessageId: response,
+          manualTestTrigger: process.env.TRIGGER ?? 'unknown',
+          manualTestHourParis: timeStr,
+        }
+      : {
+          notificationSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          notificationMessageId: response,
+          notificationTrigger: process.env.TRIGGER ?? 'unknown',
+          notificationSentHourParis: timeStr,
+        },
+    { merge: true },
+  );
 
   try {
     await db.collection('broadcasts').add({
@@ -176,6 +201,7 @@ async function main() {
       body,
       topic: 'daily_metals',
       type: 'daily_metals',
+      trigger: process.env.TRIGGER ?? 'unknown',
       gold,
       silver,
       dateKey: todayKey,

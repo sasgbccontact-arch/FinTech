@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fintech/services/activity_tracking_service.dart';
 
 /// Service utilitaire pour gérer les portefeuilles utilisateurs dans Firestore.
 class PortfolioService {
@@ -40,6 +43,15 @@ class PortfolioService {
           'updatedAt': FieldValue.serverTimestamp(),
           'positionsCount': 0,
         });
+        unawaited(
+          ActivityTrackingService.trackForUser(
+            uid: uid,
+            type: 'portfolio_created',
+            label: trimmed,
+            points: 40,
+            counters: const <String, int>{'portfolios_created': 1},
+          ),
+        );
         return candidateId;
       }
       suffix += 1;
@@ -71,6 +83,7 @@ class PortfolioService {
 
     await FirebaseFirestore.instance.runTransaction((transaction) async {
       final existingPosition = await transaction.get(positionDoc);
+      final isNewPosition = !existingPosition.exists;
 
       final positionData =
           Map<String, dynamic>.from(data)
@@ -82,7 +95,7 @@ class PortfolioService {
         positionData['quantity'] = quantityOverride;
       }
 
-      if (!existingPosition.exists) {
+      if (isNewPosition) {
         positionData['addedAt'] = FieldValue.serverTimestamp();
         positionData['quantity'] = quantityOverride ?? 1.0;
         positionData['costBasis'] = costBasis ?? data['regularMarketPrice'];
@@ -96,12 +109,25 @@ class PortfolioService {
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      if (!existingPosition.exists) {
+      if (isNewPosition) {
         portfolioUpdate['positionsCount'] = FieldValue.increment(1);
       }
 
       transaction.set(portfolioDoc, portfolioUpdate, SetOptions(merge: true));
     });
+
+    unawaited(
+      ActivityTrackingService.trackForUser(
+        uid: uid,
+        type: 'portfolio_position_added',
+        label: symbol,
+        points: 26,
+        counters: const <String, int>{
+          'portfolio_trades': 1,
+          'portfolio_positions_added': 1,
+        },
+      ),
+    );
   }
 
   static String _slugify(String input) {

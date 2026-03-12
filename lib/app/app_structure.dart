@@ -1,15 +1,14 @@
 import 'package:fintech/core/constants.dart';
 import 'package:flutter/material.dart';
 import '../layouts/navigation_footer.dart';
-import '../pages/search_page.dart';
 import '../pages/portfolio_dashboard_page.dart';
-import '../pages/favorites_page.dart';
 import '../pages/learn_page.dart';
 import '../pages/game_page.dart';
 import '../pages/forum_page.dart';
+import '../pages/today_page.dart';
 
-/// Modern animated bottom footer with 6 items:
-/// Home, Dashboard, Favoris, Apprendre, Game, Forum.
+/// Modern animated bottom footer with 5 items:
+/// Aujourd'hui, Dashboard, Apprendre, Game, Forum.
 ///
 /// IMPORTANT:
 /// - This footer does NOT navigate by itself.
@@ -17,14 +16,13 @@ import '../pages/forum_page.dart';
 /// App shell that hosts the 6 bottom tabs and provides a slide transition between them.
 ///
 /// Indices:
-/// 0 Home (SearchPage)
+/// 0 Aujourd'hui (TodayPage)
 /// 1 Dashboard (PortfolioDashboardPage)
-/// 2 Favoris (FavoritesPage)
-/// 3 Apprendre (LearnPage)
-/// 4 Game (MarketSimulationPage)
-/// 5 Forum (ForumPage)
+/// 2 Apprendre (LearnPage)
+/// 3 Game (MarketSimulationPage)
+/// 4 Forum (ForumPage)
 class AppStructure extends StatefulWidget {
-  const AppStructure({Key? key, this.initialIndex = 0}) : super(key: key);
+  const AppStructure({super.key, this.initialIndex = 0});
 
   final int initialIndex;
 
@@ -36,27 +34,27 @@ class _AppStructureState extends State<AppStructure> {
   int _selectedIndex = 0;
   PageController? _pageController;
 
-  List<Widget> get _pages => const <Widget>[
-        SearchPage(),
-        PortfolioDashboardPage(),
-        FavoritesPage(),
-        LearnPage(),
-        MarketSimulationPage(),
-        ForumPage(),
-      ];
+  List<Widget> get _pages => <Widget>[
+    TodayPage(onNavigateToTab: _onTabTap),
+    const PortfolioDashboardPage(),
+    const LearnPage(),
+    const MarketSimulationPage(),
+    const ForumPage(),
+  ];
 
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, 5);
+    _selectedIndex = widget.initialIndex.clamp(0, 4);
     _pageController = PageController(initialPage: _selectedIndex);
   }
 
   @override
   void didUpdateWidget(covariant AppStructure oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final next = widget.initialIndex.clamp(0, 5);
-    if (oldWidget.initialIndex != widget.initialIndex && next != _selectedIndex) {
+    final next = widget.initialIndex.clamp(0, 4);
+    if (oldWidget.initialIndex != widget.initialIndex &&
+        next != _selectedIndex) {
       _selectedIndex = next;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -88,7 +86,8 @@ class _AppStructureState extends State<AppStructure> {
     return Scaffold(
       backgroundColor: backgroundColor,
       body: PageView(
-        controller: (_pageController ??= PageController(initialPage: _selectedIndex)),
+        controller:
+            (_pageController ??= PageController(initialPage: _selectedIndex)),
         onPageChanged: (i) {
           if (i == _selectedIndex) return;
           setState(() => _selectedIndex = i);

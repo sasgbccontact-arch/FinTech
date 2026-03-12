@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:fintech/core/constants.dart';
 import '../models/chart_models.dart';
+import '../services/activity_tracking_service.dart';
 import '../services/portfolio_service.dart';
 import '../services/yahoo_finance_service.dart';
 import '../utils/portfolio_dialogs.dart';
@@ -23,17 +24,38 @@ class PortfolioDashboardPage extends StatefulWidget {
   State<PortfolioDashboardPage> createState() => _PortfolioDashboardPageState();
 }
 
+enum _DashboardSection { portfolios, favorites }
+
+const List<_StarterWatchIdea> _starterWatchIdeas = <_StarterWatchIdea>[
+  _StarterWatchIdea(
+    symbol: 'SPY',
+    name: 'S&P 500 ETF',
+    description: 'Un ETF large pour comprendre la diversification.',
+  ),
+  _StarterWatchIdea(
+    symbol: 'AAPL',
+    name: 'Apple',
+    description: 'Une Big Tech simple a suivre et a comparer.',
+  ),
+  _StarterWatchIdea(
+    symbol: 'MC.PA',
+    name: 'LVMH',
+    description: 'Une valeur europeenne pour sortir du biais US.',
+  ),
+];
+
 class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
-// Palette (same style as SearchPage)
-static const Color _bg = backgroundColor;
-static const Color _ink = textColor;
-static const Color _muted = Colors.black54;
-static const Color _line = Color(0xFFE6E8EB);
-static const Color _gold = detailsColor1;
-static const Color _wine = detailsColor2;
-static const Color _chipBg = Color(0xFFF0F1F3);
+  // Palette (same style as SearchPage)
+  static const Color _bg = backgroundColor;
+  static const Color _ink = textColor;
+  static const Color _muted = Colors.black54;
+  static const Color _line = Color(0xFFE6E8EB);
+  static const Color _gold = detailsColor1;
+  static const Color _wine = detailsColor2;
+  static const Color _chipBg = Color(0xFFF0F1F3);
 
   bool _creating = false;
+  _DashboardSection _section = _DashboardSection.portfolios;
 
   @override
   Widget build(BuildContext context) {
@@ -98,165 +120,174 @@ static const Color _chipBg = Color(0xFFF0F1F3);
           children: [
             const SizedBox(height: 18),
             Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 20),
-  child: Row(
-    children: [
-      Tooltip(
-        message: 'Favoris',
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const FavoritesPage()),
-          ),
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _chipBg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _line),
-            ),
-            child: const Icon(
-              Icons.star_rounded,
-              color: Colors.orange,
-              size: 20,
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tableau de bord',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: _ink,
-                letterSpacing: .2,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Tableau de bord',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: _ink,
+                            letterSpacing: .2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 6,
+                          width: 96,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(99),
+                            gradient: const LinearGradient(
+                              colors: [_gold, _wine],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _section == _DashboardSection.portfolios
+                              ? "Créez et suivez vos portefeuilles d'actions."
+                              : "Retrouvez ici vos actions suivies en raccourci.",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: _muted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_section == _DashboardSection.portfolios) ...[
+                    const SizedBox(width: 12),
+                    _buildCreateButton(),
+                  ],
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Container(
-              height: 6,
-              width: 96,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(99),
-                gradient: const LinearGradient(
-                  colors: [_gold, _wine],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "Créez et suivez vos portefeuilles d'actions.",
-              style: TextStyle(
-                fontSize: 14,
-                color: _muted,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(width: 12),
-      _buildCreateButton(),
-    ],
-  ),
-),
             const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _GamePortfolioShortcut(uid: user.uid),
-            ),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: stream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: CircularProgressIndicator(
-                        color: _wine,
-                        backgroundColor: _gold.withValues(alpha: .20),
-                        strokeWidth: 3,
-                      ),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              color: Colors.black38,
-                              size: 32,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Impossible de charger vos portefeuilles pour le moment.',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.copyWith(color: _muted),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  final docs =
-                      snapshot.data?.docs ??
-                      <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-                  if (docs.isEmpty) {
-                    return _EmptyPortfolioState(
-                      onCreate: _creating ? null : _createPortfolio,
-                    );
-                  }
-
-                  final portfolios =
-                      docs.map((doc) {
-                        final data = doc.data();
-                        final name = (data['name'] as String? ?? '').trim();
-                        final createdAt = data['createdAt'];
-                        final updatedAt = data['updatedAt'];
-                        final count =
-                            (data['positionsCount'] as num?)?.toInt() ?? 0;
-                        return _PortfolioSummary(
-                          id: doc.id,
-                          ref: doc.reference,
-                          name: name.isEmpty ? 'Portefeuille' : name,
-                          positionsCount: count,
-                          createdAt:
-                              createdAt is Timestamp ? createdAt.toDate() : null,
-                          updatedAt:
-                              updatedAt is Timestamp ? updatedAt.toDate() : null,
-                        );
-                      }).toList();
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: portfolios.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final portfolio = portfolios[index];
-                      return _PortfolioCard(
-                        summary: portfolio,
-                        onTap: () => _openPortfolioDetail(portfolio),
-                        onDelete:
-                            () => _deletePortfolio(portfolio.id, portfolio.name),
-                      );
-                    },
-                  );
-                },
+              child: _DashboardSectionSwitch(
+                section: _section,
+                onChanged: (section) => setState(() => _section = section),
               ),
+            ),
+            const SizedBox(height: 16),
+            if (_section == _DashboardSection.portfolios)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _GamePortfolioShortcut(uid: user.uid),
+              ),
+            Expanded(
+              child:
+                  _section == _DashboardSection.portfolios
+                      ? StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream: stream,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const _PortfolioListSkeleton();
+                          }
+                          if (!snapshot.hasData) {
+                            return const _PortfolioListSkeleton();
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 32,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline_rounded,
+                                      color: Colors.black38,
+                                      size: 32,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Impossible de charger vos portefeuilles pour le moment.',
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(color: _muted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+
+                          final docs =
+                              snapshot.data?.docs ??
+                              <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                          if (docs.isEmpty) {
+                            return _EmptyPortfolioState(
+                              onCreate: _creating ? null : _createPortfolio,
+                              onCreateStarter:
+                                  _creating ? null : _createStarterPortfolio,
+                              ideas: _starterWatchIdeas,
+                            );
+                          }
+
+                          final portfolios =
+                              docs.map((doc) {
+                                final data = doc.data();
+                                final name =
+                                    (data['name'] as String? ?? '').trim();
+                                final createdAt = data['createdAt'];
+                                final updatedAt = data['updatedAt'];
+                                final count =
+                                    (data['positionsCount'] as num?)?.toInt() ??
+                                    0;
+                                return _PortfolioSummary(
+                                  id: doc.id,
+                                  ref: doc.reference,
+                                  name: name.isEmpty ? 'Portefeuille' : name,
+                                  positionsCount: count,
+                                  createdAt:
+                                      createdAt is Timestamp
+                                          ? createdAt.toDate()
+                                          : null,
+                                  updatedAt:
+                                      updatedAt is Timestamp
+                                          ? updatedAt.toDate()
+                                          : null,
+                                );
+                              }).toList();
+
+                          return ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: portfolios.length,
+                            separatorBuilder:
+                                (_, __) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              final portfolio = portfolios[index];
+                              return _PortfolioCard(
+                                summary: portfolio,
+                                onTap: () => _openPortfolioDetail(portfolio),
+                                onDelete:
+                                    () => _deletePortfolio(
+                                      portfolio.id,
+                                      portfolio.name,
+                                    ),
+                              );
+                            },
+                          );
+                        },
+                      )
+                      : const FavoritesListSection(
+                        padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      ),
             ),
           ],
         ),
@@ -264,62 +295,73 @@ static const Color _chipBg = Color(0xFFF0F1F3);
     );
   }
 
- Widget _buildCreateButton() {
-  final bool disabled = _creating;
+  Widget _buildCreateButton() {
+    final bool disabled = _creating;
 
-  return InkWell(
-    onTap: disabled ? null : _createPortfolio,
-    borderRadius: BorderRadius.circular(14),
-    child: AnimatedOpacity(
-      duration: const Duration(milliseconds: 150),
-      opacity: disabled ? 0.7 : 1,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-          gradient: const LinearGradient(
-            colors: [_gold, _wine],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: .12),
-              blurRadius: 18,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            disabled
-                ?  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      color: _wine,
-                      backgroundColor: _gold.withValues(alpha: .20),
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Icon(Icons.add_rounded, size: 18, color: Colors.white),
-            const SizedBox(width: 10),
-            Text(
-              disabled ? 'Création…' : 'Nouveau',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
+    return Semantics(
+      button: true,
+      label:
+          disabled
+              ? 'Création du portefeuille en cours'
+              : 'Créer un portefeuille',
+      child: InkWell(
+        onTap: disabled ? null : _createPortfolio,
+        borderRadius: BorderRadius.circular(14),
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 150),
+          opacity: disabled ? 0.7 : 1,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: const LinearGradient(
+                colors: [_gold, _wine],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .12),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                disabled
+                    ? SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        color: _wine,
+                        backgroundColor: _gold.withValues(alpha: .20),
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                    : const Icon(
+                      Icons.add_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                const SizedBox(width: 10),
+                Text(
+                  disabled ? 'Création…' : 'Nouveau',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Future<void> _createPortfolio() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -358,6 +400,123 @@ static const Color _chipBg = Color(0xFFF0F1F3);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Erreur lors de la création du portefeuille.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _creating = false);
+      }
+    }
+  }
+
+  Future<void> _createStarterPortfolio() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connectez-vous pour créer un portefeuille guide.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _creating = true);
+
+    const portfolioName = 'Starter FinHub';
+    var addedCount = 0;
+
+    try {
+      final createdPortfolioId = await PortfolioService.createPortfolio(
+        uid: user.uid,
+        name: portfolioName,
+      );
+
+      Map<String, TickerSearchResult> lookupBySymbol = const {};
+      try {
+        final lookups = await YahooFinanceService.lookupSecuritiesBySymbols(
+          _starterWatchIdeas.map((idea) => idea.symbol).toList(),
+        );
+        lookupBySymbol = {
+          for (final item in lookups) item.symbol.toUpperCase(): item,
+        };
+      } catch (_) {}
+
+      for (final idea in _starterWatchIdeas) {
+        final symbol = idea.symbol.toUpperCase();
+        final lookup = lookupBySymbol[symbol];
+        QuoteDetail? quote;
+        try {
+          quote = await YahooFinanceService.fetchQuote(symbol);
+        } catch (_) {}
+
+        final displayName =
+            lookup?.displayName ??
+            quote?.longName ??
+            quote?.shortName ??
+            idea.name;
+        final price = quote?.regularMarketPrice;
+
+        await PortfolioService.addPosition(
+          uid: user.uid,
+          portfolioId: createdPortfolioId,
+          data: <String, dynamic>{
+            'symbol': symbol,
+            'displayName': displayName,
+            'exchange':
+                lookup?.exchange ??
+                quote?.fullExchangeName ??
+                quote?.exchange ??
+                '',
+            'currency': lookup?.currency ?? quote?.currency ?? '',
+            'quoteType': lookup?.quoteType ?? quote?.quoteType ?? 'UNKNOWN',
+            'regularMarketPrice': price,
+            'regularMarketChange': quote?.regularMarketChange,
+            'regularMarketChangePercent': quote?.regularMarketChangePercent,
+            'quantity': 1.0,
+            if (price != null) 'costBasis': price,
+            'starterDescription': idea.description,
+          },
+        );
+        addedCount += 1;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Portefeuille guide cree avec $addedCount titre(s). Lis ensuite la carte pedagogique du dashboard.',
+          ),
+        ),
+      );
+
+      await _openPortfolioDetail(
+        _PortfolioSummary(
+          id: createdPortfolioId,
+          ref: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('portfolios')
+              .doc(createdPortfolioId),
+          name: portfolioName,
+          positionsCount: addedCount,
+          createdAt: null,
+          updatedAt: null,
+        ),
+      );
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible de creer le portefeuille guide (${e.message ?? e.code}).',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erreur lors de la creation du portefeuille guide.'),
         ),
       );
     } finally {
@@ -432,6 +591,95 @@ static const Color _chipBg = Color(0xFFF0F1F3);
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) => _PortfolioDetailSheet(summary: summary),
+    );
+  }
+}
+
+class _DashboardSectionSwitch extends StatelessWidget {
+  const _DashboardSectionSwitch({
+    required this.section,
+    required this.onChanged,
+  });
+
+  final _DashboardSection section;
+  final ValueChanged<_DashboardSection> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: _PortfolioDashboardPageState._chipBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _PortfolioDashboardPageState._line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SectionButton(
+              label: 'Portefeuilles',
+              selected: section == _DashboardSection.portfolios,
+              onTap: () => onChanged(_DashboardSection.portfolios),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _SectionButton(
+              label: 'Favoris',
+              selected: section == _DashboardSection.favorites,
+              onTap: () => onChanged(_DashboardSection.favorites),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionButton extends StatelessWidget {
+  const _SectionButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: selected ? null : onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          gradient:
+              selected
+                  ? const LinearGradient(
+                    colors: [
+                      _PortfolioDashboardPageState._gold,
+                      _PortfolioDashboardPageState._wine,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                  : null,
+          color: selected ? null : Colors.transparent,
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? Colors.white : _PortfolioDashboardPageState._ink,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -605,20 +853,23 @@ class _GamePortfolioShortcut extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('games')
-          .doc('portofolio')
-          .collection('positions')
-          .snapshots(),
+      stream:
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('games')
+              .doc('portofolio')
+              .collection('positions')
+              .snapshots(),
       builder: (context, snapshot) {
         final int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
-        
+
         // Création d'un résumé fictif pour réutiliser le composant _PortfolioCard
         final summary = _PortfolioSummary(
           id: 'game_portfolio',
-          ref: FirebaseFirestore.instance.collection('users').doc(uid), // Dummy ref
+          ref: FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid), // Dummy ref
           name: 'Portefeuille de Jeu',
           positionsCount: count,
           createdAt: null,
@@ -649,16 +900,12 @@ class _PortfolioDetailSheet extends StatefulWidget {
   const _PortfolioDetailSheet({required this.summary});
 
   final _PortfolioSummary summary;
-  
 
   @override
   State<_PortfolioDetailSheet> createState() => _PortfolioDetailSheetState();
 }
 
 class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
-  static const Color _gold = detailsColor1;
-static const Color _wine = detailsColor2;
-
   @override
   Widget build(BuildContext context) {
     final stream =
@@ -676,13 +923,7 @@ static const Color _wine = detailsColor2;
           stream: stream,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: CircularProgressIndicator(
-                  color: _wine,
-                  backgroundColor: _gold.withValues(alpha: .20),
-                  strokeWidth: 3,
-                ),
-              );
+              return const _PortfolioDetailSkeleton();
             }
             if (snapshot.hasError) {
               return _PortfolioAnalyticsError(
@@ -782,10 +1023,29 @@ static const Color _wine = detailsColor2;
         'positionsCount': FieldValue.increment(-1),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        unawaited(
+          ActivityTrackingService.trackForUser(
+            uid: uid,
+            type: 'portfolio_position_sold',
+            label: symbol,
+            points: 24,
+            counters: const <String, int>{
+              'portfolio_trades': 1,
+              'portfolio_positions_sold': 1,
+            },
+          ),
+        );
+      }
       if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Position $symbol vendue.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Position $symbol vendue. Compare maintenant la concentration et la diversification du portefeuille.',
+            ),
+          ),
+        );
       return true;
     } catch (e) {
       if (mounted)
@@ -809,7 +1069,6 @@ class _PortfolioPositionsView extends StatefulWidget {
   final List<_PortfolioPositionSnapshot> positions;
   final _OpenPositionCallback onOpenPosition;
   final _DeletePositionCallback onDeletePosition;
-  
 
   @override
   State<_PortfolioPositionsView> createState() =>
@@ -820,7 +1079,7 @@ class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
   Future<_PortfolioAnalytics>? _future;
   String _signature = '';
   static const Color _gold = detailsColor1;
-static const Color _wine = detailsColor2;
+  static const Color _wine = detailsColor2;
 
   @override
   void initState() {
@@ -979,6 +1238,7 @@ class _PortfolioAnalyticsView extends StatelessWidget {
               onOpenPosition: onOpenPosition,
             ),
           ),
+          SliverToBoxAdapter(child: _PortfolioCoachCard(analytics: analytics)),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -2653,9 +2913,15 @@ class _BestWorstCard extends StatelessWidget {
 }
 
 class _EmptyPortfolioState extends StatelessWidget {
-  const _EmptyPortfolioState({this.onCreate});
+  const _EmptyPortfolioState({
+    this.onCreate,
+    this.onCreateStarter,
+    this.ideas = const <_StarterWatchIdea>[],
+  });
 
   final VoidCallback? onCreate;
+  final VoidCallback? onCreateStarter;
+  final List<_StarterWatchIdea> ideas;
 
   @override
   Widget build(BuildContext context) {
@@ -2665,10 +2931,109 @@ class _EmptyPortfolioState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.workspaces_outline,
-              color: Colors.black38,
-              size: 40,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFE6E8EB)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: [detailsColor1, detailsColor2],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.auto_graph_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Portefeuille pedagogique',
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Installe une watchlist de depart pour apprendre a comparer un ETF, une Big Tech et une valeur europeenne.',
+                    style: TextStyle(color: Colors.black54, height: 1.4),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children:
+                        ideas
+                            .map(
+                              (idea) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF7F8FA),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: const Color(0xFFE6E8EB),
+                                  ),
+                                ),
+                                child: Text(
+                                  '${idea.symbol} · ${idea.name}',
+                                  style: const TextStyle(
+                                    color: textColor,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: onCreateStarter,
+                      icon: const Icon(Icons.rocket_launch_rounded),
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      label: const Text('Installer la watchlist de depart'),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             const Text(
@@ -2698,6 +3063,187 @@ class _EmptyPortfolioState extends StatelessWidget {
               ),
               label: const Text('Créer un portefeuille'),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StarterWatchIdea {
+  const _StarterWatchIdea({
+    required this.symbol,
+    required this.name,
+    required this.description,
+  });
+
+  final String symbol;
+  final String name;
+  final String description;
+}
+
+class _PortfolioListSkeleton extends StatelessWidget {
+  const _PortfolioListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      itemCount: 3,
+      itemBuilder:
+          (context, index) => Container(
+            height: 108,
+            margin: EdgeInsets.only(bottom: index == 2 ? 0 : 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFE6E8EB)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 130,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 180,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+}
+
+class _PortfolioDetailSkeleton extends StatelessWidget {
+  const _PortfolioDetailSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      children: List.generate(
+        4,
+        (index) => Container(
+          height: index == 0 ? 120 : 88,
+          margin: EdgeInsets.only(bottom: index == 3 ? 0 : 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE6E8EB)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PortfolioCoachCard extends StatelessWidget {
+  const _PortfolioCoachCard({required this.analytics});
+
+  final _PortfolioAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    final recommendations = <String>[
+      if (analytics.positions.length < 3)
+        'Ajoute encore 1 a 2 titres pour comparer plusieurs styles de marche.',
+      if (analytics.concentrationRatio >= 0.35)
+        'Un seul titre pese beaucoup dans le portefeuille. Diversifie pour mieux comparer les risques.',
+      if (analytics.bestPerformer != null)
+        'Ouvre le meilleur titre pour relire ses fondamentaux et comprendre ce qui tire la performance.',
+      'Apres chaque achat ou vente, relis la repartition devises et la concentration.',
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Lecture pedagogique',
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Le but est de comprendre ce que tu deplaces dans ton portefeuille, pas seulement d’ajouter des lignes.',
+              style: TextStyle(color: Colors.black54, height: 1.35),
+            ),
+            const SizedBox(height: 12),
+            for (var index = 0; index < recommendations.length; index++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == recommendations.length - 1 ? 0 : 8,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      margin: const EdgeInsets.only(top: 2),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        gradient: const LinearGradient(
+                          colors: [detailsColor1, detailsColor2],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        recommendations[index],
+                        style: const TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

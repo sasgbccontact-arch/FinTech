@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +11,7 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import '../widgets/help_fab.dart';
 import 'shop_page.dart';
 import 'package:fintech/core/constants.dart';
+import 'package:fintech/services/activity_tracking_service.dart';
 
 // --- Models ---
 
@@ -407,7 +409,7 @@ class _LearnPageState extends State<LearnPage>
         final userRef = FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid);
-        
+
         // XP reste dans learning/progress, mais si on gagne des coins, c'est sur userRef
         // Ici c'est de l'XP. On le met maintenant dans games/progress.
         final progressRef = userRef.collection('games').doc('progress');
@@ -415,6 +417,20 @@ class _LearnPageState extends State<LearnPage>
           'xp': FieldValue.increment(xpGained),
         }, SetOptions(merge: true));
       }
+
+      unawaited(
+        ActivityTrackingService.trackForUser(
+          uid: user.uid,
+          type: 'lesson_completed',
+          label: lessonTitle,
+          points: 35 + xpGained + (score * 5),
+          counters: <String, int>{
+            'lessons_completed': 1,
+            'lesson_quizzes_completed': 1,
+            'correct_answers': score,
+          },
+        ),
+      );
     } catch (e) {
       debugPrint('Erreur lors de la mise à jour de l\'XP : $e');
     }
@@ -425,7 +441,11 @@ class _LearnPageState extends State<LearnPage>
     try {
       final today = DateTime.now();
       final dateStr = "${today.year}-${today.month}-${today.day}";
-      final questRef = FirebaseFirestore.instance.collection('users').doc(user.uid).collection('quests').doc('daily');
+      final questRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('quests')
+          .doc('daily');
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final snapshot = await transaction.get(questRef);
@@ -433,12 +453,13 @@ class _LearnPageState extends State<LearnPage>
           // Reset si nouveau jour ou inexistant
           transaction.set(questRef, {
             'date': dateStr,
-            'quizzes_done': 0,
+            'quizzes_done': 1,
             'lessons_done': 1,
             'trades_done': 0,
           });
         } else {
           transaction.update(questRef, {
+            'quizzes_done': FieldValue.increment(1),
             'lessons_done': FieldValue.increment(1),
           });
         }
@@ -489,206 +510,235 @@ class _LearnPageState extends State<LearnPage>
     }
   }
 
+  Future<void> _retryLoading() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    await _loadCourses();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-  return Scaffold(
-    backgroundColor: backgroundColor,
-    body: Center(
-      child: CircularProgressIndicator(
-        color: detailsColor2,
-        backgroundColor: detailsColor1.withValues(alpha: .20),
-        strokeWidth: 3,
-      ),
-    ),
-  );
-}
+      return const _LearnLoadingView();
+    }
 
     if (_error != null) {
-      return Scaffold(body: Center(child: Text(_error!)));
+      return _LearnErrorView(message: _error!, onRetry: _retryLoading);
     }
 
     final user = FirebaseAuth.instance.currentUser;
 
     return StreamBuilder<DocumentSnapshot>(
-      stream: user != null ? FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots() : null,
+      stream:
+          user != null
+              ? FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .snapshots()
+              : null,
       builder: (context, snapshot) {
-        final bool isAdmin = (snapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ?? false;
+        final bool isAdmin =
+            (snapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ??
+            false;
 
         return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-  title: const Text(
-    'Apprentissage',
-    style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
-  ),
-  actions: [
-    Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Tooltip(
-        message: 'Boutique',
-        child: InkWell(
-          onTap: () {
-            showCupertinoModalBottomSheet(
-              context: context,
-              builder: (context) => const ShopPage(),
-            );
-          },
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F1F3),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE6E8EB)),
+          backgroundColor: backgroundColor,
+          appBar: AppBar(
+            title: const Text(
+              'Apprentissage',
+              style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
             ),
-            child: Icon(Icons.storefront_rounded, color: detailsColor2, size: 20),
-          ),
-        ),
-      ),
-    ),
-    const Padding(
-      padding: EdgeInsets.only(right: 16.0),
-      child: _LevelIndicator(),
-    ),
-  ],
-  backgroundColor: backgroundColor,
-  foregroundColor: textColor,
-  surfaceTintColor: Colors.transparent,
-  elevation: 0,
-  automaticallyImplyLeading: false,
-  bottom: PreferredSize(
-    preferredSize: const Size.fromHeight(10),
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          height: 6,
-          width: 96,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(99),
-            gradient: const LinearGradient(
-              colors: [detailsColor1, detailsColor2],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-          ),
-        ),
-      ),
-    ),
-  ),
-),
-      floatingActionButton: const HelpFab(
-        helpText:
-            "Bienvenue dans l'espace d'apprentissage ! Suivez les cours chapitre par chapitre, validez les quiz pour gagner de l'XP et maintenez votre série (streak) active.",
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildStreakWidget(),
-          if (_course1 != null)
-            Card(
-              color: backgroundColor,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Tooltip(
+                  message: 'Boutique',
+                  child: InkWell(
+                    onTap: () {
+                      showCupertinoModalBottomSheet(
+                        context: context,
+                        builder: (context) => const ShopPage(),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F1F3),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE6E8EB)),
+                      ),
+                      child: Icon(
+                        Icons.storefront_rounded,
+                        color: detailsColor2,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              elevation: 2,
-              clipBehavior: Clip.antiAlias,
-              child: Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  tilePadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                  title: const Text(
-                    "Chapitre 1 : Investir en bourse",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                  ),
-                  leading: Container(
-                    width: 42,
-                    height: 42,
+              const Padding(
+                padding: EdgeInsets.only(right: 16.0),
+                child: _LevelIndicator(),
+              ),
+            ],
+            backgroundColor: backgroundColor,
+            foregroundColor: textColor,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(10),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    height: 6,
+                    width: 96,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(99),
                       gradient: const LinearGradient(
                         colors: [detailsColor1, detailsColor2],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: .10),
-                          blurRadius: 16,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
-                    child: const Icon(Icons.school_rounded, color: Colors.white, size: 22),
                   ),
-                  initiallyExpanded: false,
-                  children: _buildChapterContent(_course1!, isAdmin),
                 ),
               ),
             ),
-          if (_course2 != null && _course2!.chapters.isNotEmpty)
-            if (isAdmin || _isCourseCompleted(_course1))
-              Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 2,
-                clipBehavior: Clip.antiAlias,
-                child: Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                  child: ExpansionTile(
-                    tilePadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                    title: const Text(
-                      "Chapitre 2 : Analyse fondamentale et graphique",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                    ),
-                    leading: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        gradient: const LinearGradient(
-                          colors: [detailsColor1, detailsColor2],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: .10),
-                            blurRadius: 16,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
+          ),
+          floatingActionButton: const HelpFab(
+            helpText:
+                "Bienvenue dans l'espace d'apprentissage ! Suivez les cours chapitre par chapitre, validez les quiz pour gagner de l'XP et maintenez votre série (streak) active.",
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildStreakWidget(),
+              if (_course1 != null)
+                Card(
+                  color: backgroundColor,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 2,
+                  clipBehavior: Clip.antiAlias,
+                  child: Theme(
+                    data: Theme.of(
+                      context,
+                    ).copyWith(dividerColor: Colors.transparent),
+                    child: ExpansionTile(
+                      tilePadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
                       ),
-                      child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 22),
+                      childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                      title: const Text(
+                        "Chapitre 1 : Investir en bourse",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                      leading: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          gradient: const LinearGradient(
+                            colors: [detailsColor1, detailsColor2],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: .10),
+                              blurRadius: 16,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.school_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                      initiallyExpanded: false,
+                      children: _buildChapterContent(_course1!, isAdmin),
                     ),
-                    initiallyExpanded: false,
-                    children: _buildChapterContent(_course2!, isAdmin),
                   ),
                 ),
-              )
-            else
-              _buildLockedChapterCard(
-                "Chapitre 2 : Analyse fondamentale et graphique",
-                showSubtitle: false,
-              ),
-          _buildLockedChapterCard("Chapitre 3 : ... "),
-        ],
-      ),
-    );
-      }
+              if (_course2 != null && _course2!.chapters.isNotEmpty)
+                if (isAdmin || _isCourseCompleted(_course1))
+                  Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 2,
+                    clipBehavior: Clip.antiAlias,
+                    child: Theme(
+                      data: Theme.of(
+                        context,
+                      ).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                        title: const Text(
+                          "Chapitre 2 : Analyse fondamentale et graphique",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                        ),
+                        leading: Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            gradient: const LinearGradient(
+                              colors: [detailsColor1, detailsColor2],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: .10),
+                                blurRadius: 16,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.trending_up_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        initiallyExpanded: false,
+                        children: _buildChapterContent(_course2!, isAdmin),
+                      ),
+                    ),
+                  )
+                else
+                  _buildLockedChapterCard(
+                    "Chapitre 2 : Analyse fondamentale et graphique",
+                    showSubtitle: false,
+                  ),
+              _buildLockedChapterCard("Chapitre 3 : ... "),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -700,16 +750,18 @@ class _LearnPageState extends State<LearnPage>
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-  color: _isStreakActiveToday
-      ? detailsColor1.withValues(alpha: 0.55)
-      : Colors.black.withValues(alpha: 0.06),
-  width: 1.5,
-),
+          color:
+              _isStreakActiveToday
+                  ? detailsColor1.withValues(alpha: 0.55)
+                  : Colors.black.withValues(alpha: 0.06),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: _isStreakActiveToday
-    ? detailsColor1.withValues(alpha: 0.14)
-    : Colors.black.withValues(alpha: 0.05),
+            color:
+                _isStreakActiveToday
+                    ? detailsColor1.withValues(alpha: 0.14)
+                    : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -905,7 +957,10 @@ class _LearnPageState extends State<LearnPage>
               radius: 14,
               child: Text(
                 '$index',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             children: children,
@@ -936,9 +991,9 @@ class _LearnPageState extends State<LearnPage>
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-  borderRadius: BorderRadius.circular(18),
-  side: const BorderSide(color: Color(0xFFE6E8EB)),
-),
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFE6E8EB)),
+      ),
       elevation: 0,
       color: const Color(0xFFE0E0E0),
       child: ListTile(
@@ -989,10 +1044,14 @@ class _LevelIndicator extends StatelessWidget {
               .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          return Container(
+            width: 78,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFE6E8EB)),
+            ),
           );
         }
         final data = snapshot.data?.data();
@@ -1058,6 +1117,148 @@ class _LevelIndicator extends StatelessWidget {
   }
 }
 
+class _LearnLoadingView extends StatelessWidget {
+  const _LearnLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: const [
+            _LearnSkeletonBlock(height: 92, radius: 22),
+            SizedBox(height: 14),
+            _LearnSkeletonBlock(height: 74, radius: 22),
+            SizedBox(height: 16),
+            _LearnSkeletonBlock(height: 150, radius: 18),
+            SizedBox(height: 12),
+            _LearnSkeletonBlock(height: 150, radius: 18),
+            SizedBox(height: 12),
+            _LearnSkeletonBlock(height: 120, radius: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LearnErrorView extends StatelessWidget {
+  const _LearnErrorView({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: const Color(0xFFE6E8EB)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [detailsColor1, detailsColor2],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.menu_book_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Contenu indisponible',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.black54, height: 1.45),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: onRetry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Text('Réessayer'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LearnSkeletonBlock extends StatelessWidget {
+  const _LearnSkeletonBlock({required this.height, required this.radius});
+
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class LessonPage extends StatelessWidget {
   final LessonContent lesson;
   final Function(int score, List<bool> results)? onCompleted;
@@ -1097,11 +1298,12 @@ class LessonPage extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => QuizPage(
-                          title: lesson.title,
-                          questions: lesson.quizQuestions,
-                          onCompleted: onCompleted,
-                        ),
+                        builder:
+                            (_) => QuizPage(
+                              title: lesson.title,
+                              questions: lesson.quizQuestions,
+                              onCompleted: onCompleted,
+                            ),
                       ),
                     );
                   },

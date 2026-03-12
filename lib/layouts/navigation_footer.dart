@@ -2,11 +2,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:fintech/core/constants.dart';
 
-/// Modern animated bottom footer with 6 items:
-/// Home, Dashboard, Favoris, Apprendre, Game, Forum.
+/// Modern animated bottom footer with 5 items:
+/// Aujourd'hui, Dashboard, Apprendre, Game, Forum.
 ///
 /// Notes:
-/// - The parent widget (AppStructure) controls ALL tabs (0..5) via [onTap].
+/// - The parent widget (AppStructure) controls ALL tabs (0..4) via [onTap].
 /// - NavigationFooter does NOT push routes; it only emits the tapped index.
 class NavigationFooter extends StatefulWidget {
   const NavigationFooter({
@@ -15,7 +15,7 @@ class NavigationFooter extends StatefulWidget {
     required this.onTap,
   });
 
-  /// The selected tab index (0..5)
+  /// The selected tab index (0..4)
   final int currentIndex;
 
   /// Callback when a tab is tapped
@@ -55,7 +55,9 @@ class _NavigationFooterState extends State<NavigationFooter>
   @override
   Widget build(BuildContext context) {
     final brightness = Theme.of(context).brightness;
-    final Color border = Colors.black.withValues(alpha: brightness == Brightness.dark ? 0.18 : 0.10);
+    final Color border = Colors.black.withValues(
+      alpha: brightness == Brightness.dark ? 0.18 : 0.10,
+    );
     final Color active = textColor;
     final Color inactive = Colors.grey.shade600;
 
@@ -65,12 +67,16 @@ class _NavigationFooterState extends State<NavigationFooter>
         height: 70,
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: brightness == Brightness.dark ? 0.10 : 0.55),
+          color: Colors.white.withValues(
+            alpha: brightness == Brightness.dark ? 0.10 : 0.55,
+          ),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: border, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: brightness == Brightness.dark ? 0.18 : 0.08),
+              color: Colors.black.withValues(
+                alpha: brightness == Brightness.dark ? 0.18 : 0.08,
+              ),
               blurRadius: 22,
               offset: const Offset(0, 12),
             ),
@@ -105,7 +111,9 @@ class _NavigationFooterState extends State<NavigationFooter>
                   ),
                   gradient: LinearGradient(
                     colors: [
-                      Colors.white.withValues(alpha: brightness == Brightness.dark ? 0.04 : 0.20),
+                      Colors.white.withValues(
+                        alpha: brightness == Brightness.dark ? 0.04 : 0.20,
+                      ),
                       Colors.white.withValues(alpha: 0.00),
                     ],
                     begin: Alignment.topCenter,
@@ -255,16 +263,14 @@ class _AnimatedBar extends StatelessWidget {
   static const List<IconData> _icons = [
     Icons.home_rounded,
     Icons.dashboard_rounded,
-    Icons.favorite_rounded,
     Icons.school_rounded,
     Icons.sports_esports_rounded,
     Icons.forum_rounded,
   ];
 
   static const List<String> _labels = [
-    'Home',
+    'Aujourd.',
     'Dashboard',
-    'Favoris',
     'Apprendre',
     'Game',
     'Forum',
@@ -330,10 +336,7 @@ class _FooterItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Opacity(
-                opacity: selected ? 1.0 : 0.78,
-                child: Text(label),
-              ),
+              Opacity(opacity: selected ? 1.0 : 0.78, child: Text(label)),
             ],
           ),
         ),

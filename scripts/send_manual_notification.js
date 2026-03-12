@@ -31,16 +31,36 @@ admin.initializeApp({
   projectId,
 });
 
+const db = admin.firestore();
+
 const message = {
   topic: 'all_users',
   notification: { title, body },
   apns: {
+    headers: {
+      'apns-push-type': 'alert',
+      'apns-priority': '10',
+    },
     payload: { aps: { sound: 'default' } },
   },
   data: { type: 'manual' },
 };
 
 const response = await admin.messaging().send(message);
+
+try {
+  await db.collection('broadcasts').add({
+    title,
+    body,
+    topic: 'all_users',
+    type: 'manual',
+    messageId: response,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+} catch (error) {
+  console.warn('[manual-notif] Notification envoyee mais sauvegarde Firestore impossible:', error);
+}
+
 console.log(`[manual-notif] Notification envoyée : ${response}`);
 console.log(`[manual-notif] Titre : "${title}"`);
 console.log(`[manual-notif] Corps : "${body}"`);

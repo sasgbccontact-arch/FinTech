@@ -9,11 +9,9 @@ import 'package:fintech/core/constants.dart';
 import '../services/yahoo_finance_service.dart';
 import 'info_page.dart';
 import 'dividend_calendar_sheet.dart';
-import 'portfolio_dashboard_page.dart';
-import 'learn_page.dart';
+import 'game_page.dart' show UserProfileHeader;
 import 'login_page.dart';
-import 'game_page.dart';
-import 'favorites_page.dart';
+import '../utils/search_suggestion_ranker.dart';
 import '../widgets/wallet_balances.dart';
 
 class SearchPage extends StatefulWidget {
@@ -28,17 +26,18 @@ class _SearchPageState extends State<SearchPage>
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final List<TickerSearchResult> _suggestions = [];
+  final List<TickerSearchResult> _searchCandidates = [];
   Timer? _debounce;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
   _userDocSubscription;
   String? _displayName;
   String? _avatarId;
   bool _loadingName = true;
-  int _currentIndex = 0; // Footer selected tab
   TickerSearchResult? _selectedSuggestion;
   String? _suggestionMessage;
   bool _isSearching = false;
   int _searchRequestId = 0;
+  SearchInstrumentPriority _searchPriority = SearchInstrumentPriority.equities;
 
   // Animation pour le titre
   late final AnimationController _titleCtrl;
@@ -52,78 +51,6 @@ class _SearchPageState extends State<SearchPage>
   static const Color _gold = detailsColor1;
   static const Color _wine = detailsColor2;
   static const Color _chipBg = Color(0xFFF0F1F3);
-
-  // --- Helpers for search normalization & exchange filtering ---
-  // Remove French accents / common diacritics and normalize dashes/spaces
-  String _normalizeQuery(String input) {
-    const mappings = {
-      'à': 'a',
-      'á': 'a',
-      'â': 'a',
-      'ä': 'a',
-      'ã': 'a',
-      'å': 'a',
-      'À': 'A',
-      'Á': 'A',
-      'Â': 'A',
-      'Ä': 'A',
-      'Ã': 'A',
-      'Å': 'A',
-      'æ': 'ae',
-      'Æ': 'AE',
-      'œ': 'oe',
-      'Œ': 'OE',
-      'ç': 'c',
-      'Ç': 'C',
-      'è': 'e',
-      'é': 'e',
-      'ê': 'e',
-      'ë': 'e',
-      'È': 'E',
-      'É': 'E',
-      'Ê': 'E',
-      'Ë': 'E',
-      'ì': 'i',
-      'í': 'i',
-      'î': 'i',
-      'ï': 'i',
-      'Ì': 'I',
-      'Í': 'I',
-      'Î': 'I',
-      'Ï': 'I',
-      'ñ': 'n',
-      'Ñ': 'N',
-      'ò': 'o',
-      'ó': 'o',
-      'ô': 'o',
-      'ö': 'o',
-      'õ': 'o',
-      'Ò': 'O',
-      'Ó': 'O',
-      'Ô': 'O',
-      'Ö': 'O',
-      'Õ': 'O',
-      'ù': 'u',
-      'ú': 'u',
-      'û': 'u',
-      'ü': 'u',
-      'Ù': 'U',
-      'Ú': 'U',
-      'Û': 'U',
-      'Ü': 'U',
-      'ý': 'y',
-      'ÿ': 'y',
-      'Ý': 'Y',
-    };
-    final sb = StringBuffer();
-    for (final ch in input.runes) {
-      final s = String.fromCharCode(ch);
-      sb.write(mappings[s] ?? s);
-    }
-    // Replace various dash characters with spaces and collapse whitespace
-    final noDashes = sb.toString().replaceAll(RegExp(r"[\-‐‑–—−]"), ' ');
-    return noDashes.replaceAll(RegExp(r"\s+"), ' ').trim();
-  }
 
   String _getAvatarAsset(String id) {
     if (id == '_easteregg') return 'assets/avatars/easteregg.png';
@@ -294,9 +221,9 @@ class _SearchPageState extends State<SearchPage>
     }
 
     // 1. Vérifier les gemmes
-    final userRef = FirebaseFirestore.instance.collection('users').doc(
-      user.uid,
-    );
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
 
     try {
       final snapshot = await userRef.get();
@@ -394,11 +321,10 @@ class _SearchPageState extends State<SearchPage>
         }
 
         transaction.update(userRef, {'gems': currentGems - 200});
-        transaction.set(
-          userRef,
-          {'Name': result, 'updatedAt': FieldValue.serverTimestamp()},
-          SetOptions(merge: true),
-        );
+        transaction.set(userRef, {
+          'Name': result,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       });
 
       if (!mounted) return;
@@ -423,64 +349,158 @@ class _SearchPageState extends State<SearchPage>
     }
   }
 
-  // --- Search logic (placeholder à remplacer par l'API finance) ---
   Future<void> _fetchSuggestions(String query) async {
     final raw = query.trim();
     if (raw.length < 2) {
       setState(() {
         _suggestions.clear();
+        _searchCandidates.clear();
         _suggestionMessage = null;
         _isSearching = false;
       });
       return;
     }
 
-    final normalized = _normalizeQuery(raw);
-    final queries = <String>{raw};
-    if (normalized.isNotEmpty && normalized != raw) {
-      queries.add(normalized);
-    }
-
     final requestId = ++_searchRequestId;
+    final searchTerms = _buildSearchTerms(raw);
 
     setState(() {
       _isSearching = true;
       _suggestionMessage = null;
     });
 
-    final aggregated = <TickerSearchResult>[];
-
     try {
-      for (final term in queries) {
-        final results = await YahooFinanceService.searchEquities(term);
-        aggregated.addAll(results);
+      final initialResults = await _collectSearchResults(
+        searchTerms,
+        enableFuzzyQuery: false,
+      );
+      final exactCandidates = await _collectExactFrenchCandidates(raw);
+      var deduped = _dedupeResults([...initialResults, ...exactCandidates]);
+      var ordered = rankSearchSuggestions(
+        candidates: deduped,
+        query: raw,
+        priority: _searchPriority,
+      );
+
+      final shouldUseFuzzyFallback =
+          ordered.length < 8 ||
+          !hasStrongSearchMatch(ordered, raw, priority: _searchPriority);
+
+      if (shouldUseFuzzyFallback) {
+        final fuzzyResults = await _collectSearchResults(
+          searchTerms,
+          enableFuzzyQuery: true,
+        );
+        deduped = _dedupeResults([...deduped, ...fuzzyResults]);
+        ordered = rankSearchSuggestions(
+          candidates: deduped,
+          query: raw,
+          priority: _searchPriority,
+        );
       }
+
+      if (!mounted || requestId != _searchRequestId) return;
+      setState(() {
+        _searchCandidates
+          ..clear()
+          ..addAll(deduped);
+        _suggestions
+          ..clear()
+          ..addAll(ordered);
+        _isSearching = false;
+        _suggestionMessage =
+            ordered.isEmpty ? "Aucun résultat pour '$raw'" : null;
+      });
     } catch (_) {
       if (!mounted || requestId != _searchRequestId) return;
       setState(() {
         _suggestions.clear();
+        _searchCandidates.clear();
         _isSearching = false;
         _suggestionMessage = 'Erreur réseau — vérifie la connexion';
       });
-      return;
+    }
+  }
+
+  List<String> _buildSearchTerms(String rawQuery) {
+    final trimmed = rawQuery.trim();
+    final normalized = normalizeSearchText(trimmed);
+    final variants = <String>{trimmed};
+    if (normalized.isNotEmpty && normalized != trimmed.toLowerCase()) {
+      variants.add(normalized);
+    }
+    return variants.where((term) => term.trim().length >= 2).toList();
+  }
+
+  Future<List<TickerSearchResult>> _collectSearchResults(
+    List<String> searchTerms, {
+    required bool enableFuzzyQuery,
+  }) async {
+    final responses = await Future.wait(
+      searchTerms.map(
+        (term) => YahooFinanceService.searchSecurities(
+          term,
+          quotesCount: 50,
+          enableFuzzyQuery: enableFuzzyQuery,
+        ),
+      ),
+    );
+    return responses.expand((items) => items).toList();
+  }
+
+  Future<List<TickerSearchResult>> _collectExactFrenchCandidates(
+    String rawQuery,
+  ) async {
+    final trimmed = rawQuery.trim().toUpperCase();
+    final looksLikeTicker = RegExp(r'^[A-Z0-9.-]{2,6}$').hasMatch(trimmed);
+    if (!looksLikeTicker || trimmed.contains(' ')) {
+      return const <TickerSearchResult>[];
     }
 
-    if (!mounted || requestId != _searchRequestId) return;
+    final symbols =
+        <String>{trimmed, if (!trimmed.contains('.')) '$trimmed.PA'}.toList();
 
+    try {
+      final exactMatches = await YahooFinanceService.lookupSecuritiesBySymbols(
+        symbols,
+      );
+      return exactMatches
+          .where((result) => result.isSearchDisplayableInstrument)
+          .toList();
+    } catch (_) {
+      return const <TickerSearchResult>[];
+    }
+  }
+
+  List<TickerSearchResult> _dedupeResults(List<TickerSearchResult> items) {
     final deduped = <String, TickerSearchResult>{};
-    for (final item in aggregated) {
-      deduped.putIfAbsent(item.symbol, () => item);
+    for (final item in items) {
+      deduped.putIfAbsent(item.searchIdentity, () => item);
     }
+    return deduped.values.toList();
+  }
 
-    final ordered = deduped.values.take(15).toList();
+  void _applySuggestionPriority(SearchInstrumentPriority priority) {
+    if (_searchPriority == priority) return;
+    final query = _searchController.text.trim();
+    final ranked =
+        _searchCandidates.isEmpty || query.length < 2
+            ? const <TickerSearchResult>[]
+            : rankSearchSuggestions(
+              candidates: _searchCandidates,
+              query: query,
+              priority: priority,
+            );
 
     setState(() {
+      _searchPriority = priority;
       _suggestions
         ..clear()
-        ..addAll(ordered);
-      _isSearching = false;
-      _suggestionMessage =
-          ordered.isEmpty ? "Aucun résultat pour '$raw'" : null;
+        ..addAll(ranked);
+      if (_searchCandidates.isNotEmpty) {
+        _suggestionMessage =
+            ranked.isEmpty ? "Aucun résultat pour '$query'" : null;
+      }
     });
   }
 
@@ -489,40 +509,19 @@ class _SearchPageState extends State<SearchPage>
   Widget build(BuildContext context) {
     final bool focused = _focusNode.hasFocus;
     final bool hasText = _searchController.text.isNotEmpty;
-    final Widget currentTab = _buildCurrentTab(focused, hasText);
 
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
-          child: currentTab,
+          child: KeyedSubtree(
+            key: const ValueKey('home-tab'),
+            child: _buildHome(focused, hasText),
+          ),
         ),
       ),
     );
-  }
-
-  Widget _buildCurrentTab(bool focused, bool hasText) {
-    switch (_currentIndex) {
-      case 0:
-        return KeyedSubtree(
-          key: const ValueKey('home-tab'),
-          child: _buildHome(focused, hasText),
-        );
-      case 1:
-        return const PortfolioDashboardPage(key: ValueKey('portfolio-tab'));
-      case 2:
-        return const FavoritesPage(key: ValueKey('favorites-tab'));
-      case 3:
-        return const LearnPage(key: ValueKey('learn-tab'));
-      case 4:
-        return const MarketSimulationPage(key: ValueKey('game-tab'));
-      default:
-        return KeyedSubtree(
-          key: ValueKey('placeholder-$_currentIndex'),
-          child: _buildPlaceholderTab(),
-        );
-    }
   }
 
   Widget _buildHome(bool focused, bool hasText) {
@@ -566,29 +565,30 @@ class _SearchPageState extends State<SearchPage>
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(2.2),
-                    child: _avatarId != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.asset(
-                              _getAvatarAsset(_avatarId!),
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : const DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.black,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(10),
+                    child:
+                        _avatarId != null
+                            ? ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.asset(
+                                _getAvatarAsset(_avatarId!),
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                            : const DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(10),
+                                ),
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  Icons.person_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
                               ),
                             ),
-                            child: Center(
-                              child: Icon(
-                                Icons.person_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                          ),
                   ),
                 ),
               ),
@@ -605,17 +605,6 @@ class _SearchPageState extends State<SearchPage>
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: _ink,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Rechercher • Favoris • Apprendre',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: _muted.withValues(alpha: .9),
                       ),
                     ),
                   ],
@@ -642,11 +631,7 @@ class _SearchPageState extends State<SearchPage>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: const [
-                          Icon(
-                            Icons.edit_rounded,
-                            size: 16,
-                            color: _ink,
-                          ),
+                          Icon(Icons.edit_rounded, size: 16, color: _ink),
                           SizedBox(width: 8),
                           Text(
                             'Nom',
@@ -725,7 +710,10 @@ class _SearchPageState extends State<SearchPage>
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: focused || hasText ? _wine.withValues(alpha: .35) : _line),
+              border: Border.all(
+                color:
+                    focused || hasText ? _wine.withValues(alpha: .35) : _line,
+              ),
               boxShadow: [
                 if (focused || hasText)
                   BoxShadow(
@@ -743,33 +731,37 @@ class _SearchPageState extends State<SearchPage>
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    focusNode: _focusNode,
-                    onChanged: (value) {
-                      if (_debounce?.isActive ?? false) _debounce!.cancel();
-                      _debounce = Timer(
-                        const Duration(milliseconds: 250),
-                        () => _fetchSuggestions(value),
-                      );
-                      setState(() {
-                        _selectedSuggestion =
-                            null; // une saisie clavier annule la sélection confirmée
-                      });
-                    },
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: _ink,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'Rechercher un titre / ticker…',
-                      hintStyle: TextStyle(
-                        color: _muted,
-                        fontWeight: FontWeight.w400,
+                  child: Semantics(
+                    textField: true,
+                    label: 'Rechercher une action, un ETF ou un fonds',
+                    child: TextField(
+                      controller: _searchController,
+                      focusNode: _focusNode,
+                      onChanged: (value) {
+                        if (_debounce?.isActive ?? false) _debounce!.cancel();
+                        _debounce = Timer(
+                          const Duration(milliseconds: 250),
+                          () => _fetchSuggestions(value),
+                        );
+                        setState(() {
+                          _selectedSuggestion =
+                              null; // une saisie clavier annule la sélection confirmée
+                        });
+                      },
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: _ink,
                       ),
-                      border: InputBorder.none,
-                      isDense: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Rechercher un titre / ticker…',
+                        hintStyle: TextStyle(
+                          color: _muted,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
                     ),
                   ),
                 ),
@@ -800,7 +792,9 @@ class _SearchPageState extends State<SearchPage>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: .12),
+                                      color: Colors.black.withValues(
+                                        alpha: .12,
+                                      ),
                                       blurRadius: 18,
                                       offset: const Offset(0, 10),
                                     ),
@@ -825,8 +819,10 @@ class _SearchPageState extends State<SearchPage>
                             ? () => setState(() {
                               _searchController.clear();
                               _suggestions.clear();
+                              _searchCandidates.clear();
                               _selectedSuggestion = null;
                               _suggestionMessage = null;
+                              _isSearching = false;
                             })
                             : null,
                     icon: const Icon(Icons.close_rounded, color: _muted),
@@ -834,6 +830,15 @@ class _SearchPageState extends State<SearchPage>
                 ),
               ],
             ),
+          ),
+        ),
+
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: _SearchPrioritySelector(
+            priority: _searchPriority,
+            onChanged: _applySuggestionPriority,
           ),
         ),
 
@@ -862,6 +867,7 @@ class _SearchPageState extends State<SearchPage>
                       : _SuggestionList(
                         key: const ValueKey('list'),
                         suggestions: _suggestions,
+                        selectedPriority: _searchPriority,
                         onTap:
                             (item) => setState(() {
                               _searchController.text = item.symbol;
@@ -879,19 +885,97 @@ class _SearchPageState extends State<SearchPage>
       ],
     );
   }
+}
 
-  Widget _buildPlaceholderTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.construction_rounded, color: Colors.black54, size: 32),
-          SizedBox(height: 12),
-          Text(
-            'Section en cours de préparation',
-            style: TextStyle(color: Colors.black54, fontSize: 16),
+class _SearchPrioritySelector extends StatelessWidget {
+  const _SearchPrioritySelector({
+    required this.priority,
+    required this.onChanged,
+  });
+
+  final SearchInstrumentPriority priority;
+  final ValueChanged<SearchInstrumentPriority> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _SearchPriorityChip(
+          label: 'Actions',
+          selected: priority == SearchInstrumentPriority.equities,
+          onTap: () => onChanged(SearchInstrumentPriority.equities),
+        ),
+        _SearchPriorityChip(
+          label: 'Tout',
+          selected: priority == SearchInstrumentPriority.all,
+          onTap: () => onChanged(SearchInstrumentPriority.all),
+        ),
+        _SearchPriorityChip(
+          label: 'ETF',
+          selected: priority == SearchInstrumentPriority.etfs,
+          onTap: () => onChanged(SearchInstrumentPriority.etfs),
+        ),
+        _SearchPriorityChip(
+          label: 'Fonds',
+          selected: priority == SearchInstrumentPriority.funds,
+          onTap: () => onChanged(SearchInstrumentPriority.funds),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchPriorityChip extends StatelessWidget {
+  const _SearchPriorityChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color:
+                selected
+                    ? detailsColor2.withValues(alpha: .32)
+                    : const Color(0xFFE6E8EB),
           ),
-        ],
+          gradient:
+              selected
+                  ? LinearGradient(
+                    colors: [
+                      detailsColor1.withValues(alpha: .16),
+                      detailsColor2.withValues(alpha: .12),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                  : null,
+          color: selected ? null : Colors.white,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? detailsColor2 : textColor,
+            fontWeight: FontWeight.w800,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
@@ -901,9 +985,11 @@ class _SuggestionList extends StatelessWidget {
   const _SuggestionList({
     super.key,
     required this.suggestions,
+    required this.selectedPriority,
     required this.onTap,
   });
   final List<TickerSearchResult> suggestions;
+  final SearchInstrumentPriority selectedPriority;
   final ValueChanged<TickerSearchResult> onTap;
 
   @override
@@ -931,13 +1017,22 @@ class _SuggestionList extends StatelessWidget {
             final item = suggestions[i];
             final bool hasDistinctName =
                 item.displayName.toUpperCase() != item.symbol.toUpperCase();
-            final label =
-                hasDistinctName
-                    ? '${item.symbol} — ${item.displayName}'
-                    : item.symbol;
             final exchange =
                 item.exchange.isNotEmpty ? item.exchange : item.region;
-            final suffix = exchange.isNotEmpty ? ' ($exchange)' : '';
+            final marketLine = <String>[
+              if (exchange.isNotEmpty) exchange,
+              if (item.currency.isNotEmpty) item.currency,
+            ].join(' • ');
+            final isPrioritized =
+                (selectedPriority == SearchInstrumentPriority.all &&
+                    item.isEquity &&
+                    item.isFrenchListed) ||
+                (selectedPriority == SearchInstrumentPriority.equities &&
+                    item.isEquity) ||
+                (selectedPriority == SearchInstrumentPriority.etfs &&
+                    item.isEtf) ||
+                (selectedPriority == SearchInstrumentPriority.funds &&
+                    item.isMutualFund);
             return InkWell(
               onTap: () {
                 onTap(item);
@@ -948,17 +1043,68 @@ class _SuggestionList extends StatelessWidget {
                   vertical: 12,
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.trending_up_rounded, color: Colors.black54),
+                    Icon(
+                      _iconForItem(item),
+                      color:
+                          isPrioritized
+                              ? detailsColor2.withValues(alpha: .92)
+                              : Colors.black54,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        '$label$suffix',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.symbol,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              _SuggestionTypeBadge(
+                                label: item.instrumentLabel,
+                                highlighted: isPrioritized,
+                              ),
+                            ],
+                          ),
+                          if (hasDistinctName) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              item.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                          if (marketLine.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              marketLine,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     const Icon(
@@ -971,6 +1117,48 @@ class _SuggestionList extends StatelessWidget {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForItem(TickerSearchResult item) {
+    if (item.isEtf) return Icons.stacked_line_chart_rounded;
+    if (item.isMutualFund) return Icons.account_balance_wallet_rounded;
+    if (item.isIndex) return Icons.query_stats_rounded;
+    return Icons.trending_up_rounded;
+  }
+}
+
+class _SuggestionTypeBadge extends StatelessWidget {
+  const _SuggestionTypeBadge({required this.label, required this.highlighted});
+
+  final String label;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color:
+            highlighted
+                ? detailsColor1.withValues(alpha: .16)
+                : const Color(0xFFF0F1F3),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color:
+              highlighted
+                  ? detailsColor2.withValues(alpha: .18)
+                  : const Color(0xFFE6E8EB),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: highlighted ? detailsColor2 : textColor,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -1045,7 +1233,10 @@ class _DividendCalendarButton extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: Colors.white.withValues(alpha: .85)),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white.withValues(alpha: .85),
+            ),
           ],
         ),
       ),
@@ -1078,12 +1269,25 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: CircularProgressIndicator(
-        color: detailsColor2,
-        backgroundColor: detailsColor1.withValues(alpha: .20),
-        strokeWidth: 3,
-      ),
+    return ListView.separated(
+      itemCount: 4,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder:
+          (_, __) => Container(
+            height: 84,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE6E8EB)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+          ),
     );
   }
 }

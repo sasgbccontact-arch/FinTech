@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:fintech/services/activity_tracking_service.dart';
 
 import '../models/news_article.dart';
 import '../models/quiz_question.dart';
@@ -31,7 +34,11 @@ class QuizRepository {
     String? selectedCountryIso2,
     String? selectedCountryNameFr,
   }) async {
-    final seed = computeQuizSeed(uid: _uid, sessionId: sessionId, articles: articles);
+    final seed = computeQuizSeed(
+      uid: _uid,
+      sessionId: sessionId,
+      articles: articles,
+    );
     final ref = _sessionRef(mode: mode, sessionId: sessionId);
     final snap = await ref.get();
     final data = snap.data() ?? const <String, dynamic>{};
@@ -49,7 +56,10 @@ class QuizRepository {
     final questions = await generateQuizAsync(
       articles: articles,
       seed: seed,
-      context: mode == DailyNewsGameMode.actus ? QuizContext.actus : QuizContext.monde,
+      context:
+          mode == DailyNewsGameMode.actus
+              ? QuizContext.actus
+              : QuizContext.monde,
       selectedCountryIso2: selectedCountryIso2,
       selectedCountryNameFr: selectedCountryNameFr,
     );
@@ -93,13 +103,23 @@ class QuizRepository {
 
     await ref.set({
       'answers': answers,
-      'score': {
-        'correct': score,
-        'total': questions.length,
-      },
+      'score': {'correct': score, 'total': questions.length},
       'completedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    unawaited(
+      ActivityTrackingService.trackForUser(
+        uid: _uid,
+        type: 'daily_news_quiz_completed',
+        label: mode.modeKey,
+        points: 20 + (score * 12),
+        counters: <String, int>{
+          'daily_news_quizzes': 1,
+          'daily_news_correct_answers': score,
+        },
+      ),
+    );
 
     debugPrint(
       '[QuizRepo] Résultat enregistré: session=$sessionId, mode=${mode.modeKey}, score=$score/${questions.length}',

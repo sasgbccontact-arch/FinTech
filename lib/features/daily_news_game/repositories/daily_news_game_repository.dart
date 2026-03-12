@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:fintech/services/activity_tracking_service.dart';
 
 import '../models/news_article.dart';
 import '../services/gdelt_news_service.dart';
@@ -13,7 +15,9 @@ extension DailyNewsGameModeX on DailyNewsGameMode {
   String get modeKey => this == DailyNewsGameMode.actus ? 'actus' : 'monde';
 
   String get sessionCollection =>
-      this == DailyNewsGameMode.actus ? 'dailyNewsSessions' : 'countryNewsSessions';
+      this == DailyNewsGameMode.actus
+          ? 'dailyNewsSessions'
+          : 'countryNewsSessions';
 
   int get costGems => this == DailyNewsGameMode.actus ? 50 : 100;
 }
@@ -23,36 +27,47 @@ class SessionStartResult {
   final String? sessionId;
   final int currentGems;
   final int requiredGems;
+  final int chargedGems;
+  final bool usedFreeEntry;
 
   const SessionStartResult._({
     required this.success,
     required this.sessionId,
     required this.currentGems,
     required this.requiredGems,
+    required this.chargedGems,
+    required this.usedFreeEntry,
   });
 
   factory SessionStartResult.success({
     required String sessionId,
     required int currentGems,
     required int requiredGems,
+    required int chargedGems,
+    required bool usedFreeEntry,
   }) {
     return SessionStartResult._(
       success: true,
       sessionId: sessionId,
       currentGems: currentGems,
       requiredGems: requiredGems,
+      chargedGems: chargedGems,
+      usedFreeEntry: usedFreeEntry,
     );
   }
 
   factory SessionStartResult.insufficient({
     required int currentGems,
     required int requiredGems,
+    required bool usedFreeEntry,
   }) {
     return SessionStartResult._(
       success: false,
       sessionId: null,
       currentGems: currentGems,
       requiredGems: requiredGems,
+      chargedGems: 0,
+      usedFreeEntry: usedFreeEntry,
     );
   }
 }
@@ -114,8 +129,8 @@ class DailyNewsGameRepository {
 
   final LinkedHashMap<String, _MemoryEntry<DailyArticlesResult>> _dailyMemory =
       LinkedHashMap<String, _MemoryEntry<DailyArticlesResult>>();
-  final LinkedHashMap<String, _MemoryEntry<CountryArticleResult>> _countryMemory =
-      LinkedHashMap<String, _MemoryEntry<CountryArticleResult>>();
+  final LinkedHashMap<String, _MemoryEntry<CountryArticleResult>>
+  _countryMemory = LinkedHashMap<String, _MemoryEntry<CountryArticleResult>>();
 
   final Map<String, Future<DailyArticlesResult>> _dailyInFlight = {};
   final Map<String, Future<CountryArticleResult>> _countryInFlight = {};
@@ -133,7 +148,19 @@ class DailyNewsGameRepository {
       'country_${_dayKey()}_${iso2.trim().toUpperCase()}';
 
   DocumentReference<Map<String, dynamic>> _newsCacheRef(String cacheId) {
-    return _db.collection('users').doc(_uid).collection('newsCache').doc(cacheId);
+    return _db
+        .collection('users')
+        .doc(_uid)
+        .collection('newsCache')
+        .doc(cacheId);
+  }
+
+  DocumentReference<Map<String, dynamic>> _dailyBenefitRef(String benefitId) {
+    return _db
+        .collection('users')
+        .doc(_uid)
+        .collection('dailyBenefits')
+        .doc(benefitId);
   }
 
   DocumentReference<Map<String, dynamic>> sessionRef({
@@ -151,21 +178,36 @@ class DailyNewsGameRepository {
     final userRef = _db.collection('users').doc(_uid);
     final sessionsRef = userRef.collection(mode.sessionCollection).doc();
     final txRef = userRef.collection('economyTransactions').doc();
+    final benefitRef = _dailyBenefitRef('news_${_dayKey()}');
 
     final result = await _db.runTransaction<SessionStartResult>((tx) async {
       final userSnap = await tx.get(userRef);
+      final benefitSnap = await tx.get(benefitRef);
       final currentGems = (userSnap.data()?['gems'] as num?)?.toInt() ?? 0;
       final cost = mode.costGems;
+      final modeFlag =
+          mode == DailyNewsGameMode.actus
+              ? 'free_actus_used'
+              : 'free_monde_used';
+      final freeEntryAlreadyUsed =
+          (benefitSnap.data()?[modeFlag] as bool?) ?? false;
+      final chargedGems = freeEntryAlreadyUsed ? cost : 0;
 
-      if (currentGems < cost) {
+      if (currentGems < chargedGems) {
         return SessionStartResult.insufficient(
           currentGems: currentGems,
           requiredGems: cost,
+          usedFreeEntry: !freeEntryAlreadyUsed,
         );
       }
 
-      final remaining = currentGems - cost;
+      final remaining = currentGems - chargedGems;
       tx.set(userRef, {'gems': remaining}, SetOptions(merge: true));
+      tx.set(benefitRef, {
+        'dateKey': _dayKey(),
+        modeFlag: true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 
       tx.set(sessionsRef, {
         'mode': mode.modeKey,
@@ -175,13 +217,15 @@ class DailyNewsGameRepository {
         'answers': <Map<String, dynamic>>[],
         'score': null,
         'completedAt': null,
-        'costGems': cost,
+        'costGems': chargedGems,
+        'usedFreeEntry': !freeEntryAlreadyUsed,
       });
 
       tx.set(txRef, {
         'type': 'daily_news_game',
         'mode': mode.modeKey,
-        'costGems': cost,
+        'costGems': chargedGems,
+        'usedFreeEntry': !freeEntryAlreadyUsed,
         'sessionId': sessionsRef.id,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -190,12 +234,27 @@ class DailyNewsGameRepository {
         sessionId: sessionsRef.id,
         currentGems: remaining,
         requiredGems: cost,
+        chargedGems: chargedGems,
+        usedFreeEntry: !freeEntryAlreadyUsed,
       );
     });
 
     if (result.success) {
+      unawaited(
+        ActivityTrackingService.trackForUser(
+          uid: _uid,
+          type: 'daily_news_session_started',
+          label: mode.modeKey,
+          points: result.usedFreeEntry ? 18 : 24,
+          counters: <String, int>{
+            'daily_news_sessions': 1,
+            if (mode == DailyNewsGameMode.actus) 'daily_news_actus_sessions': 1,
+            if (mode == DailyNewsGameMode.monde) 'daily_news_monde_sessions': 1,
+          },
+        ),
+      );
       debugPrint(
-        '[DailyNewsGameRepo] Session créée: mode=${mode.modeKey}, sessionId=${result.sessionId}, coût=${mode.costGems} gemmes',
+        '[DailyNewsGameRepo] Session créée: mode=${mode.modeKey}, sessionId=${result.sessionId}, coût=${result.chargedGems} gemmes, gratuite=${result.usedFreeEntry}',
       );
     } else {
       debugPrint(
@@ -386,10 +445,11 @@ class DailyNewsGameRepository {
     final ts = data['fetchedAt'];
     if (!_isFresh(ts, dailyCacheTtl)) return null;
 
-    final rawArticles = (data['articles'] as List<dynamic>? ?? const <dynamic>[])
-        .whereType<Map<String, dynamic>>()
-        .map(NewsArticle.fromFirestore)
-        .toList();
+    final rawArticles =
+        (data['articles'] as List<dynamic>? ?? const <dynamic>[])
+            .whereType<Map<String, dynamic>>()
+            .map(NewsArticle.fromFirestore)
+            .toList();
 
     if (rawArticles.isEmpty) return null;
 
@@ -399,9 +459,10 @@ class DailyNewsGameRepository {
       cacheHit: true,
       sourceType: (data['sourceType'] as String?) ?? 'cache',
       lang: (data['lang'] as String?) ?? 'en',
-      queriesTried: (data['queriesTried'] as List<dynamic>? ?? const <dynamic>[])
-          .map((e) => e.toString())
-          .toList(),
+      queriesTried:
+          (data['queriesTried'] as List<dynamic>? ?? const <dynamic>[])
+              .map((e) => e.toString())
+              .toList(),
     );
   }
 
@@ -424,14 +485,18 @@ class DailyNewsGameRepository {
       sourceType: (data['sourceType'] as String?) ?? 'cache',
       lang: (data['lang'] as String?) ?? 'en',
       queryUsed: data['queryUsed'] as String?,
-      queriesTried: (data['queriesTried'] as List<dynamic>? ?? const <dynamic>[])
-          .map((e) => e.toString())
-          .toList(),
+      queriesTried:
+          (data['queriesTried'] as List<dynamic>? ?? const <dynamic>[])
+              .map((e) => e.toString())
+              .toList(),
       bestScore: (data['bestScore'] as num?)?.toInt() ?? 0,
     );
   }
 
-  Future<void> _writeDailyCache(String cacheId, DailyNewsFetchResult fetched) async {
+  Future<void> _writeDailyCache(
+    String cacheId,
+    DailyNewsFetchResult fetched,
+  ) async {
     final data = <String, dynamic>{
       'articles': fetched.articles.map((a) => a.toFirestore()).toList(),
       'sourceType': fetched.sourceType,
@@ -536,8 +601,10 @@ class DailyNewsGameRepository {
       if (countryNameFr != null) 'countryNameFr': countryNameFr,
     };
 
-    await sessionRef(mode: mode, sessionId: sessionId)
-        .set(payload, SetOptions(merge: true));
+    await sessionRef(
+      mode: mode,
+      sessionId: sessionId,
+    ).set(payload, SetOptions(merge: true));
 
     debugPrint(
       '[DailyNewsGameRepo] Articles session enregistrés: mode=${mode.modeKey}, sessionId=$sessionId, nb=${articles.length}',

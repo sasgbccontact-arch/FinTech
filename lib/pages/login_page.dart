@@ -115,7 +115,9 @@ class _LoginPageState extends State<LoginPage> {
         return AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Text(
             'Bienvenue !',
             style: TextStyle(fontWeight: FontWeight.w800),
@@ -266,204 +268,250 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     child: Form(
                       key: _formKey,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Accédez à votre espace',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: _ink,
+                      child: AutofillGroup(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Accédez à votre espace',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: _ink,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Entrez votre email et votre mot de passe.',
-                            style: TextStyle(
-                              color: _muted,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Entrez votre email et votre mot de passe.',
+                              style: TextStyle(
+                                color: _muted,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
+                            const SizedBox(height: 16),
 
-                          // Email
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              labelText: 'Adresse email',
-                              prefixIcon: const Icon(Icons.alternate_email_rounded),
-                              filled: true,
-                              fillColor: _chipBg,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: _line),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: _line),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: _wine.withValues(alpha: .45)),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Saisissez votre email.';
-                              }
-                              if (!value.contains('@')) {
-                                return 'Email invalide.';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Password
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Mot de passe',
-                              prefixIcon: const Icon(Icons.lock_outline_rounded),
-                              filled: true,
-                              fillColor: _chipBg,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: _line),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: _line),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide(color: _wine.withValues(alpha: .45)),
-                              ),
-                              suffixIcon: IconButton(
-                                tooltip: _obscurePassword
-                                    ? 'Afficher le mot de passe'
-                                    : 'Masquer le mot de passe',
-                                onPressed: () {
-                                  setState(() => _obscurePassword = !_obscurePassword);
-                                },
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_rounded
-                                      : Icons.visibility_off_rounded,
+                            // Email
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const [
+                                AutofillHints.username,
+                                AutofillHints.email,
+                              ],
+                              decoration: InputDecoration(
+                                labelText: 'Adresse email',
+                                prefixIcon: const Icon(
+                                  Icons.alternate_email_rounded,
+                                ),
+                                filled: true,
+                                fillColor: _chipBg,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(color: _line),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(color: _line),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: _wine.withValues(alpha: .45),
+                                  ),
                                 ),
                               ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Saisissez votre email.';
+                                }
+                                if (!value.contains('@')) {
+                                  return 'Email invalide.';
+                                }
+                                return null;
+                              },
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Saisissez votre mot de passe.';
-                              }
-                              if (value.length < 6) {
-                                return 'Le mot de passe doit contenir au moins 6 caractères.';
-                              }
-                              return null;
-                            },
-                          ),
+                            const SizedBox(height: 12),
 
-                          const SizedBox(height: 14),
+                            // Password
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.done,
+                              autofillHints: const [AutofillHints.password],
+                              onFieldSubmitted: (_) {
+                                if (!_isLoading) _signIn();
+                              },
+                              decoration: InputDecoration(
+                                labelText: 'Mot de passe',
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline_rounded,
+                                ),
+                                filled: true,
+                                fillColor: _chipBg,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(color: _line),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(color: _line),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  borderSide: BorderSide(
+                                    color: _wine.withValues(alpha: .45),
+                                  ),
+                                ),
+                                suffixIcon: IconButton(
+                                  tooltip:
+                                      _obscurePassword
+                                          ? 'Afficher le mot de passe'
+                                          : 'Masquer le mot de passe',
+                                  onPressed: () {
+                                    setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    );
+                                  },
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_rounded
+                                        : Icons.visibility_off_rounded,
+                                  ),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Saisissez votre mot de passe.';
+                                }
+                                if (value.length < 6) {
+                                  return 'Le mot de passe doit contenir au moins 6 caractères.';
+                                }
+                                return null;
+                              },
+                            ),
 
-                          // Error
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 180),
-                            child: _errorMessage == null
-                                ? const SizedBox.shrink()
-                                : Container(
-                                    key: const ValueKey('error'),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: _wine.withValues(alpha: .08),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: _wine.withValues(alpha: .25),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.error_outline_rounded,
-                                          color: _wine.withValues(alpha: .95),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            _errorMessage!,
-                                            style: TextStyle(
-                                              color: _wine.withValues(alpha: .95),
-                                              fontWeight: FontWeight.w600,
+                            const SizedBox(height: 14),
+
+                            // Error
+                            Semantics(
+                              liveRegion: true,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 180),
+                                child:
+                                    _errorMessage == null
+                                        ? const SizedBox.shrink()
+                                        : Container(
+                                          key: const ValueKey('error'),
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: _wine.withValues(alpha: .08),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: _wine.withValues(
+                                                alpha: .25,
+                                              ),
                                             ),
                                           ),
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                Icons.error_outline_rounded,
+                                                color: _wine.withValues(
+                                                  alpha: .95,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  _errorMessage!,
+                                                  style: TextStyle(
+                                                    color: _wine.withValues(
+                                                      alpha: .95,
+                                                    ),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            // Primary CTA
+                            Semantics(
+                              button: true,
+                              label: 'Se connecter',
+                              child: InkWell(
+                                onTap: _isLoading ? null : _signIn,
+                                borderRadius: BorderRadius.circular(16),
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 150),
+                                  opacity: _isLoading ? .7 : 1,
+                                  child: Container(
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(16),
+                                      gradient: const LinearGradient(
+                                        colors: [_gold, _wine],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: .12,
+                                          ),
+                                          blurRadius: 18,
+                                          offset: const Offset(0, 10),
                                         ),
                                       ],
                                     ),
-                                  ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          // Primary CTA
-                          InkWell(
-                            onTap: _isLoading ? null : _signIn,
-                            borderRadius: BorderRadius.circular(16),
-                            child: AnimatedOpacity(
-                              duration: const Duration(milliseconds: 150),
-                              opacity: _isLoading ? .7 : 1,
-                              child: Container(
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  gradient: const LinearGradient(
-                                    colors: [_gold, _wine],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: .12),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 10),
+                                    child: Center(
+                                      child:
+                                          _isLoading
+                                              ? const SizedBox(
+                                                height: 20,
+                                                width: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                        Color
+                                                      >(Colors.white),
+                                                ),
+                                              )
+                                              : const Text(
+                                                'Se connecter',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 16,
+                                                  letterSpacing: .2,
+                                                ),
+                                              ),
                                     ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: _isLoading
-                                      ? const SizedBox(
-                                          height: 20,
-                                          width: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                          ),
-                                        )
-                                      : const Text(
-                                          'Se connecter',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 16,
-                                            letterSpacing: .2,
-                                          ),
-                                        ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
 
-                          const SizedBox(height: 10),
-                          Text(
-                            'En continuant, vous accédez aux fonctionnalités de l\'application.',
-                            textAlign: TextAlign.center,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: _muted,
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(height: 10),
+                            Text(
+                              'En continuant, vous accédez aux fonctionnalités de l\'application.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: _muted,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

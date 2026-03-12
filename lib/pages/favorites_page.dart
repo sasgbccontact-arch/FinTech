@@ -23,138 +23,7 @@ class FavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
     final canPop = Navigator.of(context).canPop();
-
-    if (user == null) {
-      return Scaffold(
-        backgroundColor: _bg,
-        appBar:
-            canPop
-                ? AppBar(
-                  backgroundColor: _bg,
-                  elevation: 0,
-                  leading: IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_rounded,
-                      color: Colors.black54,
-                    ),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                )
-                : null,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (!canPop) const SizedBox(height: 6),
-                const Text(
-                  'Vos favoris',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: _ink,
-                    letterSpacing: .2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  height: 6,
-                  width: 96,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(99),
-                    gradient: const LinearGradient(
-                      colors: [_gold, _wine],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Expanded(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: _border),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: .06),
-                            blurRadius: 18,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(18),
-                              gradient: const LinearGradient(
-                                colors: [_gold, _wine],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: .12),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.lock_outline_rounded,
-                              color: Colors.white,
-                              size: 26,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          const Text(
-                            'Connectez-vous pour retrouver vos favoris',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: _muted,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Vos actions sauvegardées apparaîtront ici automatiquement.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: _muted.withValues(alpha: .9),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final stream =
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('favoris')
-            .orderBy('addedAt', descending: true)
-            .snapshots();
 
     return Scaffold(
       backgroundColor: _bg,
@@ -216,175 +85,261 @@ class FavoritesPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: stream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(
-                      child: CircularProgressIndicator(
-                        color: _wine,
-                        backgroundColor: _gold.withValues(alpha: .20),
-                        strokeWidth: 3,
-                      ),
-                    );
-                  }
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: _border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: .06),
-                                blurRadius: 18,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.error_outline_rounded,
-                                color: _wine.withValues(alpha: .85),
-                                size: 34,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Impossible de charger vos favoris.\nVeuillez vérifier votre connexion.',
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(color: _muted, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-                  final docs =
-                      snapshot.data?.docs ??
-                      <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-                  if (docs.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(color: _border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: .06),
-                                blurRadius: 18,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(18),
-                                  gradient: const LinearGradient(
-                                    colors: [_gold, _wine],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.favorite_border_rounded,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              const Text(
-                                'Aucun favori pour le moment',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _ink,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Text(
-                                'Ajoutez des actions en cliquant sur le coeur\npour les retrouver instantanément.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _muted,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: docs.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      final data = doc.data();
-                      final rawSymbol =
-                          (data['symbol'] as String? ?? doc.id).trim();
-                      if (rawSymbol.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      final name = (data['name'] as String? ?? '').trim();
-                      final exchange = (data['exchange'] as String? ?? '').trim();
-                      final currency = (data['currency'] as String? ?? '').trim();
-                      final type = (data['quoteType'] as String? ?? '').trim();
-                      final addedAtRaw = data['addedAt'];
-                      DateTime? addedAt;
-                      if (addedAtRaw is Timestamp) {
-                        addedAt = addedAtRaw.toDate();
-                      }
-
-                      return _FavoriteCard(
-                        symbol: rawSymbol,
-                        name: name.isEmpty ? rawSymbol : name,
-                        exchange: exchange,
-                        currency: currency,
-                        addedAt: addedAt,
-                        onTap:
-                            () => _openInfoSheet(
-                              context,
-                              rawSymbol,
-                              name.isEmpty ? rawSymbol : name,
-                              exchange.isEmpty ? null : exchange,
-                              currency.isEmpty ? null : currency,
-                              type.isEmpty ? null : type,
-                            ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
+            const Expanded(child: FavoritesListSection()),
           ],
         ),
       ),
+    );
+  }
+}
+
+class FavoritesListSection extends StatelessWidget {
+  const FavoritesListSection({
+    super.key,
+    this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 24),
+  });
+
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: FavoritesPage._border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: const LinearGradient(
+                      colors: [FavoritesPage._gold, FavoritesPage._wine],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'Connectez-vous pour retrouver vos favoris',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: FavoritesPage._muted,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Vos actions sauvegardées apparaîtront ici automatiquement.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: FavoritesPage._muted.withValues(alpha: .9),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final stream =
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('favoris')
+            .orderBy('addedAt', descending: true)
+            .snapshots();
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _FavoritesSkeletonList();
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: FavoritesPage._border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline_rounded,
+                      color: FavoritesPage._wine.withValues(alpha: .85),
+                      size: 34,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Impossible de charger vos favoris.\nVeuillez vérifier votre connexion.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: FavoritesPage._muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        final docs =
+            snapshot.data?.docs ??
+            <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        if (docs.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: FavoritesPage._border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .06),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        gradient: const LinearGradient(
+                          colors: [FavoritesPage._gold, FavoritesPage._wine],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.favorite_border_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'Aucun favori pour le moment',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: FavoritesPage._ink,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Ajoutez des actions en cliquant sur le coeur\npour les retrouver instantanément.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: FavoritesPage._muted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return ListView.separated(
+          padding: padding,
+          physics: const BouncingScrollPhysics(),
+          itemCount: docs.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final doc = docs[index];
+            final data = doc.data();
+            final rawSymbol = (data['symbol'] as String? ?? doc.id).trim();
+            if (rawSymbol.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            final name = (data['name'] as String? ?? '').trim();
+            final exchange = (data['exchange'] as String? ?? '').trim();
+            final currency = (data['currency'] as String? ?? '').trim();
+            final type = (data['quoteType'] as String? ?? '').trim();
+            final addedAtRaw = data['addedAt'];
+            DateTime? addedAt;
+            if (addedAtRaw is Timestamp) {
+              addedAt = addedAtRaw.toDate();
+            }
+
+            return _FavoriteCard(
+              symbol: rawSymbol,
+              name: name.isEmpty ? rawSymbol : name,
+              exchange: exchange,
+              currency: currency,
+              addedAt: addedAt,
+              onTap:
+                  () => _openInfoSheet(
+                    context,
+                    rawSymbol,
+                    name.isEmpty ? rawSymbol : name,
+                    exchange.isEmpty ? null : exchange,
+                    currency.isEmpty ? null : currency,
+                    type.isEmpty ? null : type,
+                  ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -474,109 +429,142 @@ class _FavoriteCard extends StatelessWidget {
       );
     }
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: FavoritesPage._border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: const LinearGradient(
-                  colors: [FavoritesPage._gold, FavoritesPage._wine],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: .10),
-                    blurRadius: 16,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+    return Semantics(
+      button: true,
+      label: 'Ouvrir le favori $displaySymbol',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: FavoritesPage._border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
-              alignment: Alignment.center,
-              child: Text(
-                displaySymbol.substring(
-                  0,
-                  displaySymbol.length >= 4 ? 4 : displaySymbol.length,
-                ),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: FavoritesPage._ink,
-                    ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: const LinearGradient(
+                    colors: [FavoritesPage._gold, FavoritesPage._wine],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    displaySymbol,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black.withValues(alpha: 0.6),
-                      letterSpacing: .8,
-                    ),
-                  ),
-                  if (subtitleTags.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: subtitleTags.map(buildTag).toList(),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: .10),
+                      blurRadius: 16,
+                      offset: const Offset(0, 10),
                     ),
                   ],
-                  if (addedText != null) ...[
-                    const SizedBox(height: 8),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  displaySymbol.substring(
+                    0,
+                    displaySymbol.length >= 4 ? 4 : displaySymbol.length,
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      addedText,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: FavoritesPage._muted,
-                        fontWeight: FontWeight.w500,
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: FavoritesPage._ink,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      displaySymbol,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black.withValues(alpha: 0.6),
+                        letterSpacing: .8,
+                      ),
+                    ),
+                    if (subtitleTags.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: subtitleTags.map(buildTag).toList(),
+                      ),
+                    ],
+                    if (addedText != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        addedText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: FavoritesPage._muted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: FavoritesPage._muted.withValues(alpha: .7),
-              size: 26,
-            ),
-          ],
+              Icon(
+                Icons.chevron_right_rounded,
+                color: FavoritesPage._muted.withValues(alpha: .7),
+                size: 26,
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _FavoritesSkeletonList extends StatelessWidget {
+  const _FavoritesSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      itemCount: 4,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder:
+          (_, __) => Container(
+            height: 98,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: FavoritesPage._border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+          ),
     );
   }
 }

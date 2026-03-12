@@ -4,8 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "settle": "node scripts/settle_games.js",
-    "metals": "node scripts/send_metals_notification.js"
+    "settle": "node scripts/process_duels.js",
+    "duels:process": "node scripts/process_duels.js",
+    "metals": "node scripts/send_metals_notification.js",
+    "leaderboard:weekly": "node scripts/build_weekly_leaderboard.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0"

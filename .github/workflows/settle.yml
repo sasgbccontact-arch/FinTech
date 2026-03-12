@@ -1,12 +1,12 @@
-name: Settle Community Games
+name: Process Weekly Duels
 
 on:
   schedule:
-    - cron: "0 * * * *" # every hour
+    - cron: "*/10 * * * *"
   workflow_dispatch: {}
 
 jobs:
-  settle:
+  process:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,7 +20,7 @@ jobs:
       - name: Install deps
         run: npm install
 
-      - name: Run settlement
+      - name: Run duel worker
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}

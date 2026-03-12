@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:fintech/models/chart_models.dart';
 import 'package:fintech/models/financial_snapshot.dart';
 import 'package:fintech/models/dividend_event.dart';
+import 'package:fintech/models/fundamental_game_models.dart';
 import 'package:fintech/models/news_models.dart';
 import 'package:http/http.dart' as http;
 
@@ -378,10 +379,24 @@ class YahooFinanceService {
     }
   }
 
-  /// Returns the top search results for equities matching [query].
-  static Future<List<TickerSearchResult>> searchEquities(String query) async {
-    final uri = Uri.parse(
-      '$_searchEndpoint?q=${Uri.encodeComponent(query)}&lang=fr-FR&region=FR&quotesCount=20&newsCount=0&enableFuzzyQuery=false',
+  /// Returns the top search results for the supported security types.
+  static Future<List<TickerSearchResult>> searchSecurities(
+    String query, {
+    int quotesCount = 50,
+    bool enableFuzzyQuery = false,
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return const <TickerSearchResult>[];
+
+    final uri = Uri.parse(_searchEndpoint).replace(
+      queryParameters: <String, String>{
+        'q': trimmed,
+        'lang': 'fr-FR',
+        'region': 'FR',
+        'quotesCount': quotesCount.toString(),
+        'newsCount': '0',
+        'enableFuzzyQuery': enableFuzzyQuery ? 'true' : 'false',
+      },
     );
 
     final res = await http
@@ -396,7 +411,55 @@ class YahooFinanceService {
 
     final decoded = jsonDecode(res.body);
     final quotes = decoded is Map<String, dynamic> ? decoded['quotes'] : null;
-    if (quotes is! List) return const [];
+    return _parseSearchResults(quotes);
+  }
+
+  /// Legacy wrapper kept for screens that only want operational instruments.
+  static Future<List<TickerSearchResult>> searchEquities(String query) async {
+    final results = await searchSecurities(query, quotesCount: 20);
+    return results
+        .where(
+          (result) =>
+              (result.isEquity || result.isEtf) && result.isSupportedExchange,
+        )
+        .toList();
+  }
+
+  static Future<List<TickerSearchResult>> lookupSecuritiesBySymbols(
+    List<String> symbols,
+  ) async {
+    final cleaned =
+        symbols
+            .map((symbol) => symbol.trim().toUpperCase())
+            .where((symbol) => symbol.isNotEmpty)
+            .toSet()
+            .toList();
+    if (cleaned.isEmpty) return const <TickerSearchResult>[];
+
+    final uri = Uri.parse(
+      _quoteEndpoint,
+    ).replace(queryParameters: <String, String>{'symbols': cleaned.join(',')});
+
+    final res = await http
+        .get(uri, headers: _baseHeaders)
+        .timeout(const Duration(seconds: 8));
+
+    if (res.statusCode != 200) {
+      throw FinanceRequestException(
+        'Recherche exacte indisponible (${res.statusCode}).',
+      );
+    }
+
+    final decoded = jsonDecode(res.body);
+    final quoteResponse =
+        decoded is Map<String, dynamic> ? decoded['quoteResponse'] : null;
+    final results =
+        quoteResponse is Map<String, dynamic> ? quoteResponse['result'] : null;
+    return _parseSearchResults(results);
+  }
+
+  static List<TickerSearchResult> _parseSearchResults(dynamic quotes) {
+    if (quotes is! List) return const <TickerSearchResult>[];
 
     final seen = <String>{};
     final results = <TickerSearchResult>[];
@@ -405,8 +468,7 @@ class YahooFinanceService {
       if (item is! Map<String, dynamic>) continue;
       final result = TickerSearchResult.tryFromJson(item);
       if (result == null) continue;
-      if (seen.contains(result.symbol)) continue;
-      seen.add(result.symbol);
+      if (!seen.add(result.searchIdentity)) continue;
       results.add(result);
     }
 
@@ -768,6 +830,32 @@ class YahooFinanceService {
     }
   }
 
+  static Future<FundamentalGameData> fetchFundamentalGameData(
+    String symbol,
+  ) async {
+    Future<FundamentalGameData> run() => _fetchFundamentalGameData(symbol);
+
+    try {
+      return await run();
+    } on FinanceRequestException catch (e) {
+      if (e.message == 'consent_required' && onConsentRequired != null) {
+        _log(
+          'Consent required for fundamental game on $symbol — invoking hook...',
+        );
+        try {
+          final ok = await onConsentRequired!.call();
+          _log('onConsentRequired returned: ${ok == true ? 'true' : 'false'}');
+          if (ok == true) {
+            return await run();
+          }
+        } catch (hookError) {
+          _log('onConsentRequired hook error: $hookError');
+        }
+      }
+      rethrow;
+    }
+  }
+
   static List<FinanceNewsItem> _extractNewsItemsFromPayload(dynamic decoded) {
     final items = <FinanceNewsItem>[];
     final localSeen = <String>{};
@@ -931,6 +1019,353 @@ class YahooFinanceService {
     }
 
     return FinancialSnapshot.fromQuoteSummary(first);
+  }
+
+  static Future<FundamentalGameData> _fetchFundamentalGameData(
+    String symbol,
+  ) async {
+    final summary = await _fetchQuoteSummaryResult(
+      symbol,
+      modules: const [
+        'price',
+        'financialData',
+        'defaultKeyStatistics',
+        'summaryDetail',
+        'balanceSheetHistory',
+        'balanceSheetHistoryQuarterly',
+        'incomeStatementHistory',
+        'incomeStatementHistoryQuarterly',
+        'cashflowStatementHistory',
+        'summaryProfile',
+        'fundProfile',
+      ],
+      contextLabel: 'fundamental game',
+      timeoutMessage: 'Données fondamentales indisponibles (timeout).',
+      unavailableMessage: 'Données fondamentales indisponibles.',
+      invalidMessage: 'Réponse Yahoo invalide pour le jeu fondamental.',
+    );
+    final dividendHistory = await _fetchDividendHistoryByYear(symbol);
+    return FundamentalGameData.fromYahoo(
+      symbol: symbol,
+      summary: summary,
+      dividendPerYear: dividendHistory,
+    );
+  }
+
+  static Future<Map<String, dynamic>> _fetchQuoteSummaryResult(
+    String symbol, {
+    required List<String> modules,
+    required String contextLabel,
+    required String timeoutMessage,
+    required String unavailableMessage,
+    required String invalidMessage,
+  }) async {
+    try {
+      await _ensureYahooAuth(symbol);
+    } on FinanceRequestException {
+      rethrow;
+    } catch (e) {
+      _log('ensureYahooAuth ($contextLabel) error: ' + e.toString());
+    }
+
+    try {
+      await _refreshCrumb();
+    } catch (e) {
+      _log('refreshCrumb ($contextLabel) error: ' + e.toString());
+    }
+
+    if ((_buildCookieHeader() ?? '').isEmpty) {
+      throw FinanceRequestException('consent_required');
+    }
+
+    Uri _buildUri() {
+      final symbolPath = Uri.encodeComponent(symbol);
+      final params = <String, String>{'modules': modules.join(',')};
+      if (_yahooCrumb != null && _yahooCrumb!.isNotEmpty) {
+        params['crumb'] = _yahooCrumb!;
+      }
+      return Uri.parse(
+        '$_quoteSummaryEndpoint/$symbolPath',
+      ).replace(queryParameters: params);
+    }
+
+    Future<http.Response> _doRequest(Uri uri) {
+      final headers = <String, String>{
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'Accept-Language': 'en-US,en;q=0.9,fr-FR;q=0.8',
+        'User-Agent': _baseHeaders['User-Agent']!,
+        'Referer': 'https://finance.yahoo.com/quote/$symbol',
+        'Connection': 'keep-alive',
+      };
+      final cookie = _buildCookieHeader();
+      if (cookie != null && cookie.isNotEmpty) {
+        headers['Cookie'] = cookie;
+      }
+      final uriString = uri.toString();
+      _log('Requesting $contextLabel: ' + uriString);
+      return http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 8));
+    }
+
+    Uri uri = _buildUri();
+    http.Response res;
+    try {
+      res = await _doRequest(uri);
+    } on TimeoutException {
+      throw FinanceRequestException(timeoutMessage);
+    } catch (e) {
+      throw FinanceRequestException('$unavailableMessage ${e.toString()}');
+    }
+
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      _yahooCookie = null;
+      _yahooCrumb = null;
+      _yahooCookieExpiry = null;
+      await _bootstrapCookies();
+      try {
+        await _refreshCrumb(force: true);
+      } catch (e) {
+        _log('refreshCrumb ($contextLabel retry) error: ' + e.toString());
+      }
+      uri = _buildUri();
+      res = await _doRequest(uri);
+    }
+
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw FinanceRequestException(
+        'consent_required',
+        statusCode: res.statusCode,
+      );
+    }
+
+    if (res.statusCode != 200) {
+      final preview =
+          res.body.isNotEmpty
+              ? res.body.substring(
+                0,
+                res.body.length > 200 ? 200 : res.body.length,
+              )
+              : '';
+      _log(
+        '$contextLabel non-200 for ' +
+            symbol +
+            ': ' +
+            res.statusCode.toString() +
+            ' -> ' +
+            preview,
+      );
+      throw FinanceRequestException(
+        '$unavailableMessage (${res.statusCode}).',
+        statusCode: res.statusCode,
+      );
+    }
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } catch (_) {
+      throw FinanceRequestException(invalidMessage);
+    }
+
+    Map<String, dynamic>? asMap(dynamic value) =>
+        value is Map<String, dynamic> ? value : null;
+
+    final summary = asMap(decoded)?['quoteSummary'];
+    final resultList =
+        summary is Map<String, dynamic> ? summary['result'] : null;
+    if (resultList is! List || resultList.isEmpty) {
+      throw FinanceRequestException(unavailableMessage);
+    }
+
+    final first = asMap(resultList.first);
+    if (first == null) {
+      throw FinanceRequestException(unavailableMessage);
+    }
+    return first;
+  }
+
+  static Future<Map<int, double>> _fetchDividendHistoryByYear(
+    String symbol,
+  ) async {
+    try {
+      await _ensureYahooAuth(symbol);
+    } on FinanceRequestException {
+      rethrow;
+    } catch (e) {
+      _log('ensureYahooAuth (dividend history) error: ' + e.toString());
+    }
+
+    try {
+      await _refreshCrumb();
+    } catch (e) {
+      _log('refreshCrumb (dividend history) error: ' + e.toString());
+    }
+
+    if ((_buildCookieHeader() ?? '').isEmpty) {
+      throw FinanceRequestException('consent_required');
+    }
+
+    Uri _buildUri() {
+      final symbolPath = Uri.encodeComponent(symbol);
+      final end = DateTime.now().toUtc();
+      final start = DateTime.utc(end.year - 6, end.month, end.day);
+      final params = <String, String>{
+        'period1': '${start.millisecondsSinceEpoch ~/ 1000}',
+        'period2': '${end.millisecondsSinceEpoch ~/ 1000}',
+        'interval': '1mo',
+        'events': 'div',
+        'includePrePost': 'false',
+        'lang': 'fr-FR',
+        'region': 'FR',
+      };
+      if (_yahooCrumb != null && _yahooCrumb!.isNotEmpty) {
+        params['crumb'] = _yahooCrumb!;
+      }
+      return Uri.parse(
+        '$_chartEndpoint/$symbolPath',
+      ).replace(queryParameters: params);
+    }
+
+    Future<http.Response> _doRequest(Uri uri) {
+      final cookie = _buildCookieHeader();
+      if (cookie == null || cookie.isEmpty) {
+        return Future.error(FinanceRequestException('consent_required'));
+      }
+      final headers = <String, String>{
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip',
+        'Accept-Language': 'en-US,en;q=0.9,fr-FR;q=0.8',
+        'User-Agent': _baseHeaders['User-Agent']!,
+        'Referer': 'https://finance.yahoo.com/quote/$symbol',
+        'Connection': 'keep-alive',
+        'Cookie': cookie,
+      };
+      final uriString = uri.toString();
+      _log('Dividend history request URI: ' + uriString);
+      return http
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 8));
+    }
+
+    Uri uri = _buildUri();
+    http.Response res;
+    try {
+      res = await _doRequest(uri);
+    } on FinanceRequestException {
+      rethrow;
+    } on TimeoutException {
+      throw FinanceRequestException(
+        'Historique de dividendes indisponible (timeout).',
+      );
+    } catch (e) {
+      throw FinanceRequestException(
+        'Historique de dividendes indisponible. ${e.toString()}',
+      );
+    }
+
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      _yahooCookie = null;
+      _yahooCrumb = null;
+      _yahooCookieExpiry = null;
+      await _bootstrapCookies();
+      try {
+        await _refreshCrumb(force: true);
+      } catch (e) {
+        _log('refreshCrumb (dividend history retry) error: ' + e.toString());
+      }
+      uri = _buildUri();
+      res = await _doRequest(uri);
+    }
+
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw FinanceRequestException(
+        'consent_required',
+        statusCode: res.statusCode,
+      );
+    }
+
+    if (res.statusCode != 200) {
+      throw FinanceRequestException(
+        'Historique de dividendes indisponible (${res.statusCode}).',
+        statusCode: res.statusCode,
+      );
+    }
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } catch (_) {
+      throw FinanceRequestException(
+        'Réponse Yahoo invalide pour l’historique de dividendes.',
+      );
+    }
+
+    Map<String, dynamic>? asMap(dynamic value) =>
+        value is Map<String, dynamic> ? value : null;
+
+    double? readNum(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value.replaceAll(',', ''));
+      if (value is Map<String, dynamic>) {
+        final raw = value['raw'];
+        if (raw is num) return raw.toDouble();
+      }
+      return null;
+    }
+
+    DateTime? readDate(dynamic value) {
+      if (value == null) return null;
+      if (value is num) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          value.toInt() * 1000,
+          isUtc: true,
+        );
+      }
+      if (value is Map<String, dynamic>) {
+        final raw = value['raw'];
+        if (raw is num) {
+          return DateTime.fromMillisecondsSinceEpoch(
+            raw.toInt() * 1000,
+            isUtc: true,
+          );
+        }
+      }
+      return null;
+    }
+
+    final chart = decoded is Map<String, dynamic> ? decoded['chart'] : null;
+    final results = chart is Map<String, dynamic> ? chart['result'] : null;
+    if (results is! List || results.isEmpty) {
+      return const <int, double>{};
+    }
+
+    final first = asMap(results.first);
+    if (first == null) return const <int, double>{};
+
+    final events = asMap(first['events']);
+    final dividends = asMap(events?['dividends']);
+    if (dividends == null || dividends.isEmpty) {
+      return const <int, double>{};
+    }
+
+    final totals = <int, double>{};
+    for (final entry in dividends.values) {
+      final dividend = asMap(entry);
+      if (dividend == null) continue;
+      final amount = readNum(dividend['amount']);
+      final date = readDate(dividend['date']);
+      final year = date?.year;
+      if (amount == null || year == null) continue;
+      totals.update(
+        year,
+        (current) => current + amount,
+        ifAbsent: () => amount,
+      );
+    }
+    return totals;
   }
 
   static Future<DividendEvent?> fetchDividendEvent(String symbol) async {
@@ -2231,6 +2666,7 @@ class TickerSearchResult {
     required this.quoteType,
     required this.region,
     required this.currency,
+    this.yahooScore,
   });
 
   final String symbol;
@@ -2239,10 +2675,37 @@ class TickerSearchResult {
   final String quoteType;
   final String region;
   final String currency;
+  final double? yahooScore;
 
-  bool get isEquity => quoteType.toUpperCase() == 'EQUITY';
-  bool get isEtf => quoteType.toUpperCase() == 'ETF';
+  String get normalizedQuoteType => quoteType.trim().toUpperCase();
+  bool get isEquity => normalizedQuoteType == 'EQUITY';
+  bool get isEtf => normalizedQuoteType == 'ETF';
+  bool get isMutualFund =>
+      normalizedQuoteType == 'MUTUALFUND' ||
+      normalizedQuoteType == 'MUTUAL FUND';
+  bool get isIndex => normalizedQuoteType == 'INDEX';
   bool get isSupportedInstrument => isEquity || isEtf;
+  bool get isSearchDisplayableInstrument =>
+      isEquity || isEtf || isMutualFund || isIndex;
+
+  String get instrumentLabel {
+    if (isEquity) return 'Action';
+    if (isEtf) return 'ETF';
+    if (isMutualFund) return 'Fonds';
+    if (isIndex) return 'Indice';
+    return 'Titre';
+  }
+
+  String get searchIdentity =>
+      '${symbol.toUpperCase()}|$normalizedQuoteType|${exchange.toUpperCase()}|${region.toUpperCase()}';
+
+  bool get isFrenchListed {
+    final symbolUp = symbol.toUpperCase();
+    final exchangeUp = exchange.toUpperCase();
+    return symbolUp.endsWith('.PA') ||
+        exchangeUp.contains('PARIS') ||
+        exchangeUp.contains('EURONEXT PARIS');
+  }
 
   bool get isSupportedExchange {
     final up = exchange.toUpperCase();
@@ -2288,6 +2751,11 @@ class TickerSearchResult {
             .toString();
     final region = (json['region'] ?? '').toString();
     final currency = (json['currency'] ?? '').toString();
+    final rawScore = json['score'];
+    final yahooScore =
+        rawScore is num
+            ? rawScore.toDouble()
+            : double.tryParse(rawScore?.toString() ?? '');
 
     final result = TickerSearchResult(
       symbol: rawSymbol,
@@ -2296,10 +2764,10 @@ class TickerSearchResult {
       quoteType: type.isEmpty ? 'UNKNOWN' : type,
       region: region,
       currency: currency,
+      yahooScore: yahooScore,
     );
 
-    if (!result.isSupportedInstrument || !result.isSupportedExchange)
-      return null;
+    if (!result.isSearchDisplayableInstrument) return null;
     return result;
   }
 }

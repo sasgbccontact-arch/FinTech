@@ -2,13 +2,10 @@ name: Daily Metals Notification
 
 on:
   schedule:
-    # GitHub Actions planifie en UTC et l'exécution réelle peut dériver.
-    # On tente donc toutes les 5 min autour de 9h30 Paris:
-    #   - été  (CEST, UTC+2) : 07:30 -> 07:55 UTC
-    #   - hiver (CET,  UTC+1) : 08:30 -> 08:55 UTC
-    # Le script filtre ensuite sur l'heure de Paris et n'envoie qu'une fois par jour.
-    - cron: "30-55/5 7 * * *"
-    - cron: "30-55/5 8 * * *"
+    # GitHub Actions peut dériver de plusieurs minutes. On lance donc
+    # le worker toutes les 10 min entre 07:00 et 10:50 UTC et le script
+    # filtre ensuite sur l'heure de Paris.
+    - cron: "*/10 7-10 * * *"
   workflow_dispatch: {}   # Déclenchement manuel (tests)
 
 jobs:

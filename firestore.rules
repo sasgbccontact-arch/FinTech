@@ -1,30 +1,754 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+
+    function isValidThemeName(name) {
+      return name is string && name.size() > 0 && name.size() <= 40;
+    }
+
+    function isValidAuthorName(name) {
+      return name is string && name.size() > 0 && name.size() <= 80;
+    }
+
+    function isValidMessageText(text) {
+      return text is string && text.size() > 0 && text.size() <= 2000;
+    }
+
+    function isDuelProfileState(state) {
+      return state in ['idle', 'pending_sent', 'pending_received', 'active_duel'];
+    }
+
+    function isDuelInboxType(type) {
+      return type in [
+        'duel_invite', 'duel_started', 'duel_refused',
+        'duel_expired', 'duel_finished'
+      ];
+    }
+
+    function isValidPostType(postType) {
+      return postType in ['discussion', 'question', 'analyse', 'alerte'];
+    }
+
+    function isValidTags(tags) {
+      return tags is list
+        && tags.size() <= 4;
+    }
+
+    function isValidAttachment(attachment) {
+      return attachment == null
+        || (
+          attachment is map
+          && attachment.keys().hasOnly([
+            'symbol', 'displayName', 'exchange', 'currency', 'quoteType'
+          ])
+          && attachment.symbol is string
+          && attachment.symbol.size() > 0
+          && attachment.symbol.size() <= 16
+          && attachment.displayName is string
+          && attachment.displayName.size() > 0
+          && attachment.displayName.size() <= 200
+          && attachment.exchange is string
+          && attachment.exchange.size() <= 40
+          && attachment.currency is string
+          && attachment.currency.size() <= 12
+          && attachment.quoteType is string
+          && attachment.quoteType.size() <= 32
+        );
+    }
+
+    function hasAcceptedFriendRequest(participants) {
+      return participants is list
+        && participants.size() == 2
+        && participants[0] is string
+        && participants[1] is string
+        && participants[0] != participants[1]
+        && (
+          (
+            existsAfter(/databases/$(database)/documents/friend_requests/$(participants[0] + '_' + participants[1]))
+            && getAfter(/databases/$(database)/documents/friend_requests/$(participants[0] + '_' + participants[1])).data.status == 'accepted'
+            && getAfter(/databases/$(database)/documents/friend_requests/$(participants[0] + '_' + participants[1])).data.fromUid == participants[0]
+            && getAfter(/databases/$(database)/documents/friend_requests/$(participants[0] + '_' + participants[1])).data.toUid == participants[1]
+          )
+          || (
+            existsAfter(/databases/$(database)/documents/friend_requests/$(participants[1] + '_' + participants[0]))
+            && getAfter(/databases/$(database)/documents/friend_requests/$(participants[1] + '_' + participants[0])).data.status == 'accepted'
+            && getAfter(/databases/$(database)/documents/friend_requests/$(participants[1] + '_' + participants[0])).data.fromUid == participants[1]
+            && getAfter(/databases/$(database)/documents/friend_requests/$(participants[1] + '_' + participants[0])).data.toUid == participants[0]
+          )
+        );
+    }
+
+    function isAdminUser() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(uid()))
+        && get(/databases/$(database)/documents/users/$(uid())).data.isAdmin == true;
+    }
+
+    function isLeaseActive() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/forum_meta/housekeeping)
+        && get(/databases/$(database)/documents/forum_meta/housekeeping).data.leaseOwnerUid == uid()
+        && get(/databases/$(database)/documents/forum_meta/housekeeping).data.leaseUntil is timestamp
+        && get(/databases/$(database)/documents/forum_meta/housekeeping).data.leaseUntil > request.time;
+    }
+
+    function sharesActiveDuelWith(otherUid) {
+      return isSignedIn()
+        && uid() != otherUid
+        && exists(/databases/$(database)/documents/duel_profiles/$(uid()))
+        && exists(/databases/$(database)/documents/duel_profiles/$(otherUid))
+        && get(/databases/$(database)/documents/duel_profiles/$(uid())).data.state == 'active_duel'
+        && get(/databases/$(database)/documents/duel_profiles/$(otherUid)).data.state == 'active_duel'
+        && get(/databases/$(database)/documents/duel_profiles/$(uid())).data.currentDuelId is string
+        && get(/databases/$(database)/documents/duel_profiles/$(uid())).data.currentDuelId
+          == get(/databases/$(database)/documents/duel_profiles/$(otherUid)).data.currentDuelId
+        && exists(/databases/$(database)/documents/duels/$(get(/databases/$(database)/documents/duel_profiles/$(uid())).data.currentDuelId))
+        && get(/databases/$(database)/documents/duels/$(get(/databases/$(database)/documents/duel_profiles/$(uid())).data.currentDuelId)).data.participants.hasAll([uid(), otherUid]);
+    }
+
+    function duelProfilePointersAreValid(profileUid, data) {
+      return (
+        data.state == 'idle'
+        && data.currentRequestId == null
+        && data.currentDuelId == null
+      )
+      || (
+        data.state in ['pending_sent', 'pending_received']
+        && data.currentRequestId is string
+        && data.currentDuelId == null
+        && existsAfter(/databases/$(database)/documents/duel_requests/$(data.currentRequestId))
+        && (
+          getAfter(/databases/$(database)/documents/duel_requests/$(data.currentRequestId)).data.initiatorUid == profileUid
+          || getAfter(/databases/$(database)/documents/duel_requests/$(data.currentRequestId)).data.targetUid == profileUid
+        )
+      )
+      || (
+        data.state == 'active_duel'
+        && data.currentRequestId == null
+        && data.currentDuelId is string
+        && existsAfter(/databases/$(database)/documents/duels/$(data.currentDuelId))
+        && getAfter(/databases/$(database)/documents/duels/$(data.currentDuelId)).data.participants.hasAny([profileUid])
+      );
+    }
+
+    function canMutatePeerDuelProfile(profileUid) {
+      return (
+        request.resource.data.state == 'pending_received'
+        && request.resource.data.currentRequestId is string
+        && request.resource.data.currentDuelId == null
+        && existsAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.currentRequestId))
+        && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.currentRequestId)).data.status == 'pending_response'
+        && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.currentRequestId)).data.initiatorUid == uid()
+        && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.currentRequestId)).data.targetUid == profileUid
+      )
+      || (
+        resource.data.state == 'pending_sent'
+        && resource.data.currentRequestId is string
+        && request.resource.data.state == 'active_duel'
+        && request.resource.data.currentRequestId == null
+        && request.resource.data.currentDuelId is string
+        && existsAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId))
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.status == 'converted'
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.initiatorUid == profileUid
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.targetUid == uid()
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.duelId == request.resource.data.currentDuelId
+        && existsAfter(/databases/$(database)/documents/duels/$(request.resource.data.currentDuelId))
+        && getAfter(/databases/$(database)/documents/duels/$(request.resource.data.currentDuelId)).data.participants.hasAll([uid(), profileUid])
+      )
+      || (
+        resource.data.state == 'pending_sent'
+        && resource.data.currentRequestId is string
+        && request.resource.data.state == 'idle'
+        && request.resource.data.currentRequestId == null
+        && request.resource.data.currentDuelId == null
+        && existsAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId))
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.status == 'refused'
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.initiatorUid == profileUid
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.targetUid == uid()
+      );
+    }
+
+    // =========================
+    // Profils
+    // =========================
     match /users/{userId} {
-      // Everyone can read user profiles (same behavior as before)
       allow read: if true;
+      allow create, update, delete: if isSignedIn() && uid() == userId;
+    }
 
-      // Only the authenticated user can create/update/delete their own user doc
-      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId}/inbox/{itemId} {
+      allow read, update, delete: if isSignedIn() && uid() == userId;
 
-      // Favorites subcollection (users/{userId}/favoris)
-      match /favoris/{favoriteId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'type', 'title', 'body', 'createdAt',
+          'requestId', 'duelId', 'actorUid', 'isRead'
+        ])
+        && request.resource.data.type is string
+        && request.resource.data.title is string
+        && request.resource.data.body is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.actorUid is string
+        && request.resource.data.isRead == false
+        && (
+          uid() == userId
+          || (
+            isDuelInboxType(request.resource.data.type)
+            && request.resource.data.actorUid == uid()
+          )
+        );
+    }
 
-      // Portfolios subcollection (users/{userId}/portfolios)
-      match /portfolios/{portfolioId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+    match /users/{userId}/devices/{deviceId} {
+      allow read: if isSignedIn() && uid() == userId;
+      allow write: if isSignedIn()
+        && uid() == userId
+        && request.resource.data.keys().hasOnly([
+          'fcmToken', 'platform', 'updatedAt', 'notificationsEnabled'
+        ]);
+    }
 
-        // Nested positions (users/{userId}/portfolios/{portfolioId}/positions)
-        match /positions/{positionId} {
-          allow read, write: if request.auth != null && request.auth.uid == userId;
-        }
+    match /users/{userId}/games/portofolio/positions/{positionId} {
+      allow read: if (isSignedIn() && uid() == userId) || sharesActiveDuelWith(userId);
+    }
+
+    match /users/{userId}/{document=**} {
+      allow read, write: if isSignedIn() && uid() == userId;
+    }
+
+    // =========================
+    // Duels
+    // =========================
+    match /duel_profiles/{profileUid} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && (uid() == profileUid || canMutatePeerDuelProfile(profileUid))
+        && request.resource.data.keys().hasOnly([
+          'displayName', 'avatarId', 'level', 'reserveCoins',
+          'holdingsValueEstimate', 'positionsCount', 'eligible', 'state',
+          'currentRequestId', 'currentDuelId', 'lastActiveAt', 'lastSyncedAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && request.resource.data.level is int
+        && request.resource.data.reserveCoins is number
+        && request.resource.data.holdingsValueEstimate is number
+        && request.resource.data.positionsCount is int
+        && request.resource.data.eligible is bool
+        && isDuelProfileState(request.resource.data.state)
+        && duelProfilePointersAreValid(profileUid, request.resource.data);
+      allow delete: if false;
+    }
+
+    match /duel_requests/{requestId} {
+      allow read: if isSignedIn()
+        && (resource.data.initiatorUid == uid() || resource.data.targetUid == uid());
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'initiatorUid', 'targetUid', 'status', 'createdAt',
+          'responseDeadline', 'matchScore', 'initiatorSnapshot',
+          'targetSnapshot', 'invitePushSentAt', 'resolutionNotifiedAt'
+        ])
+        && request.resource.data.initiatorUid == uid()
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetUid != uid()
+        && request.resource.data.status == 'pending_response'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.responseDeadline is timestamp
+        && request.resource.data.matchScore is number
+        && request.resource.data.initiatorSnapshot is map
+        && request.resource.data.targetSnapshot is map;
+
+      allow update: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'initiatorUid', 'targetUid', 'status', 'createdAt',
+          'responseDeadline', 'matchScore', 'initiatorSnapshot',
+          'targetSnapshot', 'invitePushSentAt', 'resolutionNotifiedAt',
+          'acceptedAt', 'refusedAt', 'duelId'
+        ])
+        && request.resource.data.initiatorUid == resource.data.initiatorUid
+        && request.resource.data.targetUid == resource.data.targetUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.responseDeadline == resource.data.responseDeadline
+        && request.resource.data.matchScore == resource.data.matchScore
+        && request.resource.data.initiatorSnapshot == resource.data.initiatorSnapshot
+        && request.resource.data.targetSnapshot == resource.data.targetSnapshot
+        && request.resource.data.invitePushSentAt == resource.data.invitePushSentAt
+        && request.resource.data.resolutionNotifiedAt == resource.data.resolutionNotifiedAt
+        && (
+          (
+            uid() == resource.data.targetUid
+            && resource.data.status == 'pending_response'
+            && request.time < resource.data.responseDeadline
+            && request.resource.data.status == 'refused'
+            && request.resource.data.refusedAt is timestamp
+          )
+          || (
+            uid() == resource.data.targetUid
+            && resource.data.status == 'pending_response'
+            && request.time < resource.data.responseDeadline
+            && request.resource.data.status == 'converted'
+            && request.resource.data.acceptedAt is timestamp
+            && request.resource.data.duelId is string
+          )
+        );
+      allow delete: if false;
+    }
+
+    match /duels/{duelId} {
+      allow read: if isSignedIn()
+        && resource.data.participants is list
+        && resource.data.participants.hasAny([uid()]);
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'status', 'participants', 'acceptedAt', 'endsAt',
+          'requestId',
+          'scoringMode', 'resultAnimationReady', 'resultNotifiedAt'
+        ])
+        && request.resource.data.status == 'active'
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.participants.hasAny([uid()])
+        && request.resource.data.participants[1] == uid()
+        && request.resource.data.acceptedAt is timestamp
+        && request.resource.data.endsAt is timestamp
+        && request.resource.data.requestId is string
+        && existsAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.requestId))
+        && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.requestId)).data.status == 'converted'
+        && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.requestId)).data.duelId == duelId
+        && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.requestId)).data.initiatorUid == request.resource.data.participants[0]
+        && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.requestId)).data.targetUid == request.resource.data.participants[1];
+
+      allow update: if isSignedIn()
+        && resource.data.participants is list
+        && resource.data.participants.hasAny([uid()])
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.acceptedAt == resource.data.acceptedAt
+        && request.resource.data.endsAt == resource.data.endsAt
+        && request.resource.data.requestId == resource.data.requestId
+        && request.resource.data.winnerUid == resource.data.winnerUid
+        && request.resource.data.loserUid == resource.data.loserUid
+        && request.resource.data.settledAt == resource.data.settledAt
+        && request.resource.data.scoringMode == resource.data.scoringMode
+        && request.resource.data.resultNotifiedAt == resource.data.resultNotifiedAt
+        && (
+          request.resource.data.status == resource.data.status
+          || (
+            resource.data.status == 'settled'
+            && request.resource.data.status == 'reward_revealed'
+          )
+          || (
+            resource.data.status == 'reward_revealed'
+            && request.resource.data.status == 'closed'
+          )
+        );
+
+      allow delete: if false;
+
+      match /participants/{participantUid} {
+        allow read: if isSignedIn()
+          && get(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([uid()]);
+
+        allow create: if isSignedIn()
+          && get(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([uid()])
+          && get(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([participantUid]);
+
+        allow update: if isSignedIn()
+          && uid() == participantUid
+          && request.resource.data.keys().hasOnly([
+            'startingHoldingsValue', 'startingReserveCoins', 'startingTotalCapital',
+            'startingPositionsCount', 'currentReturnPctCache', 'currentScoreCache',
+            'currentHoldingsValueCache', 'currentTotalCapitalCache',
+            'currentReserveCoinsCache', 'currentUpdatedAt',
+            'currentPositionsCountCache', 'teaserLine',
+            'performanceRevealTier', 'positionsCountRevealedAt',
+            'revealedLine', 'spyCoinsSpent', 'finalReturnPct',
+            'finalScore', 'structureBonus', 'concentrationPenalty', 'result',
+            'rewardClaimedAt', 'resultDismissedAt', 'rewardPosition', 'lossPosition'
+          ])
+          && request.resource.data.startingHoldingsValue == resource.data.startingHoldingsValue
+          && request.resource.data.startingReserveCoins == resource.data.startingReserveCoins
+          && request.resource.data.startingTotalCapital == resource.data.startingTotalCapital
+          && request.resource.data.startingPositionsCount == resource.data.startingPositionsCount
+          && request.resource.data.finalReturnPct == resource.data.finalReturnPct
+          && request.resource.data.finalScore == resource.data.finalScore
+          && request.resource.data.structureBonus == resource.data.structureBonus
+          && request.resource.data.concentrationPenalty == resource.data.concentrationPenalty
+          && request.resource.data.result == resource.data.result
+          && request.resource.data.rewardPosition == resource.data.rewardPosition
+          && request.resource.data.lossPosition == resource.data.lossPosition;
+
+        allow delete: if false;
       }
     }
 
-    // Default deny for any other collection
+    // =========================
+    // Social - demandes d'amis
+    // =========================
+    match /friend_requests/{requestId} {
+      allow read: if isSignedIn()
+        && (resource.data.fromUid == uid() || resource.data.toUid == uid());
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'fromUid', 'toUid', 'status', 'createdAt'
+        ])
+        && request.resource.data.fromUid == uid()
+        && request.resource.data.toUid is string
+        && request.resource.data.toUid != uid()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt is timestamp;
+
+      allow update: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'fromUid', 'toUid', 'status', 'createdAt',
+          'acceptedAt', 'declinedAt', 'cancelledAt'
+        ])
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.toUid == resource.data.toUid
+        && (
+          (
+            uid() == resource.data.toUid
+            && resource.data.status == 'pending'
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.status in ['accepted', 'declined']
+          )
+          || (
+            uid() == resource.data.fromUid
+            && resource.data.status == 'pending'
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.status == 'cancelled'
+          )
+          || (
+            uid() == resource.data.fromUid
+            && resource.data.status in ['declined', 'cancelled']
+            && request.resource.data.keys().hasOnly([
+              'fromUid', 'toUid', 'status', 'createdAt'
+            ])
+            && request.resource.data.status == 'pending'
+            && request.resource.data.createdAt is timestamp
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    match /friendships/{friendshipId} {
+      allow read: if isSignedIn()
+        && resource.data.participants is list
+        && resource.data.participants.hasAny([uid()]);
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['participants', 'createdAt', 'createdBy'])
+        && request.resource.data.participants is list
+        && request.resource.data.participants.size() == 2
+        && request.resource.data.participants.hasAll([uid()])
+        && request.resource.data.participants[0] != request.resource.data.participants[1]
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.createdAt is timestamp
+        && hasAcceptedFriendRequest(request.resource.data.participants);
+
+      allow update, delete: if false;
+    }
+
+    // =========================
+    // Jeux communautaires
+    // =========================
+    match /community_games/{gameId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if false;
+    }
+
+    match /community_games/{gameId}/participants/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && uid() == userId;
+      allow delete: if false;
+    }
+
+    // =========================
+    // Forum - Thèmes
+    // =========================
+    match /forum_themes/{themeId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly(['name', 'createdAt', 'createdByUid'])
+        && isValidThemeName(request.resource.data.name)
+        && request.resource.data.createdByUid == uid()
+        && request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if false;
+    }
+
+    // =========================
+    // Forum - Housekeeping (lease)
+    // =========================
+    match /forum_meta/housekeeping {
+      allow read: if isSignedIn();
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'leaseOwnerUid', 'leaseUntil', 'lastAttemptAt', 'lastCleanupAt'
+        ])
+        && request.resource.data.leaseOwnerUid == uid()
+        && request.resource.data.leaseUntil is timestamp
+        && request.resource.data.leaseUntil <= request.time + duration.value(10, 'm')
+        && request.resource.data.lastAttemptAt is timestamp;
+
+      allow update: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'leaseOwnerUid', 'leaseUntil', 'lastAttemptAt', 'lastCleanupAt'
+        ])
+        && (
+          resource.data.leaseUntil == null
+          || resource.data.leaseUntil <= request.time
+          || resource.data.leaseOwnerUid == uid()
+        )
+        && (request.resource.data.leaseOwnerUid == null || request.resource.data.leaseOwnerUid == uid())
+        && (
+          request.resource.data.leaseUntil == null
+          || (
+            request.resource.data.leaseUntil is timestamp
+            && request.resource.data.leaseUntil <= request.time + duration.value(10, 'm')
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // =========================
+    // Forum - Messages + Votes + Réponses
+    // =========================
+    match /forum_chat_messages/{messageId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'text', 'uid', 'authorName', 'photoURL',
+          'themeId', 'themeName',
+          'upVotes', 'downVotes', 'score',
+          'createdAt', 'lastVoteAt',
+          'reactions', 'isPinned',
+          'postType', 'tags', 'attachment'
+        ])
+        && request.resource.data.uid == uid()
+        && isValidMessageText(request.resource.data.text)
+        && isValidAuthorName(request.resource.data.authorName)
+        && request.resource.data.themeId is string
+        && request.resource.data.themeId.size() > 0
+        && isValidThemeName(request.resource.data.themeName)
+        && request.resource.data.upVotes == 0
+        && request.resource.data.downVotes == 0
+        && request.resource.data.score == 0
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.lastVoteAt is timestamp
+        && request.resource.data.reactions is map
+        && request.resource.data.reactions.keys().hasOnly(['helpful', 'clear', 'insightful'])
+        && request.resource.data.reactions.helpful == 0
+        && request.resource.data.reactions.clear == 0
+        && request.resource.data.reactions.insightful == 0
+        && request.resource.data.isPinned == false
+        && isValidPostType(request.resource.data.postType)
+        && isValidTags(request.resource.data.tags)
+        && isValidAttachment(request.resource.data.attachment);
+
+      allow update: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'text', 'uid', 'authorName', 'photoURL',
+          'themeId', 'themeName',
+          'upVotes', 'downVotes', 'score',
+          'createdAt', 'lastVoteAt',
+          'reactions', 'isPinned',
+          'postType', 'tags', 'attachment'
+        ])
+        && (
+          // Vote
+          (
+            resource.data.uid != uid()
+            && request.resource.data.text == resource.data.text
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.authorName == resource.data.authorName
+            && request.resource.data.photoURL == resource.data.photoURL
+            && request.resource.data.themeId == resource.data.themeId
+            && request.resource.data.themeName == resource.data.themeName
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.reactions == resource.data.reactions
+            && request.resource.data.isPinned == resource.data.isPinned
+            && request.resource.data.postType == resource.data.postType
+            && request.resource.data.tags == resource.data.tags
+            && request.resource.data.attachment == resource.data.attachment
+            && request.resource.data.upVotes is int
+            && request.resource.data.downVotes is int
+            && request.resource.data.upVotes >= 0
+            && request.resource.data.downVotes >= 0
+            && request.resource.data.score is int
+            && request.resource.data.score == (request.resource.data.upVotes - request.resource.data.downVotes)
+            && request.resource.data.lastVoteAt is timestamp
+            && (resource.data.lastVoteAt == null || request.resource.data.lastVoteAt >= resource.data.lastVoteAt)
+            && (
+              (
+                existsAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/votes/$(uid()))
+                && getAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/votes/$(uid())).data.value in [1, -1]
+                && getAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/votes/$(uid())).data.updatedAt is timestamp
+              )
+              || (
+                !existsAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/votes/$(uid()))
+                && exists(/databases/$(database)/documents/forum_chat_messages/$(messageId)/votes/$(uid()))
+              )
+            )
+          )
+          // Réaction
+          || (
+            resource.data.uid != uid()
+            && request.resource.data.text == resource.data.text
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.authorName == resource.data.authorName
+            && request.resource.data.photoURL == resource.data.photoURL
+            && request.resource.data.themeId == resource.data.themeId
+            && request.resource.data.themeName == resource.data.themeName
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.postType == resource.data.postType
+            && request.resource.data.tags == resource.data.tags
+            && request.resource.data.attachment == resource.data.attachment
+            && request.resource.data.isPinned == resource.data.isPinned
+            && request.resource.data.upVotes == resource.data.upVotes
+            && request.resource.data.downVotes == resource.data.downVotes
+            && request.resource.data.score == resource.data.score
+            && request.resource.data.lastVoteAt == resource.data.lastVoteAt
+            && request.resource.data.reactions is map
+            && request.resource.data.reactions.keys().hasOnly(['helpful', 'clear', 'insightful'])
+            && request.resource.data.reactions.helpful is int
+            && request.resource.data.reactions.clear is int
+            && request.resource.data.reactions.insightful is int
+            && request.resource.data.reactions.helpful >= 0
+            && request.resource.data.reactions.clear >= 0
+            && request.resource.data.reactions.insightful >= 0
+            && (
+              (
+                existsAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/reactions/$(uid()))
+                && getAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/reactions/$(uid())).data.key in ['helpful', 'clear', 'insightful']
+                && getAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/reactions/$(uid())).data.updatedAt is timestamp
+              )
+              || (
+                !existsAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/reactions/$(uid()))
+                && exists(/databases/$(database)/documents/forum_chat_messages/$(messageId)/reactions/$(uid()))
+              )
+            )
+          )
+          // Épinglage modérateur
+          || (
+            isAdminUser()
+            && request.resource.data.text == resource.data.text
+            && request.resource.data.uid == resource.data.uid
+            && request.resource.data.authorName == resource.data.authorName
+            && request.resource.data.photoURL == resource.data.photoURL
+            && request.resource.data.themeId == resource.data.themeId
+            && request.resource.data.themeName == resource.data.themeName
+            && request.resource.data.createdAt == resource.data.createdAt
+            && request.resource.data.postType == resource.data.postType
+            && request.resource.data.tags == resource.data.tags
+            && request.resource.data.attachment == resource.data.attachment
+            && request.resource.data.reactions == resource.data.reactions
+            && request.resource.data.upVotes == resource.data.upVotes
+            && request.resource.data.downVotes == resource.data.downVotes
+            && request.resource.data.score == resource.data.score
+            && request.resource.data.lastVoteAt == resource.data.lastVoteAt
+            && request.resource.data.isPinned is bool
+          )
+        );
+
+      allow delete: if isLeaseActive()
+        && (
+          (resource.data.downVotes is int && resource.data.downVotes >= 5)
+          || (
+            resource.data.lastVoteAt is timestamp
+            && resource.data.lastVoteAt < request.time - duration.value(7, 'd')
+          )
+        );
+
+      match /votes/{userId} {
+        allow read: if isSignedIn() && uid() == userId;
+
+        allow create, update: if isSignedIn()
+          && uid() == userId
+          && request.resource.data.keys().hasOnly(['value', 'updatedAt'])
+          && request.resource.data.value in [1, -1]
+          && request.resource.data.updatedAt is timestamp;
+
+        allow delete: if (isSignedIn() && uid() == userId) || isLeaseActive();
+      }
+
+      match /reactions/{userId} {
+        allow read: if isSignedIn() && uid() == userId;
+
+        allow create, update: if isSignedIn()
+          && uid() == userId
+          && request.resource.data.keys().hasOnly(['key', 'updatedAt'])
+          && request.resource.data.key in ['helpful', 'clear', 'insightful']
+          && request.resource.data.updatedAt is timestamp;
+
+        allow delete: if isSignedIn() && uid() == userId;
+      }
+
+      match /replies/{replyId} {
+        allow read: if true;
+
+        allow create: if isSignedIn()
+          && request.resource.data.keys().hasOnly([
+            'text', 'uid', 'authorName', 'photoURL', 'createdAt'
+          ])
+          && request.resource.data.uid == uid()
+          && isValidMessageText(request.resource.data.text)
+          && isValidAuthorName(request.resource.data.authorName)
+          && request.resource.data.createdAt is timestamp;
+
+        allow update: if false;
+        allow delete: if isSignedIn() && resource.data.uid == uid();
+      }
+    }
+
+    match /forum_reports/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'messageId', 'messageUid', 'reportedByUid',
+          'reason', 'themeId', 'themeName', 'createdAt'
+        ])
+        && request.resource.data.messageId is string
+        && request.resource.data.messageId.size() > 0
+        && request.resource.data.messageUid is string
+        && request.resource.data.messageUid.size() > 0
+        && request.resource.data.reportedByUid == uid()
+        && request.resource.data.reason in ['spam', 'abuse', 'misleading']
+        && request.resource.data.themeId is string
+        && request.resource.data.themeId.size() > 0
+        && isValidThemeName(request.resource.data.themeName)
+        && request.resource.data.createdAt is timestamp;
+
+      allow read, update, delete: if false;
+    }
+
+    // =========================
+    // Leaderboards lecture publique
+    // =========================
+    match /leaderboards/{leaderboardId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /entries/{entryId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // Verrouillage du reste
     match /{document=**} {
       allow read, write: if false;
     }

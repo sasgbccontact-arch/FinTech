@@ -30,7 +30,9 @@ final _softShadow = [
 BoxDecoration _cardDecoration({Color? borderColor}) => BoxDecoration(
   color: Colors.white,
   borderRadius: BorderRadius.circular(20),
-  border: Border.all(color: borderColor ?? Colors.black.withValues(alpha: 0.06)),
+  border: Border.all(
+    color: borderColor ?? Colors.black.withValues(alpha: 0.06),
+  ),
   boxShadow: _softShadow,
 );
 
@@ -63,7 +65,9 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
 
   Future<void> _goToGameTab() async {
     if (!mounted) return;
-    await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
     if (!mounted) return;
     final nav = Navigator.of(context, rootNavigator: true);
     nav.popUntil((route) => route.isFirst);
@@ -108,7 +112,8 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
   Future<void> _pickMode(int modeIndex) async {
     if (_modeStarting) return;
 
-    final mode = modeIndex == 0 ? DailyNewsGameMode.actus : DailyNewsGameMode.monde;
+    final mode =
+        modeIndex == 0 ? DailyNewsGameMode.actus : DailyNewsGameMode.monde;
 
     setState(() => _modeStarting = true);
 
@@ -137,6 +142,16 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
         }
       });
 
+      if (startResult.usedFreeEntry) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Session ${mode == DailyNewsGameMode.actus ? 'Actus du jour' : 'MapMonde'} offerte aujourd’hui.',
+            ),
+          ),
+        );
+      }
+
       await _applyOrientationPolicy();
 
       if (mode == DailyNewsGameMode.actus) {
@@ -161,12 +176,15 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Text('Gemmes insuffisantes'),
           content: Text(
             'Il faut $required gemmes pour lancer "${mode == DailyNewsGameMode.actus ? 'Actus du jour' : 'MapMonde'}".\n'
             'Solde actuel: $current\n'
-            'Il te manque: $missing',
+            'Il te manque: $missing\n\n'
+            'La première session quotidienne de chaque mode est gratuite.',
           ),
           actions: [
             ElevatedButton(
@@ -175,7 +193,9 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text('Fermer'),
             ),
@@ -232,16 +252,17 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
         articles: _actusArticles,
       );
 
-      debugPrint('[DailyNewsGameSheet] Quiz Actus prêt: ${questions.length} questions');
+      debugPrint(
+        '[DailyNewsGameSheet] Quiz Actus prêt: ${questions.length} questions',
+      );
 
       if (!mounted) return;
 
       final result = await Navigator.of(context).push<QuizPageResult>(
         MaterialPageRoute(
-          builder: (_) => QuizPage(
-            questions: questions,
-            title: 'Quiz Actus du jour',
-          ),
+          builder:
+              (_) =>
+                  QuizPage(questions: questions, title: 'Quiz Actus du jour'),
         ),
       );
 
@@ -255,7 +276,9 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Score enregistré: ${result.score}/${result.total}')),
+          SnackBar(
+            content: Text('Score enregistré: ${result.score}/${result.total}'),
+          ),
         );
         await _goToGameTab();
       }
@@ -286,7 +309,11 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
                 gradient: _accentGradient,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.newspaper_rounded, color: Colors.white, size: 18),
+              child: const Icon(
+                Icons.newspaper_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 10),
             const Text(
@@ -322,10 +349,13 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
                 child: const Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: detailsColor1, strokeWidth: 2.5),
+                    CircularProgressIndicator(
+                      color: detailsColor1,
+                      strokeWidth: 2.5,
+                    ),
                     SizedBox(height: 14),
                     Text(
-                      'Validation du paiement en gemmes…',
+                      'Préparation de la session…',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
@@ -348,7 +378,10 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
   Widget _buildActusBody() {
     if (_loadingActus) {
       return const Center(
-        child: CircularProgressIndicator(color: detailsColor1, strokeWidth: 2.5),
+        child: CircularProgressIndicator(
+          color: detailsColor1,
+          strokeWidth: 2.5,
+        ),
       );
     }
 
@@ -413,13 +446,18 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      article.source.isNotEmpty ? article.source : 'Source inconnue',
+                      article.source.isNotEmpty
+                          ? article.source
+                          : 'Source inconnue',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -444,7 +482,8 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
                   height: 1.45,
                 ),
               ),
-              if (article.snippet != null && article.snippet!.trim().isNotEmpty) ...[
+              if (article.snippet != null &&
+                  article.snippet!.trim().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
                   article.snippet!,
@@ -471,7 +510,11 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
                         ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.open_in_new_rounded, size: 14, color: detailsColor1),
+                      Icon(
+                        Icons.open_in_new_rounded,
+                        size: 14,
+                        color: detailsColor1,
+                      ),
                     ],
                   ),
                 ),
@@ -487,7 +530,9 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 0,
             ),
             child: Text(
@@ -513,7 +558,11 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
               SizedBox(height: 16),
               Text(
                 'Impossible de charger les actus',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: textColor,
+                ),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 8),
@@ -529,33 +578,43 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _retryingActus
-                ? null
-                : () async {
-                    setState(() => _retryingActus = true);
-                    try {
-                      await _loadActusArticles();
-                    } finally {
-                      if (mounted) setState(() => _retryingActus = false);
-                    }
-                  },
+            onPressed:
+                _retryingActus
+                    ? null
+                    : () async {
+                      setState(() => _retryingActus = true);
+                      try {
+                        await _loadActusArticles();
+                      } finally {
+                        if (mounted) setState(() => _retryingActus = false);
+                      }
+                    },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 0,
             ),
-            child: _retryingActus
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            child:
+                _retryingActus
+                    ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                    : const Text(
+                      'Réessayer',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
-                  )
-                : const Text('Réessayer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           ),
         ),
         const SizedBox(height: 12),
@@ -567,9 +626,14 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
               foregroundColor: Colors.black,
               side: BorderSide(color: Colors.black.withValues(alpha: 0.18)),
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text('Passer au quiz →', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            child: const Text(
+              'Passer au quiz →',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
           ),
         ),
       ],
@@ -589,7 +653,11 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
               SizedBox(height: 16),
               Text(
                 'Aucun article disponible',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: textColor,
+                ),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: 8),
@@ -610,10 +678,15 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 0,
             ),
-            child: const Text('Passer au quiz →', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            child: const Text(
+              'Passer au quiz →',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            ),
           ),
         ),
       ],
@@ -633,13 +706,24 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
           children: [
             Container(
               padding: const EdgeInsets.all(22),
-              decoration: const BoxDecoration(gradient: _accentGradient, shape: BoxShape.circle),
-              child: const Icon(Icons.quiz_rounded, color: Colors.white, size: 42),
+              decoration: const BoxDecoration(
+                gradient: _accentGradient,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.quiz_rounded,
+                color: Colors.white,
+                size: 42,
+              ),
             ),
             const SizedBox(height: 22),
             Text(
               title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textColor),
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -656,19 +740,30 @@ class _DailyNewsGameSheetState extends State<DailyNewsGameSheet> {
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
-                child: _quizLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                child:
+                    _quizLoading
+                        ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                        : const Text(
+                          'Commencer le quiz →',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
                         ),
-                      )
-                    : const Text('Commencer le quiz →', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
               ),
             ),
           ],
@@ -705,7 +800,11 @@ class _ProgressBar extends StatelessWidget {
       children: [
         Text(
           'Article $current / $total',
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black54),
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
         ),
         const SizedBox(height: 6),
         ClipRRect(
@@ -756,10 +855,11 @@ class _MondeViewState extends State<_MondeView> {
           children: [
             WorldMapWidget(
               onCountryTap: (c) => setState(() => _selected = c),
-              onCountryPrefetch: (c) => widget.repo.prefetchCountryArticle(
-                countryIso2: c.iso2,
-                countryNameEn: c.nameEn,
-              ),
+              onCountryPrefetch:
+                  (c) => widget.repo.prefetchCountryArticle(
+                    countryIso2: c.iso2,
+                    countryNameEn: c.nameEn,
+                  ),
               onQuizCompleted: widget.onQuizCompleted,
               countryArticleLoader: (c) async {
                 final result = await widget.repo.fetchCountryArticle(
@@ -784,7 +884,12 @@ class _MondeViewState extends State<_MondeView> {
           ],
         ),
         if (_selected != null)
-          Positioned(left: 0, right: 0, bottom: 0, child: _buildConfirmBar(context)),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: _buildConfirmBar(context),
+          ),
       ],
     );
   }
@@ -810,30 +915,41 @@ class _MondeViewState extends State<_MondeView> {
           Expanded(
             child: Text(
               c.nameFr,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => _CountryArticlePage(
-                  country: c,
-                  sessionId: widget.sessionId,
-                  repo: widget.repo,
-                  quizRepo: widget.quizRepo,
-                  onQuizCompleted: widget.onQuizCompleted,
+            onPressed:
+                () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (_) => _CountryArticlePage(
+                          country: c,
+                          sessionId: widget.sessionId,
+                          repo: widget.repo,
+                          quizRepo: widget.quizRepo,
+                          onQuizCompleted: widget.onQuizCompleted,
+                        ),
+                  ),
                 ),
-              ),
-            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: detailsColor2,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 0,
             ),
             icon: const Icon(Icons.article_rounded, size: 18),
-            label: const Text("Voir l'actualité", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            label: const Text(
+              "Voir l'actualité",
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
           ),
         ],
       ),
@@ -908,16 +1024,19 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
         selectedCountryNameFr: widget.country.nameFr,
       );
 
-      debugPrint('[DailyNewsGameSheet] Quiz Monde prêt: ${questions.length} questions');
+      debugPrint(
+        '[DailyNewsGameSheet] Quiz Monde prêt: ${questions.length} questions',
+      );
 
       if (!mounted) return;
 
       final result = await Navigator.of(context).push<QuizPageResult>(
         MaterialPageRoute(
-          builder: (_) => QuizPage(
-            questions: questions,
-            title: 'Quiz ${widget.country.nameFr}',
-          ),
+          builder:
+              (_) => QuizPage(
+                questions: questions,
+                title: 'Quiz ${widget.country.nameFr}',
+              ),
         ),
       );
 
@@ -931,7 +1050,9 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Score enregistré: ${result.score}/${result.total}')),
+          SnackBar(
+            content: Text('Score enregistré: ${result.score}/${result.total}'),
+          ),
         );
         await widget.onQuizCompleted();
       }
@@ -952,7 +1073,10 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
         elevation: 0.5,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.black,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Row(
@@ -961,7 +1085,11 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
             const SizedBox(width: 10),
             Text(
               c.nameFr,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textColor),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: textColor,
+              ),
             ),
           ],
         ),
@@ -971,7 +1099,10 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
             return const Center(
-              child: CircularProgressIndicator(color: detailsColor1, strokeWidth: 2.5),
+              child: CircularProgressIndicator(
+                color: detailsColor1,
+                strokeWidth: 2.5,
+              ),
             );
           }
           if (snap.hasError) return _buildError();
@@ -994,7 +1125,11 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
             const SizedBox(height: 20),
             const Text(
               "Impossible de charger l'article",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: textColor),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                color: textColor,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -1007,17 +1142,23 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => setState(() {
-                  _fetchFuture = _fetchAndPersist();
-                }),
+                onPressed:
+                    () => setState(() {
+                      _fetchFuture = _fetchAndPersist();
+                    }),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
-                child: const Text('Réessayer', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                child: const Text(
+                  'Réessayer',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                ),
               ),
             ),
           ],
@@ -1033,15 +1174,27 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded, size: 52, color: Colors.black26),
+            const Icon(
+              Icons.search_off_rounded,
+              size: 52,
+              color: Colors.black26,
+            ),
             const SizedBox(height: 20),
             Text(
               'Aucun article trouvé pour ${widget.country.nameFr}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: textColor),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 17,
+                color: textColor,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text('Essaie un autre pays.', style: TextStyle(color: Colors.black54, fontSize: 14), textAlign: TextAlign.center),
+            const Text(
+              'Essaie un autre pays.',
+              style: TextStyle(color: Colors.black54, fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -1061,14 +1214,23 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      article.source.isNotEmpty ? article.source : 'Source inconnue',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black54),
+                      article.source.isNotEmpty
+                          ? article.source
+                          : 'Source inconnue',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black54,
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -1081,13 +1243,23 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
               const SizedBox(height: 16),
               Text(
                 article.title,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: textColor, height: 1.45),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                  height: 1.45,
+                ),
               ),
-              if (article.snippet != null && article.snippet!.trim().isNotEmpty) ...[
+              if (article.snippet != null &&
+                  article.snippet!.trim().isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
                   article.snippet!,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54, height: 1.5),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    height: 1.5,
+                  ),
                 ),
               ],
               const SizedBox(height: 20),
@@ -1099,10 +1271,18 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
                     children: [
                       Text(
                         "Lire l'article complet",
-                        style: TextStyle(fontSize: 13, color: detailsColor1, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: detailsColor1,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       SizedBox(width: 4),
-                      Icon(Icons.open_in_new_rounded, size: 14, color: detailsColor1),
+                      Icon(
+                        Icons.open_in_new_rounded,
+                        size: 14,
+                        color: detailsColor1,
+                      ),
                     ],
                   ),
                 ),
@@ -1118,19 +1298,28 @@ class _CountryArticlePageState extends State<_CountryArticlePage> {
               backgroundColor: Colors.black,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 0,
             ),
-            child: _quizLoading
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            child:
+                _quizLoading
+                    ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                    : const Text(
+                      'Passer au quiz →',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
                     ),
-                  )
-                : const Text('Passer au quiz →', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
           ),
         ),
       ],

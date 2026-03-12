@@ -3,15 +3,20 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fintech/core/constants.dart';
+import 'package:fintech/features/duel/duel_models.dart';
+import 'package:fintech/features/duel/duel_service.dart';
 import 'package:fintech/models/chart_models.dart';
 import 'package:fintech/models/financial_snapshot.dart';
+import 'package:fintech/models/fundamental_game_models.dart';
 import 'package:fintech/models/news_models.dart';
+import 'package:fintech/services/fundamental_game_engine.dart';
 import 'package:fintech/services/portfolio_service.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:fintech/utils/decision_indicators.dart';
+import 'package:fintech/utils/fundamental_score_presenter.dart';
 import 'package:fintech/utils/portfolio_dialogs.dart';
+import 'package:fintech/widgets/fundamental_score_hero_card.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -55,10 +60,12 @@ class _InfoPageState extends State<InfoPage> {
   bool _chartLoading = true;
   String? _chartError;
   int _chartRequestId = 0;
+  FundamentalGameData? _fundamentalGameData;
+  FundamentalAnalysisResult? _fundamentalAnalysis;
   FinancialSnapshot? _financialSnapshot;
-  bool _financialLoading = true;
-  String? _financialError;
-  int _financialRequestId = 0;
+  bool _fundamentalLoading = true;
+  String? _fundamentalError;
+  int _fundamentalRequestId = 0;
   final PageController _pageController = PageController();
   int _currentPage = 0;
   List<FinanceNewsItem> _newsItems = const <FinanceNewsItem>[];
@@ -221,6 +228,8 @@ class _InfoPageState extends State<InfoPage> {
           ),
         ),
         const SizedBox(height: 16),
+        _buildFundamentalHeroCard(),
+        const SizedBox(height: 16),
         Center(child: _buildTradeButtons(theme)),
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 14),
@@ -333,12 +342,12 @@ class _InfoPageState extends State<InfoPage> {
         .doc(user.uid)
         .snapshots()
         .listen((snapshot) {
-      if (mounted) {
-        setState(() {
-          _isAdmin = snapshot.data()?['isAdmin'] ?? false;
+          if (mounted) {
+            setState(() {
+              _isAdmin = snapshot.data()?['isAdmin'] ?? false;
+            });
+          }
         });
-      }
-    });
   }
 
   void _listenToPortfolios() {
@@ -565,8 +574,11 @@ class _InfoPageState extends State<InfoPage> {
     final bool hasTicker = _ticker != null && _ticker!.trim().isNotEmpty;
     final bool isLoading = !_favoriteStatusReady || _favoriteUpdating;
     final bool selected = _isFavorite && _favoriteStatusReady;
-   final Color iconColor =
-    selected ? _wine : (theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65) ?? Colors.black54);
+    final Color iconColor =
+        selected
+            ? _wine
+            : (theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65) ??
+                Colors.black54);
     final bool enabled = user != null && hasTicker && !isLoading;
 
     final Widget visual =
@@ -607,12 +619,18 @@ class _InfoPageState extends State<InfoPage> {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-  color: selected ? _wine.withValues(alpha: 0.10) : Colors.black.withValues(alpha: 0.04),
-  borderRadius: BorderRadius.circular(14),
-  border: Border.all(
-    color: selected ? _wine.withValues(alpha: 0.35) : Colors.black.withValues(alpha: 0.05),
-  ),
-),
+            color:
+                selected
+                    ? _wine.withValues(alpha: 0.10)
+                    : Colors.black.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color:
+                  selected
+                      ? _wine.withValues(alpha: 0.35)
+                      : Colors.black.withValues(alpha: 0.05),
+            ),
+          ),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
             transitionBuilder:
@@ -738,9 +756,13 @@ class _InfoPageState extends State<InfoPage> {
         data: data,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ajouté à "$portfolioName".')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ajoute a "$portfolioName". Verifie ensuite le prix d\'achat, la concentration et la diversification.',
+          ),
+        ),
+      );
     } on FirebaseException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -994,14 +1016,14 @@ class _InfoPageState extends State<InfoPage> {
     final bool busy = _portfolioUpdating;
     final bool showSpinner = busy || !ready;
     final bool enabled = user != null && hasTicker && ready && !busy;
-    final buttonStyleColor = showSpinner
-    ? _chipBg.withValues(alpha: 0.85)
-    : _chipBg;
+    final buttonStyleColor =
+        showSpinner ? _chipBg.withValues(alpha: 0.85) : _chipBg;
 
-final borderColor = Colors.black.withValues(alpha: 0.05);
+    final borderColor = Colors.black.withValues(alpha: 0.05);
 
     final Color iconColor =
-        theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65)?? Colors.black54;
+        theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.65) ??
+        Colors.black54;
 
     final Widget visual =
         showSpinner
@@ -1025,7 +1047,6 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
         user == null
             ? 'Connectez-vous pour gérer vos portefeuilles'
             : 'Ajouter au portefeuille';
-
 
     final button = PopupMenuButton<_PortfolioMenuOption>(
       enabled: enabled,
@@ -1075,25 +1096,50 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
       children: [
         if (user != null)
           StreamBuilder<DocumentSnapshot>(
-            stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+            stream:
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .snapshots(),
             builder: (context, snapshot) {
               final data = snapshot.data?.data() as Map<String, dynamic>?;
               final zeroFeesUntil = data?['zero_fees_until'] as Timestamp?;
-              final boostCount = (data?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
-              
-              final bool isActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
-              
+              final boostCount =
+                  (data?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
+
+              final bool isActive =
+                  zeroFeesUntil != null &&
+                  zeroFeesUntil.toDate().isAfter(DateTime.now());
+
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: IconButton(
-                  onPressed: () => _showBoostInventory(context, isActive, boostCount, zeroFeesUntil?.toDate()),
+                  onPressed:
+                      () => _showBoostInventory(
+                        context,
+                        isActive,
+                        boostCount,
+                        zeroFeesUntil?.toDate(),
+                      ),
                   icon: Icon(
                     Icons.flash_on_rounded,
-                    color: isActive ? Colors.green : (boostCount > 0 ? Colors.amber : Colors.grey.shade300),
+                    color:
+                        isActive
+                            ? Colors.green
+                            : (boostCount > 0
+                                ? Colors.amber
+                                : Colors.grey.shade300),
                   ),
                   style: IconButton.styleFrom(
-                    backgroundColor: isActive ? Colors.green.withOpacity(0.1) : (boostCount > 0 ? Colors.amber.withOpacity(0.1) : Colors.grey.shade100),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor:
+                        isActive
+                            ? Colors.green.withOpacity(0.1)
+                            : (boostCount > 0
+                                ? Colors.amber.withOpacity(0.1)
+                                : Colors.grey.shade100),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   tooltip: "Boosts & Bonus",
                 ),
@@ -1111,7 +1157,10 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
             ),
             elevation: 0,
           ),
-          child: const Text("Acheter", style: TextStyle(fontWeight: FontWeight.bold)),
+          child: const Text(
+            "Acheter",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
         const SizedBox(width: 8),
         ElevatedButton(
@@ -1125,16 +1174,26 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
             ),
             elevation: 0,
           ),
-          child: const Text("Vendre", style: TextStyle(fontWeight: FontWeight.bold)),
+          child: const Text(
+            "Vendre",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );
   }
 
-  void _showBoostInventory(BuildContext context, bool isActive, int count, DateTime? expiry) {
+  void _showBoostInventory(
+    BuildContext context,
+    bool isActive,
+    int count,
+    DateTime? expiry,
+  ) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(24.0),
@@ -1142,47 +1201,80 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Inventaire de Boosts", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text(
+                "Inventaire de Boosts",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isActive ? Colors.green : Colors.grey.shade200),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                  border: Border.all(
+                    color: isActive ? Colors.green : Colors.grey.shade200,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: isActive ? Colors.green : Colors.blueAccent,
-                      child: const Icon(Icons.flash_on_rounded, color: Colors.white),
+                      backgroundColor:
+                          isActive ? Colors.green : Colors.blueAccent,
+                      child: const Icon(
+                        Icons.flash_on_rounded,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("0% de Frais (12h)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const Text(
+                            "0% de Frais (12h)",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                           if (isActive)
-                            Text("Actif jusqu'à ${_formatDateTime(expiry)}", style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))
+                            Text(
+                              "Actif jusqu'à ${_formatDateTime(expiry)}",
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            )
                           else
-                            Text("En stock : $count", style: const TextStyle(color: Colors.grey)),
+                            Text(
+                              "En stock : $count",
+                              style: const TextStyle(color: Colors.grey),
+                            ),
                         ],
                       ),
                     ),
                     if (!isActive)
                       ElevatedButton(
-                        onPressed: count > 0 ? () {
-                          Navigator.pop(context);
-                          _activateBoost();
-                        } : null,
+                        onPressed:
+                            count > 0
+                                ? () {
+                                  Navigator.pop(context);
+                                  _activateBoost();
+                                }
+                                : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
                         ),
                         child: const Text("Activer"),
-                      )
+                      ),
                   ],
                 ),
               ),
@@ -1200,14 +1292,17 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
 
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
-        final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        final userRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid);
         final snapshot = await transaction.get(userRef);
-        final count = (snapshot.data()?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
+        final count =
+            (snapshot.data()?['boost_zero_fees_count'] as num?)?.toInt() ?? 0;
 
         if (count > 0) {
           final now = DateTime.now();
           final expiry = now.add(const Duration(hours: 12));
-          
+
           transaction.update(userRef, {
             'boost_zero_fees_count': FieldValue.increment(-1),
             'zero_fees_until': Timestamp.fromDate(expiry),
@@ -1215,7 +1310,12 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
         }
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Boost activé ! Profitez de 0% de frais."), backgroundColor: Colors.green));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Boost activé ! Profitez de 0% de frais."),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     } catch (e) {
       debugPrint("Erreur activation boost: $e");
@@ -1227,18 +1327,25 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
     final now = DateTime.now();
     final isWeekend = now.weekday >= 6; // 6 = Samedi, 7 = Dimanche
     final totalMinutes = now.hour * 60 + now.minute;
-    final isMarketHours = totalMinutes >= 540 && totalMinutes < 1050; // 9*60 à 17*60+30
+    final isMarketHours =
+        totalMinutes >= 540 && totalMinutes < 1050; // 9*60 à 17*60+30
 
     if (!_isAdmin && (isWeekend || !isMarketHours)) {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Marché fermé"),
-          content: const Text("Les transactions sont possibles uniquement du lundi au vendredi, de 9h00 à 17h30."),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
-          ],
-        ),
+        builder:
+            (context) => AlertDialog(
+              title: const Text("Marché fermé"),
+              content: const Text(
+                "Les transactions sont possibles uniquement du lundi au vendredi, de 9h00 à 17h30.",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+              ],
+            ),
       );
       return;
     }
@@ -1253,238 +1360,367 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
 
     // Vérification du Chapitre 1 (via l'avatar _student)
     if (!_isAdmin) {
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      final unlockedAvatars = List<String>.from(userDoc.data()?['unlocked_avatars'] ?? []);
+      final userDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+      final unlockedAvatars = List<String>.from(
+        userDoc.data()?['unlocked_avatars'] ?? [],
+      );
       if (!unlockedAvatars.contains('_student')) {
         if (!mounted) return;
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text("Fonctionnalité verrouillée"),
-            content: const Text("Vous devez terminer le Chapitre 1 dans l'onglet Apprendre pour débloquer le trading."),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
-            ],
-          ),
+          builder:
+              (context) => AlertDialog(
+                title: const Text("Fonctionnalité verrouillée"),
+                content: const Text(
+                  "Vous devez terminer le Chapitre 1 dans l'onglet Apprendre pour débloquer le trading.",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("OK"),
+                  ),
+                ],
+              ),
         );
         return;
       }
     }
 
     final double price = _quote!.regularMarketPrice!;
-    final TextEditingController qtyController = TextEditingController(text: "1");
+    final TextEditingController qtyController = TextEditingController(
+      text: "1",
+    );
     final ValueNotifier<int> qtyNotifier = ValueNotifier<int>(1);
 
     showDialog(
       context: context,
-      builder: (context) => StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
-        builder: (context, userSnapshot) {
-          final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
-          final zeroFeesUntil = userData?['zero_fees_until'] as Timestamp?;
-          final bool isBoostActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+      builder:
+          (context) => StreamBuilder<DocumentSnapshot>(
+            stream:
+                FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user.uid)
+                    .snapshots(),
+            builder: (context, userSnapshot) {
+              final userData =
+                  userSnapshot.data?.data() as Map<String, dynamic>?;
+              final zeroFeesUntil = userData?['zero_fees_until'] as Timestamp?;
+              final bool isBoostActive =
+                  zeroFeesUntil != null &&
+                  zeroFeesUntil.toDate().isAfter(DateTime.now());
 
-          return StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('games')
-            .doc('portofolio')
-            .collection('positions')
-            .doc(_ticker)
-            .snapshots(),
-        builder: (context, snapshot) {
-          final data = snapshot.data?.data() as Map<String, dynamic>?;
-          final double? pru = (data?['averagePrice'] as num?)?.toDouble();
+              return StreamBuilder<DocumentSnapshot>(
+                stream:
+                    FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .collection('games')
+                        .doc('portofolio')
+                        .collection('positions')
+                        .doc(_ticker)
+                        .snapshots(),
+                builder: (context, snapshot) {
+                  final data = snapshot.data?.data() as Map<String, dynamic>?;
+                  final double? pru =
+                      (data?['averagePrice'] as num?)?.toDouble();
 
-          return AlertDialog(
-          title: Text(
-            isBuy ? "Acheter $_ticker" : "Vendre $_ticker",
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Prix unitaire : ${_formatCurrency(price)}",
-                style: const TextStyle(color: Colors.grey),
-              ),
-              if (pru != null)
-                Text(
-                  "PRU actuel : ${_formatCurrency(pru)}",
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: qtyController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Nombre d'actions",
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                onChanged: (value) {
-                  final int? val = int.tryParse(value);
-                  qtyNotifier.value = (val != null && val > 0) ? val : 0;
-                },
-              ),
-              const SizedBox(height: 16),
-              ValueListenableBuilder<int>(
-                valueListenable: qtyNotifier,
-                builder: (context, qty, child) {
-                  final double rawTotal = price * qty;
-                  final double fees = isBoostActive ? 0.0 : rawTotal * 0.005; // 0.5% frais ou 0% si boost
-                  final double total = isBuy ? rawTotal + fees : rawTotal - fees;
-
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
+                  return AlertDialog(
+                    title: Text(
+                      isBuy ? "Acheter $_ticker" : "Vendre $_ticker",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text("Sous-total :"),
-                            Text(_formatCurrency(rawTotal) ?? ""),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(isBoostActive ? "Frais (0% - Boost) :" : "Frais (0.5%) :", style: TextStyle(fontSize: 12, color: isBoostActive ? Colors.green : Colors.grey)),
-                            Text(_formatCurrency(fees) ?? "", style: TextStyle(fontSize: 12, color: isBoostActive ? Colors.green : Colors.grey)),
-                          ],
-                        ),
-                        const Divider(),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text("Total :", style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text(
-                              _formatCurrency(total) ?? "",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: isBuy ? Colors.red : Colors.green,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
                         Text(
-                          isBuy ? "(Débité de vos Coins)" : "(Crédité en Coins)",
-                          style: const TextStyle(fontSize: 10, color: Colors.grey),
-                          textAlign: TextAlign.right,
+                          "Prix unitaire : ${_formatCurrency(price)}",
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                        if (pru != null)
+                          Text(
+                            "PRU actuel : ${_formatCurrency(pru)}",
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: qtyController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: "Nombre d'actions",
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            final int? val = int.tryParse(value);
+                            qtyNotifier.value =
+                                (val != null && val > 0) ? val : 0;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        ValueListenableBuilder<int>(
+                          valueListenable: qtyNotifier,
+                          builder: (context, qty, child) {
+                            final double rawTotal = price * qty;
+                            final double fees =
+                                isBoostActive
+                                    ? 0.0
+                                    : rawTotal *
+                                        0.005; // 0.5% frais ou 0% si boost
+                            final double total =
+                                isBuy ? rawTotal + fees : rawTotal - fees;
+
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text("Sous-total :"),
+                                      Text(_formatCurrency(rawTotal) ?? ""),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        isBoostActive
+                                            ? "Frais (0% - Boost) :"
+                                            : "Frais (0.5%) :",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              isBoostActive
+                                                  ? Colors.green
+                                                  : Colors.grey,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatCurrency(fees) ?? "",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color:
+                                              isBoostActive
+                                                  ? Colors.green
+                                                  : Colors.grey,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        "Total :",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatCurrency(total) ?? "",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color:
+                                              isBuy ? Colors.red : Colors.green,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    isBuy
+                                        ? "(Débité de vos Coins)"
+                                        : "(Crédité en Coins)",
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text(
+                          "Annuler",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                      ValueListenableBuilder<int>(
+                        valueListenable: qtyNotifier,
+                        builder: (context, qty, _) {
+                          return ElevatedButton(
+                            onPressed:
+                                qty > 0
+                                    ? () {
+                                      Navigator.pop(context);
+                                      _executeTrade(
+                                        user.uid,
+                                        isBuy,
+                                        qty,
+                                        price,
+                                      );
+                                    }
+                                    : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text("Valider"),
+                          );
+                        },
+                      ),
+                    ],
                   );
                 },
-              ),
-            ],
+              );
+            },
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Annuler", style: TextStyle(color: Colors.grey)),
-            ),
-            ValueListenableBuilder<int>(
-              valueListenable: qtyNotifier,
-              builder: (context, qty, _) {
-                return ElevatedButton(
-                  onPressed: qty > 0 ? () {
-                    Navigator.pop(context);
-                    _executeTrade(user.uid, isBuy, qty, price);
-                  } : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text("Valider"),
-                );
-              },
-            ),
-          ],
-        );
-        },
-      );
-        }
-      ),
     );
   }
 
-  Future<void> _executeTrade(String uid, bool isBuy, int qty, double price) async {
+  Future<void> _executeTrade(
+    String uid,
+    bool isBuy,
+    int qty,
+    double price,
+  ) async {
     final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
     final portfolioRef = userRef
         .collection('games')
         .doc('portofolio')
         .collection('positions')
         .doc(_ticker);
+    String? duelBlockReason;
+
+    if (!isBuy) {
+      final portfolioDoc = await portfolioRef.get();
+      final currentQty =
+          (portfolioDoc.data()?['quantity'] as num?)?.toInt() ?? 0;
+      duelBlockReason = await DuelService.validateSaleDuringActiveDuel(
+        uid: uid,
+        currentQuantity: currentQty,
+        sellQuantity: qty,
+      );
+    }
 
     try {
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final userDoc = await transaction.get(userRef);
         final portfolioDoc = await transaction.get(portfolioRef);
+        final duelProfileDoc = await transaction.get(
+          DuelService.duelProfileRef(uid),
+        );
 
         // Vérification Boost
         final zeroFeesUntil = userDoc.data()?['zero_fees_until'] as Timestamp?;
-        final bool isBoostActive = zeroFeesUntil != null && zeroFeesUntil.toDate().isAfter(DateTime.now());
+        final bool isBoostActive =
+            zeroFeesUntil != null &&
+            zeroFeesUntil.toDate().isAfter(DateTime.now());
 
         final double rawTotal = price * qty;
         final double fees = isBoostActive ? 0.0 : rawTotal * 0.005;
         final double totalAmount = isBuy ? rawTotal + fees : rawTotal - fees;
 
-        final int currentCoins = (userDoc.data()?['coins'] as num?)?.toInt() ?? 0;
-        final int currentQty = (portfolioDoc.data()?['quantity'] as num?)?.toInt() ?? 0;
-        final double currentAvgPrice = (portfolioDoc.data()?['averagePrice'] as num?)?.toDouble() ?? 0.0;
+        final int currentCoins =
+            (userDoc.data()?['coins'] as num?)?.toInt() ?? 0;
+        final int currentQty =
+            (portfolioDoc.data()?['quantity'] as num?)?.toInt() ?? 0;
+        final double currentAvgPrice =
+            (portfolioDoc.data()?['averagePrice'] as num?)?.toDouble() ?? 0.0;
+        final duelProfile = DuelProfile.fromDoc(
+          duelProfileDoc,
+          fallbackUid: uid,
+        );
 
         if (isBuy) {
           if (currentCoins < totalAmount) {
-            throw Exception("Pas assez de coins ! (Manque ${(totalAmount - currentCoins).toStringAsFixed(2)})");
+            throw Exception(
+              "Pas assez de coins ! (Manque ${(totalAmount - currentCoins).toStringAsFixed(2)})",
+            );
           }
           // Calcul nouveau PRU (Prix de Revient Unitaire)
-          final double newAvgPrice = ((currentQty * currentAvgPrice) + (qty * price)) / (currentQty + qty);
+          final double newAvgPrice =
+              ((currentQty * currentAvgPrice) + (qty * price)) /
+              (currentQty + qty);
 
-          transaction.update(userRef, {'coins': currentCoins - totalAmount.toInt()});
+          transaction.update(userRef, {
+            'coins': currentCoins - totalAmount.toInt(),
+          });
           transaction.set(portfolioRef, {
             'symbol': _ticker,
             'quantity': currentQty + qty,
             'averagePrice': newAvgPrice,
             'lastUpdated': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
-
         } else {
           // Vente
           if (currentQty < qty) {
             throw Exception("Pas assez d'actions ! (Possédé: $currentQty)");
           }
-          transaction.update(userRef, {'coins': currentCoins + totalAmount.toInt()});
-          
+          if (currentQty - qty == 0 &&
+              duelProfile.isActiveDuel &&
+              duelBlockReason != null) {
+            throw Exception(duelBlockReason);
+          }
+          transaction.update(userRef, {
+            'coins': currentCoins + totalAmount.toInt(),
+          });
+
           if (currentQty - qty == 0) {
             transaction.delete(portfolioRef);
           } else {
-            transaction.update(portfolioRef, {
-              'quantity': currentQty - qty,
-            });
+            transaction.update(portfolioRef, {'quantity': currentQty - qty});
           }
         }
       });
 
+      await DuelService.syncCurrentUserProfile(uid: uid, bumpActivity: false);
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Ordre exécuté !"), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text("Ordre exécuté !"),
+          backgroundColor: Colors.green,
+        ),
       );
 
       // --- Mise à jour Quête Quotidienne (Trade) ---
       try {
         final today = DateTime.now();
         final dateStr = "${today.year}-${today.month}-${today.day}";
-        final questRef = FirebaseFirestore.instance.collection('users').doc(uid).collection('quests').doc('daily');
+        final questRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .collection('quests')
+            .doc('daily');
 
         // On utilise une transaction ou un update simple (ici update simple suffisant car post-transaction critique)
         final doc = await questRef.get();
@@ -1496,9 +1732,7 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
             'trades_done': 1,
           });
         } else {
-          await questRef.update({
-            'trades_done': FieldValue.increment(1),
-          });
+          await questRef.update({'trades_done': FieldValue.increment(1)});
         }
       } catch (e) {
         debugPrint("Erreur quête trade : $e");
@@ -1506,7 +1740,10 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceAll("Exception: ", "")), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(e.toString().replaceAll("Exception: ", "")),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -1533,7 +1770,7 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
         _pageController.jumpToPage(0);
       }
       _loadChartData();
-      _loadFinancialSnapshot();
+      _loadFundamentalData();
       _loadNews();
     } on QuoteNotFoundException catch (e) {
       if (!mounted) return;
@@ -1611,36 +1848,51 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
     }
   }
 
-  Future<void> _loadFinancialSnapshot() async {
+  Future<void> _loadFundamentalData() async {
     final symbol = _ticker;
     if (symbol == null || symbol.isEmpty) return;
 
-    final requestId = ++_financialRequestId;
+    final requestId = ++_fundamentalRequestId;
     setState(() {
-      _financialLoading = true;
-      _financialError = null;
+      _fundamentalLoading = true;
+      _fundamentalError = null;
     });
 
     try {
-      final snapshot = await YahooFinanceService.fetchFinancialSnapshot(symbol);
-      if (!mounted || requestId != _financialRequestId) return;
+      final results = await Future.wait<Object>([
+        YahooFinanceService.fetchFundamentalGameData(symbol),
+        FundamentalGameEngine.loadConfig(),
+      ]);
+      final gameData = results[0] as FundamentalGameData;
+      final config = results[1] as FundamentalGameConfig;
+      final analysis =
+          gameData.isEquity
+              ? FundamentalGameEngine.analyze(data: gameData, config: config)
+              : null;
+      if (!mounted || requestId != _fundamentalRequestId) return;
       setState(() {
-        _financialSnapshot = snapshot;
-        _financialLoading = false;
-        _financialError = null;
+        _fundamentalGameData = gameData;
+        _fundamentalAnalysis = analysis;
+        _financialSnapshot = gameData.snapshot;
+        _fundamentalLoading = false;
+        _fundamentalError = null;
       });
     } on FinanceRequestException catch (e) {
-      if (!mounted || requestId != _financialRequestId) return;
+      if (!mounted || requestId != _fundamentalRequestId) return;
       setState(() {
-        _financialLoading = false;
-        _financialError = e.message;
+        _fundamentalLoading = false;
+        _fundamentalError = e.message;
+        _fundamentalGameData = null;
+        _fundamentalAnalysis = null;
         _financialSnapshot = null;
       });
     } catch (e) {
-      if (!mounted || requestId != _financialRequestId) return;
+      if (!mounted || requestId != _fundamentalRequestId) return;
       setState(() {
-        _financialLoading = false;
-        _financialError = 'Erreur financières: ${e.toString()}';
+        _fundamentalLoading = false;
+        _fundamentalError = 'Erreur financières: ${e.toString()}';
+        _fundamentalGameData = null;
+        _fundamentalAnalysis = null;
         _financialSnapshot = null;
       });
     }
@@ -1832,51 +2084,48 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-  title: Text(
-    _ticker ?? 'Info',
-    style: const TextStyle(
-      fontWeight: FontWeight.w800,
-      color: _ink,
-    ),
-  ),
-  centerTitle: false,
-  backgroundColor: _bg,
-  surfaceTintColor: Colors.transparent,
-  elevation: 0,
-  bottom: PreferredSize(
-    preferredSize: const Size.fromHeight(10),
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          height: 6,
-          width: 96,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(99),
-            gradient: const LinearGradient(
-              colors: [_gold, _wine],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
+        title: Text(
+          _ticker ?? 'Info',
+          style: const TextStyle(fontWeight: FontWeight.w800, color: _ink),
+        ),
+        centerTitle: false,
+        backgroundColor: _bg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(10),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                height: 6,
+                width: 96,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(99),
+                  gradient: const LinearGradient(
+                    colors: [_gold, _wine],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ),
-    ),
-  ),
-),
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 250),
           child:
               _loading
-    ? Center(
-        child: CircularProgressIndicator(
-          color: _wine,
-          backgroundColor: _gold.withValues(alpha: .20),
-          strokeWidth: 3,
-        ),
-      )
+                  ? Center(
+                    child: CircularProgressIndicator(
+                      color: _wine,
+                      backgroundColor: _gold.withValues(alpha: .20),
+                      strokeWidth: 3,
+                    ),
+                  )
                   : (_error != null)
                   ? _ErrorView(
                     key: const ValueKey('error'),
@@ -2006,10 +2255,11 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
     List<_MetricEntry> complementaryMetrics,
     List<DecisionIndicator> decisionIndicators,
   ) {
-    final showDecisionLoading = _financialLoading && _financialSnapshot == null;
+    final showDecisionLoading =
+        _fundamentalLoading && _financialSnapshot == null;
     final showDecisionError =
-        _financialError != null &&
-        !_financialLoading &&
+        _fundamentalError != null &&
+        !_fundamentalLoading &&
         _financialSnapshot == null;
 
     final children = <Widget>[];
@@ -2048,7 +2298,7 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Text(
-              _financialError!,
+              _fundamentalError!,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium,
             ),
@@ -2081,6 +2331,281 @@ final borderColor = Colors.black.withValues(alpha: 0.05);
       padding: const EdgeInsets.all(16),
       children: children,
     );
+  }
+
+  FundamentalScorePresentation _buildFundamentalPresentation() {
+    return buildFundamentalScorePresentation(
+      loading: _fundamentalLoading,
+      error: _fundamentalError,
+      data: _fundamentalGameData,
+      analysis: _fundamentalAnalysis,
+    );
+  }
+
+  Widget _buildFundamentalHeroCard() {
+    final presentation = _buildFundamentalPresentation();
+    return FundamentalScoreHeroCard(
+      presentation: presentation,
+      onTap: presentation.canOpenDetails ? _showFundamentalScoreDetails : null,
+    );
+  }
+
+  void _showFundamentalScoreDetails() {
+    final analysis = _fundamentalAnalysis;
+    if (analysis == null) return;
+
+    final presentation = _buildFundamentalPresentation();
+    final theme = Theme.of(context);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: FractionallySizedBox(
+            heightFactor: 0.82,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Lecture fondamentale',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Repère quantitatif à visée pédagogique, calculé sur des données publiques sans intention de recommandation.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: detailsColor1.withValues(alpha: .28),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: detailsColor2.withValues(alpha: .08),
+                          blurRadius: 18,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          presentation.title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        RichText(
+                          text: TextSpan(
+                            style: const TextStyle(color: textColor),
+                            children: [
+                              TextSpan(
+                                text:
+                                    analysis.finalScore == null
+                                        ? 'N/A'
+                                        : analysis.finalScore!.toStringAsFixed(
+                                          0,
+                                        ),
+                                style: const TextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: '/100',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _FundamentalSheetChip(
+                              label:
+                                  presentation.verdictLabel ??
+                                  'Lecture informative',
+                              backgroundColor: _fundamentalVerdictColor(
+                                presentation.verdictLabel,
+                              ).withValues(alpha: .12),
+                              foregroundColor: _fundamentalVerdictColor(
+                                presentation.verdictLabel,
+                              ),
+                            ),
+                            if (presentation.confidenceLabel != null)
+                              _FundamentalSheetChip(
+                                label: presentation.confidenceLabel!,
+                                backgroundColor: detailsColor1.withValues(
+                                  alpha: .14,
+                                ),
+                                foregroundColor: textColor,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          presentation.disclaimer,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.black54,
+                            fontWeight: FontWeight.w600,
+                            height: 1.35,
+                          ),
+                        ),
+                        if (presentation.summary != null) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            presentation.summary!,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (presentation.strongestSubScore != null ||
+                      presentation.weakestSubScore != null) ...[
+                    _SectionHeader(label: 'Lecture rapide'),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        if (presentation.strongestSubScore != null)
+                          Expanded(
+                            child: _FundamentalFocusCard(
+                              title: 'Force',
+                              value: presentation.strongestSubScore!.title,
+                              score:
+                                  presentation.strongestSubScore!.score
+                                      ?.toStringAsFixed(0) ??
+                                  'N/A',
+                              accentColor: detailsColor1,
+                            ),
+                          ),
+                        if (presentation.strongestSubScore != null &&
+                            presentation.weakestSubScore != null)
+                          const SizedBox(width: 12),
+                        if (presentation.weakestSubScore != null)
+                          Expanded(
+                            child: _FundamentalFocusCard(
+                              title: 'Vigilance',
+                              value: presentation.weakestSubScore!.title,
+                              score:
+                                  presentation.weakestSubScore!.score
+                                      ?.toStringAsFixed(0) ??
+                                  'N/A',
+                              accentColor: detailsColor2,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  _SectionHeader(label: 'Sous-scores'),
+                  const SizedBox(height: 12),
+                  ...analysis.subScores.map(
+                    (subScore) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _FundamentalSubScoreCard(subScore: subScore),
+                    ),
+                  ),
+                  if (analysis.missingData.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _SectionHeader(label: 'Données manquantes'),
+                    const SizedBox(height: 12),
+                    ...analysis.missingData.map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(top: 6),
+                              decoration: BoxDecoration(
+                                color: detailsColor2.withValues(alpha: .8),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                item,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Color _fundamentalVerdictColor(String? verdictLabel) {
+    switch (verdictLabel) {
+      case 'Lecture élevée':
+        return const Color(0xFF8C6A12);
+      case 'Lecture solide':
+        return detailsColor2;
+      case 'Lecture mitigée':
+        return const Color(0xFF6F657D);
+      case 'Lecture fragile':
+        return const Color(0xFF4E3A66);
+      default:
+        return textColor;
+    }
   }
 
   String _renderIndicatorValue(DecisionIndicator indicator) {
@@ -3411,6 +3936,188 @@ class _PeriodDelta {
   final double end;
   final double change;
   final double percent;
+}
+
+class _FundamentalSheetChip extends StatelessWidget {
+  const _FundamentalSheetChip({
+    required this.label,
+    required this.backgroundColor,
+    required this.foregroundColor,
+  });
+
+  final String label;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: foregroundColor, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+class _FundamentalFocusCard extends StatelessWidget {
+  const _FundamentalFocusCard({
+    required this.title,
+    required this.value,
+    required this.score,
+    required this.accentColor,
+  });
+
+  final String title;
+  final String value;
+  final String score;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: .18)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .04),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: accentColor,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$score/20',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.black54,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundamentalSubScoreCard extends StatelessWidget {
+  const _FundamentalSubScoreCard({required this.subScore});
+
+  final FundamentalSubScore subScore;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .04),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  subScore.title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              _FundamentalSheetChip(
+                label:
+                    subScore.score == null
+                        ? 'N/A'
+                        : '${subScore.score!.toStringAsFixed(0)}/20',
+                backgroundColor: detailsColor1.withValues(alpha: .14),
+                foregroundColor: textColor,
+              ),
+            ],
+          ),
+          if (subScore.note != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              subScore.note!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          ...subScore.metrics.map(
+            (metric) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${metric.label} · ${metric.displayValue}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    metric.score == null
+                        ? 'N/A'
+                        : '${metric.score!.toStringAsFixed(0)}/20',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SectionHeader extends StatelessWidget {

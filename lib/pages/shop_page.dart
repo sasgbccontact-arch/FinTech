@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fintech/core/constants.dart';
@@ -23,7 +25,8 @@ class _ShopPageState extends State<ShopPage> {
   final Map<String, Map<String, dynamic>> _redeemableCodes = {
     'FABFINTECH': {
       'itemId': '_easteregg',
-      'type': 'avatar', // Prévision pour gérer d'autres types (ex: 'coins') plus tard
+      'type':
+          'avatar', // Prévision pour gérer d'autres types (ex: 'coins') plus tard
       'successMsg': 'Code valide ! Avatar Easter Egg débloqué ! 🎁',
     },
     'SEXTOYSBOY': {
@@ -100,101 +103,111 @@ class _ShopPageState extends State<ShopPage> {
           ),
         ),
       ),
-      body: user == null
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-                child: Center(
-                  child: _PremiumStateCard(
-                    icon: Icons.lock_outline_rounded,
-                    title: 'Connexion requise',
-                    message: 'Veuillez vous connecter pour accéder à la boutique.',
+      body:
+          user == null
+              ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                  child: Center(
+                    child: _PremiumStateCard(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'Connexion requise',
+                      message:
+                          'Veuillez vous connecter pour accéder à la boutique.',
+                    ),
                   ),
                 ),
-              ),
-            )
-          : StreamBuilder<DocumentSnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(user.uid)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(
-                    child: _ThemedLoader(),
+              )
+              : StreamBuilder<DocumentSnapshot>(
+                stream:
+                    FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user.uid)
+                        .snapshots(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const _ShopLoadingView();
+                  }
+
+                  final data =
+                      snapshot.data!.data() as Map<String, dynamic>? ?? {};
+                  final int coins = (data['coins'] as num?)?.toInt() ?? 0;
+                  final int gems = (data['gems'] as num?)?.toInt() ?? 0;
+
+                  return StreamBuilder<DocumentSnapshot>(
+                    stream:
+                        FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(user.uid)
+                            .collection('games')
+                            .doc('progress')
+                            .snapshots(),
+                    builder: (context, progressSnap) {
+                      final progressData =
+                          progressSnap.data?.data() as Map<String, dynamic>? ??
+                          {};
+                      final List<dynamic> inventory =
+                          progressData['inventory'] ?? [];
+
+                      return SafeArea(
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                          children: [
+                            _buildBalanceCard(gems, coins),
+                            const SizedBox(height: 16),
+                            const _DailyRewardShopSection(),
+                            const SizedBox(height: 18),
+
+                            const _SectionHeader(
+                              title: 'Code cadeau',
+                              subtitle:
+                                  'Entre un code pour débloquer des récompenses.',
+                              icon: Icons.card_giftcard_rounded,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildRedeemSection(context, user.uid, inventory),
+                            const SizedBox(height: 18),
+
+                            const _SectionHeader(
+                              title: 'Avatars',
+                              subtitle:
+                                  'Collectionne et personnalise ton profil.',
+                              icon: Icons.face_retouching_natural_rounded,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildAvatarsSection(
+                              context,
+                              user.uid,
+                              gems,
+                              coins,
+                              inventory,
+                            ),
+                            const SizedBox(height: 18),
+
+                            const _SectionHeader(
+                              title: 'Ressources',
+                              subtitle: 'Convertis tes gemmes en pièces.',
+                              icon: Icons.auto_awesome_rounded,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildExchangeSection(context, user.uid, gems),
+                            const SizedBox(height: 18),
+
+                            const _SectionHeader(
+                              title: 'Boosts',
+                              subtitle:
+                                  'Accélère ta progression avec des avantages temporaires.',
+                              icon: Icons.flash_on_rounded,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildBoostsSection(context, user.uid, gems),
+                          ],
+                        ),
+                      );
+                    },
                   );
-                }
-
-                final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
-                final int coins = (data['coins'] as num?)?.toInt() ?? 0;
-                final int gems = (data['gems'] as num?)?.toInt() ?? 0;
-
-                return StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(user.uid)
-                      .collection('games')
-                      .doc('progress')
-                      .snapshots(),
-                  builder: (context, progressSnap) {
-                    final progressData =
-                        progressSnap.data?.data() as Map<String, dynamic>? ?? {};
-                    final List<dynamic> inventory = progressData['inventory'] ?? [];
-
-                    return SafeArea(
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                        children: [
-                          _buildBalanceCard(gems, coins),
-                          const SizedBox(height: 16),
-
-                          const _SectionHeader(
-                            title: 'Code cadeau',
-                            subtitle: 'Entre un code pour débloquer des récompenses.',
-                            icon: Icons.card_giftcard_rounded,
-                          ),
-                          const SizedBox(height: 10),
-                          _buildRedeemSection(context, user.uid, inventory),
-                          const SizedBox(height: 18),
-
-                          const _SectionHeader(
-                            title: 'Avatars',
-                            subtitle: 'Collectionne et personnalise ton profil.',
-                            icon: Icons.face_retouching_natural_rounded,
-                          ),
-                          const SizedBox(height: 10),
-                          _buildAvatarsSection(
-                            context,
-                            user.uid,
-                            gems,
-                            coins,
-                            inventory,
-                          ),
-                          const SizedBox(height: 18),
-
-                          const _SectionHeader(
-                            title: 'Ressources',
-                            subtitle: 'Convertis tes gemmes en pièces.',
-                            icon: Icons.auto_awesome_rounded,
-                          ),
-                          const SizedBox(height: 10),
-                          _buildExchangeSection(context, user.uid, gems),
-                          const SizedBox(height: 18),
-
-                          const _SectionHeader(
-                            title: 'Boosts',
-                            subtitle: 'Accélère ta progression avec des avantages temporaires.',
-                            icon: Icons.flash_on_rounded,
-                          ),
-                          const SizedBox(height: 10),
-                          _buildBoostsSection(context, user.uid, gems),
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                },
+              ),
     );
   }
 
@@ -245,7 +258,11 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
-  Widget _buildRedeemSection(BuildContext context, String uid, List<dynamic> inventory) {
+  Widget _buildRedeemSection(
+    BuildContext context,
+    String uid,
+    List<dynamic> inventory,
+  ) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
       decoration: BoxDecoration(
@@ -299,14 +316,19 @@ class _ShopPageState extends State<ShopPage> {
           _GradientButton(
             label: 'Valider',
             loading: _isLoading,
-            onTap: _isLoading ? null : () => _redeemCode(context, uid, inventory),
+            onTap:
+                _isLoading ? null : () => _redeemCode(context, uid, inventory),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _redeemCode(BuildContext context, String uid, List<dynamic> inventory) async {
+  Future<void> _redeemCode(
+    BuildContext context,
+    String uid,
+    List<dynamic> inventory,
+  ) async {
     // Normalisation du code entré (majuscules, sans espaces)
     final inputCode = _codeController.text.trim().toUpperCase();
 
@@ -326,7 +348,9 @@ class _ShopPageState extends State<ShopPage> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(newStatus ? 'Mode Admin ACTIVÉ 🔓' : 'Mode Admin DÉSACTIVÉ 🔒'),
+              content: Text(
+                newStatus ? 'Mode Admin ACTIVÉ 🔓' : 'Mode Admin DÉSACTIVÉ 🔒',
+              ),
               backgroundColor: newStatus ? Colors.green : Colors.orange,
             ),
           );
@@ -334,8 +358,9 @@ class _ShopPageState extends State<ShopPage> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur : $e')));
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
@@ -355,7 +380,9 @@ class _ShopPageState extends State<ShopPage> {
       // Vérification spécifique pour les avatars (pour éviter les doublons)
       if (type == 'avatar' && inventory.contains(itemId)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vous possédez déjà cette récompense !')),
+          const SnackBar(
+            content: Text('Vous possédez déjà cette récompense !'),
+          ),
         );
         _codeController.clear();
         return;
@@ -364,13 +391,15 @@ class _ShopPageState extends State<ShopPage> {
       setState(() => _isLoading = true);
 
       try {
-        final userDocRef = FirebaseFirestore.instance.collection('users').doc(uid);
+        final userDocRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid);
         final progressRef = userDocRef.collection('games').doc('progress');
 
         // Logique d'application de la récompense
         if (type == 'avatar') {
           await progressRef.update({
-            'inventory': FieldValue.arrayUnion([itemId])
+            'inventory': FieldValue.arrayUnion([itemId]),
           });
         } else if (type == 'coins') {
           final int amount = rewardData['amount'] ?? 0;
@@ -382,18 +411,15 @@ class _ShopPageState extends State<ShopPage> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(successMsg),
-              backgroundColor: Colors.green,
-            ),
+            SnackBar(content: Text(successMsg), backgroundColor: Colors.green),
           );
           _codeController.clear();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur technique : $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur technique : $e')));
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
@@ -422,28 +448,28 @@ class _ShopPageState extends State<ShopPage> {
         'name': 'Bling Bling',
         'price': 250,
         'currency': 'gems',
-        'asset': 'assets/avatars/avatar_bling.png'
+        'asset': 'assets/avatars/avatar_bling.png',
       },
       {
         'id': '_strong',
         'name': 'Mr Strong',
         'price': 10000,
         'currency': 'coins',
-        'asset': 'assets/avatars/avatar_strong.png'
+        'asset': 'assets/avatars/avatar_strong.png',
       },
       {
         'id': '_geek',
         'name': 'Geek',
         'price': 2000,
         'currency': 'coins',
-        'asset': 'assets/avatars/avatar_geek.png'
+        'asset': 'assets/avatars/avatar_geek.png',
       },
       {
         'id': '_skelet',
         'name': 'Skelet',
         'price': 100,
         'currency': 'gems',
-        'asset': 'assets/avatars/avatar_skelet.png'
+        'asset': 'assets/avatars/avatar_skelet.png',
       },
       // Avatar spécial (code only)
     ];
@@ -497,16 +523,15 @@ class _ShopPageState extends State<ShopPage> {
         final bool owned = inventory.contains(id);
 
         final bool canBuy =
-            !isCodeOnly && (isGems ? currentGems >= price : currentCoins >= price);
+            !isCodeOnly &&
+            (isGems ? currentGems >= price : currentCoins >= price);
 
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: owned
-                  ? Colors.green.withValues(alpha: 0.45)
-                  : _line,
+              color: owned ? Colors.green.withValues(alpha: 0.45) : _line,
               width: owned ? 2 : 1,
             ),
             boxShadow: [
@@ -525,26 +550,28 @@ class _ShopPageState extends State<ShopPage> {
               children: [
                 GestureDetector(
                   onTap: () => _showAvatarPreview(context, item),
-                  child: item.containsKey('asset')
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.asset(
-                            item['asset'] as String,
-                            width: 84,
-                            height: 84,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.person,
-                              size: 80,
-                              color: Colors.black54,
+                  child:
+                      item.containsKey('asset')
+                          ? ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.asset(
+                              item['asset'] as String,
+                              width: 84,
+                              height: 84,
+                              fit: BoxFit.cover,
+                              errorBuilder:
+                                  (_, __, ___) => const Icon(
+                                    Icons.person,
+                                    size: 80,
+                                    color: Colors.black54,
+                                  ),
                             ),
+                          )
+                          : Icon(
+                            item['icon'] as IconData,
+                            size: 80,
+                            color: Colors.black87,
                           ),
-                        )
-                      : Icon(
-                          item['icon'] as IconData,
-                          size: 80,
-                          color: Colors.black87,
-                        ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -560,11 +587,16 @@ class _ShopPageState extends State<ShopPage> {
                 const SizedBox(height: 6),
                 if (owned)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.20)),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.20),
+                      ),
                     ),
                     child: const Text(
                       'Possédé',
@@ -577,7 +609,10 @@ class _ShopPageState extends State<ShopPage> {
                   )
                 else if (isCodeOnly)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: _wine.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(12),
@@ -595,8 +630,9 @@ class _ShopPageState extends State<ShopPage> {
                 else
                   _GradientButton(
                     label: '$price ${isGems ? '💎' : '🪙'}',
-                    onTap: canBuy
-                        ? () => _confirmPurchase(
+                    onTap:
+                        canBuy
+                            ? () => _confirmPurchase(
                               context,
                               uid,
                               id,
@@ -605,7 +641,7 @@ class _ShopPageState extends State<ShopPage> {
                               item['name'] as String,
                               isAvatar: true,
                             )
-                        : null,
+                            : null,
                     compact: true,
                     disabledLabel: '$price ${isGems ? '💎' : '🪙'}',
                   ),
@@ -617,7 +653,11 @@ class _ShopPageState extends State<ShopPage> {
     );
   }
 
-  Widget _buildExchangeSection(BuildContext context, String uid, int currentGems) {
+  Widget _buildExchangeSection(
+    BuildContext context,
+    String uid,
+    int currentGems,
+  ) {
     return _ShopRowCard(
       leading: _GradientIconBox(
         icon: Icons.monetization_on_rounded,
@@ -628,14 +668,20 @@ class _ShopPageState extends State<ShopPage> {
       trailing: _GradientButton(
         label: '10 💎',
         compact: true,
-        onTap: currentGems >= 10
-            ? () => _buyItem(context, uid, 'coins_pack', 10, isAvatar: false)
-            : null,
+        onTap:
+            currentGems >= 10
+                ? () =>
+                    _buyItem(context, uid, 'coins_pack', 10, isAvatar: false)
+                : null,
       ),
     );
   }
 
-  Widget _buildBoostsSection(BuildContext context, String uid, int currentGems) {
+  Widget _buildBoostsSection(
+    BuildContext context,
+    String uid,
+    int currentGems,
+  ) {
     return _ShopRowCard(
       leading: _GradientIconBox(
         icon: Icons.flash_on_rounded,
@@ -646,8 +692,9 @@ class _ShopPageState extends State<ShopPage> {
       trailing: _GradientButton(
         label: '20 💎',
         compact: true,
-        onTap: currentGems >= 20
-            ? () => _confirmPurchase(
+        onTap:
+            currentGems >= 20
+                ? () => _confirmPurchase(
                   context,
                   uid,
                   'boost_zero_fees',
@@ -656,7 +703,7 @@ class _ShopPageState extends State<ShopPage> {
                   'Boost 0% Frais',
                   isAvatar: false,
                 )
-            : null,
+                : null,
       ),
     );
   }
@@ -664,68 +711,73 @@ class _ShopPageState extends State<ShopPage> {
   void _showAvatarPreview(BuildContext context, Map<String, dynamic> item) {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: _line),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .10),
-                blurRadius: 26,
-                offset: const Offset(0, 16),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                item['name'] as String,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: _ink,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                height: 6,
-                width: 96,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(99),
-                  gradient: const LinearGradient(
-                    colors: [_gold, _wine],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
+      builder:
+          (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: _line),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .10),
+                    blurRadius: 26,
+                    offset: const Offset(0, 16),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: 18),
-              if (item.containsKey('asset'))
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: Image.asset(
-                    item['asset'] as String,
-                    width: 200,
-                    height: 200,
-                    fit: BoxFit.cover,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item['name'] as String,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                    ),
                   ),
-                )
-              else
-                Icon(item['icon'] as IconData, size: 150, color: Colors.black87),
-              const SizedBox(height: 18),
-              _GradientButton(
-                label: 'Fermer',
-                onTap: () => Navigator.pop(context),
+                  const SizedBox(height: 10),
+                  Container(
+                    height: 6,
+                    width: 96,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      gradient: const LinearGradient(
+                        colors: [_gold, _wine],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (item.containsKey('asset'))
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Image.asset(
+                        item['asset'] as String,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else
+                    Icon(
+                      item['icon'] as IconData,
+                      size: 150,
+                      color: Colors.black87,
+                    ),
+                  const SizedBox(height: 18),
+                  _GradientButton(
+                    label: 'Fermer',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -740,32 +792,47 @@ class _ShopPageState extends State<ShopPage> {
   }) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirmer l'achat"),
-        content: Text(
-          'Voulez-vous acheter "$itemName" pour $price ${currency == 'gems' ? 'Gemmes' : 'Pièces'} ?',
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _wine,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Confirmer l'achat"),
+            content: Text(
+              'Voulez-vous acheter "$itemName" pour $price ${currency == 'gems' ? 'Gemmes' : 'Pièces'} ?',
             ),
-            child: const Text('Acheter'),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  'Annuler',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _wine,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text('Acheter'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
 
     if (confirmed == true && context.mounted) {
-      _buyItem(context, uid, itemId, price, isAvatar: isAvatar, currency: currency);
+      _buyItem(
+        context,
+        uid,
+        itemId,
+        price,
+        isAvatar: isAvatar,
+        currency: currency,
+      );
     }
   }
 
@@ -778,15 +845,19 @@ class _ShopPageState extends State<ShopPage> {
     String currency = 'gems',
   }) async {
     try {
-      final userDocRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final userDocRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid);
       final progressRef = userDocRef.collection('games').doc('progress');
 
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         final userSnap = await transaction.get(userDocRef);
 
         // Coins and Gems are now on the user doc
-        final int currentGems = (userSnap.data()?['gems'] as num?)?.toInt() ?? 0;
-        final int currentCoins = (userSnap.data()?['coins'] as num?)?.toInt() ?? 0;
+        final int currentGems =
+            (userSnap.data()?['gems'] as num?)?.toInt() ?? 0;
+        final int currentCoins =
+            (userSnap.data()?['coins'] as num?)?.toInt() ?? 0;
 
         final updates = <String, dynamic>{};
 
@@ -800,7 +871,7 @@ class _ShopPageState extends State<ShopPage> {
 
         if (isAvatar) {
           transaction.update(progressRef, {
-            'inventory': FieldValue.arrayUnion([itemId])
+            'inventory': FieldValue.arrayUnion([itemId]),
           });
         } else if (itemId == 'coins_pack') {
           updates['coins'] = FieldValue.increment(500);
@@ -832,6 +903,186 @@ class _ShopPageState extends State<ShopPage> {
   }
 }
 
+class _DailyRewardShopSection extends StatefulWidget {
+  const _DailyRewardShopSection();
+
+  @override
+  State<_DailyRewardShopSection> createState() =>
+      _DailyRewardShopSectionState();
+}
+
+class _DailyRewardShopSectionState extends State<_DailyRewardShopSection> {
+  bool _loading = true;
+  bool _canClaim = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
+    try {
+      final doc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+      final data = doc.data();
+      final lastRewardTs = data?['last_daily_reward'] as Timestamp?;
+
+      bool claimedToday = false;
+      if (lastRewardTs != null) {
+        final now = DateTime.now();
+        final last = lastRewardTs.toDate();
+        if (now.year == last.year &&
+            now.month == last.month &&
+            now.day == last.day) {
+          claimedToday = true;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _canClaim = !claimedToday;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _claimReward() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || !_canClaim) return;
+
+    setState(() => _loading = true);
+
+    final random = Random();
+    final isCoins = random.nextBool();
+    final options = isCoins ? [100, 200, 300] : [2, 4, 6];
+    final amount = options[random.nextInt(options.length)];
+    final type = isCoins ? 'coins' : 'gems';
+    final label = isCoins ? 'Pièces' : 'Gemmes';
+
+    try {
+      final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      await ref.set({
+        type: FieldValue.increment(amount),
+        'last_daily_reward': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("🎁 Récompense récupérée : +$amount $label !"),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() {
+        _canClaim = false;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erreur lors de la récupération."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: _ThemedLoader());
+    }
+
+    return GestureDetector(
+      onTap: _canClaim ? _claimReward : null,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          gradient: const LinearGradient(
+            colors: [detailsColor1, detailsColor2],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.14),
+              blurRadius: 22,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.card_giftcard_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Cadeau du jour',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _canClaim
+                        ? 'Touchez pour récupérer votre récompense quotidienne.'
+                        : 'Déjà récupéré aujourd’hui. Revenez demain.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.90),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              _canClaim ? Icons.touch_app_rounded : Icons.check_circle_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ThemedLoader extends StatelessWidget {
   const _ThemedLoader();
 
@@ -841,6 +1092,38 @@ class _ThemedLoader extends StatelessWidget {
       color: detailsColor2,
       backgroundColor: detailsColor1.withValues(alpha: .20),
       strokeWidth: 3,
+    );
+  }
+}
+
+class _ShopLoadingView extends StatelessWidget {
+  const _ShopLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+        children: List.generate(
+          5,
+          (index) => Container(
+            height: index == 0 ? 128 : 108,
+            margin: EdgeInsets.only(bottom: index == 4 ? 0 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFE6E8EB)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1024,48 +1307,51 @@ class _GradientButton extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            gradient: enabled
-                ? const LinearGradient(
-                    colors: [detailsColor1, detailsColor2],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : LinearGradient(
-                    colors: [
-                      Colors.black.withValues(alpha: 0.18),
-                      Colors.black.withValues(alpha: 0.12),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-            boxShadow: enabled
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .12),
-                      blurRadius: 18,
-                      offset: const Offset(0, 10),
+            gradient:
+                enabled
+                    ? const LinearGradient(
+                      colors: [detailsColor1, detailsColor2],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                    : LinearGradient(
+                      colors: [
+                        Colors.black.withValues(alpha: 0.18),
+                        Colors.black.withValues(alpha: 0.12),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ]
-                : [],
+            boxShadow:
+                enabled
+                    ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: .12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 10),
+                      ),
+                    ]
+                    : [],
           ),
           child: Center(
-            child: loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            child:
+                loading
+                    ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                    : Text(
+                      enabled ? label : (disabledLabel ?? label),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .2,
+                      ),
                     ),
-                  )
-                : Text(
-                    enabled ? label : (disabledLabel ?? label),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .2,
-                    ),
-                  ),
           ),
         ),
       ),
@@ -1137,10 +1423,7 @@ class _ShopRowCard extends StatelessWidget {
 }
 
 class _GradientIconBox extends StatelessWidget {
-  const _GradientIconBox({
-    required this.icon,
-    required this.colors,
-  });
+  const _GradientIconBox({required this.icon, required this.colors});
 
   final IconData icon;
   final List<Color> colors;

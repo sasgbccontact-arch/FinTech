@@ -21,6 +21,7 @@ import 'simulation_game.dart';
 import 'shop_page.dart';
 import 'compte_terme.dart';
 import 'package:fintech/core/constants.dart';
+import 'package:fintech/services/activity_tracking_service.dart';
 
 const LinearGradient _accentGradient = LinearGradient(
   colors: [detailsColor1, detailsColor2],
@@ -35,6 +36,45 @@ final List<BoxShadow> _softShadow = [
     offset: const Offset(0, 6),
   ),
 ];
+
+class _GameSkeletonCard extends StatelessWidget {
+  const _GameSkeletonCard({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        boxShadow: _softShadow,
+      ),
+    );
+  }
+}
+
+class _GameScenarioSkeletonList extends StatelessWidget {
+  const _GameScenarioSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: const [
+          _GameSkeletonCard(height: 120),
+          SizedBox(height: 12),
+          _GameSkeletonCard(height: 120),
+          SizedBox(height: 12),
+          _GameSkeletonCard(height: 120),
+        ],
+      ),
+    );
+  }
+}
 
 /// Page de simulation pour l'onglet "Game".
 class MarketSimulationPage extends StatefulWidget {
@@ -395,6 +435,16 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
         'last_daily_reward': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      unawaited(
+        ActivityTrackingService.trackForUser(
+          uid: user.uid,
+          type: 'daily_reward_claimed',
+          label: 'Récompense quotidienne',
+          points: 14 + (isCoins ? amount ~/ 20 : amount * 8),
+          counters: const <String, int>{'daily_rewards_claimed': 1},
+        ),
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -435,11 +485,7 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
   @override
   Widget build(BuildContext context) {
     //if (_loading) return const SizedBox(height: 170, child: Center(child: CircularProgressIndicator()));
-    if (_loading)
-      return const SizedBox(
-        height: 150,
-        child: Center(child: CircularProgressIndicator()),
-      );
+    if (_loading) return const _GameSkeletonCard(height: 150);
 
     return GestureDetector(
       onTap: _canClaim ? _claimReward : null,
@@ -885,10 +931,7 @@ class _SimulationHubSheet extends StatelessWidget {
                     completedScenarios;
 
                 if (isLoadingScenarios) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
+                  return const _GameScenarioSkeletonList();
                 }
                 if (loadingError != null) {
                   return Padding(
