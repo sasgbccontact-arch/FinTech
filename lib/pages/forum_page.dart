@@ -40,18 +40,9 @@ class _ForumPageState extends State<ForumPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomScrollInset = MediaQuery.of(context).padding.bottom + 102;
     return Scaffold(
       backgroundColor: backgroundColor,
-      appBar: AppBar(
-        backgroundColor: backgroundColor,
-        surfaceTintColor: backgroundColor,
-        elevation: 0,
-        title: const Text(
-          'Forum',
-          style: TextStyle(color: textColor, fontWeight: FontWeight.w900),
-        ),
-        iconTheme: const IconThemeData(color: textColor),
-      ),
       body: SafeArea(
         child: StreamBuilder<User?>(
           stream: FirebaseAuth.instance.authStateChanges(),
@@ -59,7 +50,7 @@ class _ForumPageState extends State<ForumPage> {
           builder: (context, snapshot) {
             final user = snapshot.data;
             return ListView(
-              padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
+              padding: EdgeInsets.fromLTRB(0, 0, 0, bottomScrollInset),
               children: [
                 if (user == null)
                   const Padding(

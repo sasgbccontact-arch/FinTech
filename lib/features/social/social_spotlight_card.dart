@@ -88,75 +88,120 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
     return FirebaseFirestore.instance.collection('users').snapshots();
   }
 
+  Future<void> _tryWritePeerInboxNotification({
+    required String targetUserId,
+    required String docId,
+    required Map<String, dynamic> payload,
+    required String debugContext,
+  }) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(targetUserId)
+          .collection('inbox')
+          .doc(docId)
+          .set(payload);
+      _log('Notif perso ecrite pour $targetUserId contexte=$debugContext');
+    } on FirebaseException catch (error) {
+      _log(
+        'Notif perso ignoree pour $targetUserId contexte=$debugContext code=${error.code} message=${error.message}',
+      );
+    }
+  }
+
   Future<void> _sendFriendRequest(_SocialUserEntry target) async {
     _log('Tentative envoi demande ami vers ${target.uid} (${target.name})');
     final requestId = '${widget.currentUserId}_${target.uid}';
-    final reverseId = '${target.uid}_${widget.currentUserId}';
     final requests = FirebaseFirestore.instance.collection('friend_requests');
-    final friendships = FirebaseFirestore.instance.collection('friendships');
-    final friendshipId = _friendshipId(widget.currentUserId, target.uid);
     String? outgoingStatus;
-
-    final existingFriendship = await friendships.doc(friendshipId).get();
-    if (existingFriendship.exists) {
-      _log('Blocage: deja amis avec ${target.uid}');
-      _snack('Vous êtes déjà amis.');
-      return;
-    }
-
-    final existingOutgoing = await requests.doc(requestId).get();
-    outgoingStatus = existingOutgoing.data()?['status']?.toString();
-    if (outgoingStatus == 'pending') {
-      _log('Blocage: demande deja en attente vers ${target.uid}');
-      _snack('Une demande est déjà en attente.');
-      return;
-    }
-    if (outgoingStatus == 'accepted') {
-      _log('Blocage: demande deja acceptee avec ${target.uid}');
-      _snack('Vous êtes déjà amis.');
-      return;
-    }
-
-    final reverseRequest = await requests.doc(reverseId).get();
-    final reverseStatus = reverseRequest.data()?['status']?.toString();
-    if (reverseStatus == 'pending') {
-      _log('Blocage: demande inverse deja recue depuis ${target.uid}');
-      _snack('Cette personne t’a déjà envoyé une demande.');
-      return;
-    }
-    if (reverseStatus == 'accepted') {
-      _log('Blocage: relation deja acceptee via demande inverse ${target.uid}');
-      _snack('Vous êtes déjà amis.');
-      return;
-    }
-
-    final now = Timestamp.now();
-    final senderDoc =
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(widget.currentUserId)
-            .get();
-    final senderName = _displayName(
-      senderDoc.data() ?? const <String, dynamic>{},
-    );
-
-    final payload = <String, dynamic>{
-      'fromUid': widget.currentUserId,
-      'toUid': target.uid,
-      'status': 'pending',
-      'createdAt': now,
-    };
+    String? reverseStatus;
+    var step = 'start';
 
     try {
-      final batch = FirebaseFirestore.instance.batch();
-      batch.set(requests.doc(requestId), payload);
-      batch.set(
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(target.uid)
-            .collection('inbox')
-            .doc('friend_$requestId'),
-        {
+      step = 'read_outgoing_requests';
+      _log('Verification demandes sortantes existantes vers ${target.uid}');
+      final outgoingSnapshot =
+          await requests
+              .where('fromUid', isEqualTo: widget.currentUserId)
+              .limit(40)
+              .get();
+      for (final doc in outgoingSnapshot.docs) {
+        final data = doc.data();
+        if ((data['toUid'] as String?) == target.uid) {
+          outgoingStatus = data['status']?.toString();
+          break;
+        }
+      }
+
+      if (outgoingStatus == 'pending') {
+        _log('Blocage: demande deja en attente vers ${target.uid}');
+        _snack('Une demande est déjà en attente.');
+        return;
+      }
+      if (outgoingStatus == 'accepted') {
+        _log('Blocage: demande deja acceptee avec ${target.uid}');
+        _snack('Vous êtes déjà amis.');
+        return;
+      }
+
+      step = 'read_incoming_requests';
+      _log('Verification demandes entrantes existantes depuis ${target.uid}');
+      final incomingSnapshot =
+          await requests
+              .where('toUid', isEqualTo: widget.currentUserId)
+              .limit(40)
+              .get();
+      for (final doc in incomingSnapshot.docs) {
+        final data = doc.data();
+        if ((data['fromUid'] as String?) == target.uid) {
+          reverseStatus = data['status']?.toString();
+          break;
+        }
+      }
+
+      if (reverseStatus == 'pending') {
+        _log('Blocage: demande inverse deja recue depuis ${target.uid}');
+        _snack('Cette personne t’a déjà envoyé une demande.');
+        return;
+      }
+      if (reverseStatus == 'accepted') {
+        _log(
+          'Blocage: relation deja acceptee via demande inverse ${target.uid}',
+        );
+        _snack('Vous êtes déjà amis.');
+        return;
+      }
+
+      step = 'read_sender_profile';
+      _log('Chargement profil expediteur ${widget.currentUserId}');
+      final now = Timestamp.now();
+      final senderDoc =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(widget.currentUserId)
+              .get();
+      final senderName = _displayName(
+        senderDoc.data() ?? const <String, dynamic>{},
+      );
+
+      final payload = <String, dynamic>{
+        'fromUid': widget.currentUserId,
+        'toUid': target.uid,
+        'status': 'pending',
+        'createdAt': now,
+      };
+
+      step = 'write_friend_request';
+      _log(
+        'Ecriture demande amie requestId=$requestId statutSortant=${outgoingStatus ?? 'none'} statutEntrant=${reverseStatus ?? 'none'}',
+      );
+      await requests.doc(requestId).set(payload);
+      step = 'write_peer_inbox_notification';
+      await _tryWritePeerInboxNotification(
+        targetUserId: target.uid,
+        docId: 'friend_$requestId',
+        debugContext: 'friend_request_create',
+        payload: {
           'type': 'friend_request',
           'title': '$senderName veut etre ton ami',
           'body':
@@ -168,11 +213,10 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
           'isRead': false,
         },
       );
-      await batch.commit();
       _log('Succes envoi demande ami requestId=$requestId');
     } on FirebaseException catch (error) {
       _log(
-        'Erreur Firebase envoi demande ami requestId=$requestId code=${error.code} message=${error.message}',
+        'Erreur Firebase envoi demande ami requestId=$requestId etape=$step code=${error.code} message=${error.message} statutSortant=${outgoingStatus ?? 'none'} statutEntrant=${reverseStatus ?? 'none'}',
       );
       if (error.code == 'permission-denied' &&
           (outgoingStatus == 'declined' || outgoingStatus == 'cancelled')) {
@@ -205,13 +249,12 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
       'status': 'accepted',
       'acceptedAt': now,
     });
-    batch.set(
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(request.fromUid)
-          .collection('inbox')
-          .doc('friend_accept_${request.id}'),
-      {
+    await batch.commit();
+    await _tryWritePeerInboxNotification(
+      targetUserId: request.fromUid,
+      docId: 'friend_accept_${request.id}',
+      debugContext: 'friend_request_accept',
+      payload: {
         'type': 'friend_request_accepted',
         'title': 'Ta demande d’ami a été acceptée',
         'body': 'Ton cercle social vient de s’agrandir dans FinHub.',
@@ -222,7 +265,6 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
         'isRead': false,
       },
     );
-    await batch.commit();
     _log('Succes acceptation demande amie requestId=${request.id}');
     _snack('Demande acceptée.');
   }
@@ -235,13 +277,12 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
       FirebaseFirestore.instance.collection('friend_requests').doc(request.id),
       {'status': 'declined', 'declinedAt': now},
     );
-    batch.set(
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(request.fromUid)
-          .collection('inbox')
-          .doc('friend_decline_${request.id}'),
-      {
+    await batch.commit();
+    await _tryWritePeerInboxNotification(
+      targetUserId: request.fromUid,
+      docId: 'friend_decline_${request.id}',
+      debugContext: 'friend_request_decline',
+      payload: {
         'type': 'friend_request_declined',
         'title': 'Ta demande d’ami a été refusée',
         'body': 'Tu peux rechercher un autre joueur quand tu veux.',
@@ -252,7 +293,6 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
         'isRead': false,
       },
     );
-    await batch.commit();
     _log('Succes refus demande amie requestId=${request.id}');
     _snack('Demande refusée.');
   }

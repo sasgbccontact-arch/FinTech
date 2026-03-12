@@ -32,6 +32,26 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
+const MAX_BROADCASTS = 80;
+
+async function pruneOldBroadcasts(limit = MAX_BROADCASTS) {
+  const snap = await db.collection('broadcasts').get();
+  if (snap.size <= limit) {
+    return;
+  }
+
+  const overflow = [...snap.docs]
+    .sort((left, right) => {
+      const leftDate = left.data()?.createdAt?.toDate?.() ?? new Date(0);
+      const rightDate = right.data()?.createdAt?.toDate?.() ?? new Date(0);
+      return rightDate - leftDate;
+    })
+    .slice(limit);
+  for (const doc of overflow) {
+    await doc.ref.delete();
+    console.log(`[manual-notif] Broadcast supprime: ${doc.id}`);
+  }
+}
 
 const message = {
   topic: 'all_users',
@@ -57,6 +77,7 @@ try {
     messageId: response,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
   });
+  await pruneOldBroadcasts();
 } catch (error) {
   console.warn('[manual-notif] Notification envoyee mais sauvegarde Firestore impossible:', error);
 }

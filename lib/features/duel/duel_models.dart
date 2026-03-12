@@ -194,6 +194,13 @@ class DuelParticipant {
     required this.startingReserveCoins,
     required this.startingTotalCapital,
     required this.startingPositionsCount,
+    required this.startingHoldings,
+    required this.startingHoldingsCapturedAt,
+    required this.capitalTimeline,
+    required this.highConcentrationDays,
+    required this.persistentConcentrationPenalty,
+    required this.intelPurchaseDays,
+    required this.lastIntelPurchaseAt,
     required this.currentHoldingsValueCache,
     required this.currentTotalCapitalCache,
     required this.currentReserveCoinsCache,
@@ -222,6 +229,13 @@ class DuelParticipant {
   final double startingReserveCoins;
   final double startingTotalCapital;
   final int startingPositionsCount;
+  final List<DuelHolding> startingHoldings;
+  final DateTime? startingHoldingsCapturedAt;
+  final List<DuelCapitalPoint> capitalTimeline;
+  final List<String> highConcentrationDays;
+  final double persistentConcentrationPenalty;
+  final List<String> intelPurchaseDays;
+  final DateTime? lastIntelPurchaseAt;
   final double? currentHoldingsValueCache;
   final double? currentTotalCapitalCache;
   final double? currentReserveCoinsCache;
@@ -249,6 +263,10 @@ class DuelParticipant {
   bool get hasUnlockedPositionsCount => positionsCountRevealedAt != null;
   bool get hasUnlockedLine => revealedLine != null;
   bool get hasMaxPerformanceReveal => performanceRevealTier >= 3;
+  int get revealsBoughtCount =>
+      performanceRevealTier +
+      (hasUnlockedPositionsCount ? 1 : 0) +
+      (hasUnlockedLine ? 1 : 0);
 
   factory DuelParticipant.fromDoc(
     DocumentSnapshot<Map<String, dynamic>>? doc, {
@@ -265,6 +283,32 @@ class DuelParticipant {
           (data['startingTotalCapital'] as num?)?.toDouble() ?? 0,
       startingPositionsCount:
           (data['startingPositionsCount'] as num?)?.toInt() ?? 0,
+      startingHoldings:
+          (data['startingHoldings'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(DuelHolding.fromMap)
+              .toList(),
+      startingHoldingsCapturedAt: _dateFromAny(
+        data['startingHoldingsCapturedAt'],
+      ),
+      capitalTimeline:
+          (data['capitalTimeline'] as List<dynamic>? ?? const <dynamic>[])
+              .whereType<Map<String, dynamic>>()
+              .map(DuelCapitalPoint.fromMap)
+              .toList(),
+      highConcentrationDays:
+          (data['highConcentrationDays'] as List<dynamic>? ?? const <dynamic>[])
+              .map((value) => value.toString().trim())
+              .where((value) => value.isNotEmpty)
+              .toList(),
+      persistentConcentrationPenalty:
+          (data['persistentConcentrationPenalty'] as num?)?.toDouble() ?? 0,
+      intelPurchaseDays:
+          (data['intelPurchaseDays'] as List<dynamic>? ?? const <dynamic>[])
+              .map((value) => value.toString().trim())
+              .where((value) => value.isNotEmpty)
+              .toList(),
+      lastIntelPurchaseAt: _dateFromAny(data['lastIntelPurchaseAt']),
       currentHoldingsValueCache:
           (data['currentHoldingsValueCache'] as num?)?.toDouble(),
       currentTotalCapitalCache:
@@ -374,9 +418,11 @@ class DuelLiveMetrics {
     required this.holdingsValue,
     required this.reserveCoins,
     required this.totalCapital,
+    required this.pureReturnPct,
     required this.returnPct,
     required this.structureBonus,
     required this.concentrationPenalty,
+    required this.persistentConcentrationPenalty,
     required this.score,
     required this.positionsCount,
     required this.maxPositionWeight,
@@ -386,13 +432,47 @@ class DuelLiveMetrics {
   final double holdingsValue;
   final double reserveCoins;
   final double totalCapital;
+  final double pureReturnPct;
   final double returnPct;
   final double structureBonus;
   final double concentrationPenalty;
+  final double persistentConcentrationPenalty;
   final double score;
   final int positionsCount;
   final double maxPositionWeight;
   final List<DuelHolding> holdings;
+}
+
+class DuelCapitalPoint {
+  const DuelCapitalPoint({
+    required this.at,
+    required this.totalCapital,
+    required this.score,
+    required this.returnPct,
+  });
+
+  final DateTime at;
+  final double totalCapital;
+  final double score;
+  final double returnPct;
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'at': Timestamp.fromDate(at),
+      'totalCapital': totalCapital,
+      'score': score,
+      'returnPct': returnPct,
+    };
+  }
+
+  factory DuelCapitalPoint.fromMap(Map<String, dynamic> data) {
+    return DuelCapitalPoint(
+      at: _dateFromAny(data['at']) ?? DateTime.fromMillisecondsSinceEpoch(0),
+      totalCapital: (data['totalCapital'] as num?)?.toDouble() ?? 0,
+      score: (data['score'] as num?)?.toDouble() ?? 0,
+      returnPct: (data['returnPct'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
 
 DateTime? _dateFromAny(dynamic raw) {

@@ -21,6 +21,7 @@ class CommunityPage extends StatefulWidget {
 class _CommunityPageState extends State<CommunityPage> {
   bool _syncing = true;
   String? _syncError;
+  DuelProfile? _cachedProfile;
 
   @override
   void initState() {
@@ -36,7 +37,13 @@ class _CommunityPageState extends State<CommunityPage> {
       _syncError = null;
     });
     try {
-      await DuelService.syncCurrentUserProfile(uid: uid, bumpActivity: true);
+      final profile = await DuelService.syncCurrentUserProfile(
+        uid: uid,
+        bumpActivity: true,
+      );
+      if (mounted) {
+        setState(() => _cachedProfile = profile);
+      }
     } catch (error) {
       if (mounted) {
         setState(() => _syncError = error.toString());
@@ -102,14 +109,20 @@ class _CommunityPageState extends State<CommunityPage> {
           child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: DuelService.watchProfile(user.uid),
             builder: (context, snapshot) {
-              if (!snapshot.hasData && _syncing) {
+              final profile =
+                  snapshot.hasData
+                      ? DuelProfile.fromDoc(
+                        snapshot.data,
+                        fallbackUid: user.uid,
+                      )
+                      : _cachedProfile;
+
+              if (profile == null && _syncing) {
                 return const _DuelPageSkeleton();
               }
-
-              final profile = DuelProfile.fromDoc(
-                snapshot.data,
-                fallbackUid: user.uid,
-              );
+              if (profile == null) {
+                return _RecoveryCard(onRefresh: _refreshProfile);
+              }
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
@@ -258,19 +271,55 @@ class _IdleMatchmakingSectionState extends State<_IdleMatchmakingSection> {
   bool _submitting = false;
   String? _message;
 
+  void _log(String message) {
+    print('[DuelUI] $message');
+    debugPrint('[DuelUI] $message');
+  }
+
+  void _handleLaunchTap() {
+    final isEnabled = widget.profile.eligible && !_submitting;
+    _log(
+      'tap recu enabled=$isEnabled eligible=${widget.profile.eligible} submitting=$_submitting state=${widget.profile.state} holdings=${widget.profile.holdingsValueEstimate} reserve=${widget.profile.reserveCoins} positions=${widget.profile.positionsCount}',
+    );
+    if (_submitting) {
+      _log('tap ignore: matchmaking deja en cours');
+      return;
+    }
+    if (!widget.profile.eligible) {
+      final reason =
+          widget.profile.positionsCount == 0
+              ? 'Matchmaking bloqué: ajoute au moins une ligne dans le portefeuille de jeu.'
+              : widget.profile.holdingsValueEstimate <
+                  DuelService.minEligibleHoldingsValue
+              ? 'Matchmaking bloqué: il faut au moins 10k coins de valeur sur le portefeuille de jeu.'
+              : widget.profile.state != 'idle'
+              ? 'Matchmaking bloqué: état actuel ${widget.profile.state}.'
+              : 'Matchmaking indisponible pour le moment.';
+      _log(reason);
+      setState(() => _message = reason);
+      unawaited(widget.onRefreshProfile());
+      return;
+    }
+    unawaited(_start());
+  }
+
   Future<void> _start() async {
     setState(() {
       _submitting = true;
       _message = null;
     });
     try {
+      _log('appel DuelService.startMatchmaking()');
       await DuelService.startMatchmaking();
+      _log('matchmaking cree, refresh profile');
       await widget.onRefreshProfile();
       if (!mounted) return;
       setState(() {
         _message = 'Adversaire trouvé. Attends maintenant sa réponse.';
       });
+      _log('message succes affiche');
     } catch (error) {
+      _log('erreur matchmaking ui=$error');
       if (!mounted) return;
       setState(
         () => _message = error.toString().replaceFirst('Exception: ', ''),
@@ -314,7 +363,7 @@ class _IdleMatchmakingSectionState extends State<_IdleMatchmakingSection> {
         _MatchmakingLaunchCard(
           enabled: isEligible && !_submitting,
           loading: _submitting,
-          onTap: isEligible && !_submitting ? _start : null,
+          onTap: _handleLaunchTap,
         ),
         if (_message != null) ...[
           const SizedBox(height: 12),
@@ -358,6 +407,15 @@ class _CurrentRequestSection extends StatelessWidget {
         }
 
         final request = DuelRequest.fromDoc(snapshot.data!);
+        if (request.status == 'converted' &&
+            request.duelId != null &&
+            request.duelId!.isNotEmpty) {
+          return _CurrentDuelSection(
+            uid: uid,
+            duelId: request.duelId!,
+            onRefreshProfile: onRefreshProfile,
+          );
+        }
         if (!request.isPendingResponse) {
           return _ResolvedRequestCard(
             request: request,
@@ -530,15 +588,34 @@ class _IncomingRequestCardState extends State<_IncomingRequestCard> {
   bool _processing = false;
   String? _feedback;
 
+  void _log(String message) {
+    print('[DuelUI] $message');
+    debugPrint('[DuelUI] $message');
+  }
+
   Future<void> _accept() async {
     setState(() {
       _processing = true;
       _feedback = null;
     });
     try {
+      _log('accept ui requestId=${widget.request.id}');
       await DuelService.acceptRequest(widget.request.id);
       await widget.onRefreshProfile();
+      _log('accept ui succes requestId=${widget.request.id}');
+    } on FirebaseException catch (error) {
+      _log(
+        'accept ui firebase requestId=${widget.request.id} code=${error.code} message=${error.message}',
+      );
+      if (mounted) {
+        setState(
+          () =>
+              _feedback =
+                  'Firestore refuse l’acceptation du duel pour le moment.',
+        );
+      }
     } catch (error) {
+      _log('accept ui erreur requestId=${widget.request.id} error=$error');
       if (mounted) {
         setState(
           () => _feedback = error.toString().replaceFirst('Exception: ', ''),
@@ -557,9 +634,12 @@ class _IncomingRequestCardState extends State<_IncomingRequestCard> {
       _feedback = null;
     });
     try {
+      _log('refuse ui requestId=${widget.request.id}');
       await DuelService.refuseRequest(widget.request.id);
       await widget.onRefreshProfile();
+      _log('refuse ui succes requestId=${widget.request.id}');
     } catch (error) {
+      _log('refuse ui erreur requestId=${widget.request.id} error=$error');
       if (mounted) {
         setState(
           () => _feedback = error.toString().replaceFirst('Exception: ', ''),
@@ -762,6 +842,12 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
   Timer? _timer;
   late Future<_ActiveDuelPayload> _future;
   String? _intelAction;
+  int _selectedTab = 0;
+
+  void _log(String message) {
+    print('[DuelUI] $message');
+    debugPrint('[DuelUI] $message');
+  }
 
   @override
   void initState() {
@@ -780,6 +866,7 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
   }
 
   Future<_ActiveDuelPayload> _load() async {
+    _log('dashboard load start duelId=${widget.duel.id} uid=${widget.uid}');
     final metrics = await DuelService.refreshActiveDuelMetrics(
       duelId: widget.duel.id,
       uid: widget.uid,
@@ -799,27 +886,39 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
       (candidate) => candidate != widget.uid,
       orElse: () => '',
     );
-    final opponentProfileSnap =
-        opponentUid.isEmpty
-            ? null
-            : await FirebaseFirestore.instance
+    DocumentSnapshot<Map<String, dynamic>>? opponentProfileSnap;
+    DocumentSnapshot<Map<String, dynamic>>? opponentParticipantSnap;
+    if (opponentUid.isNotEmpty) {
+      try {
+        opponentProfileSnap =
+            await FirebaseFirestore.instance
                 .collection('duel_profiles')
                 .doc(opponentUid)
                 .get();
-    final opponentParticipantSnap =
-        opponentUid.isEmpty
-            ? null
-            : await FirebaseFirestore.instance
+      } on FirebaseException catch (error) {
+        _log(
+          'dashboard load opponent profile ignore duelId=${widget.duel.id} uid=${widget.uid} opponent=$opponentUid code=${error.code} message=${error.message}',
+        );
+      }
+      try {
+        opponentParticipantSnap =
+            await FirebaseFirestore.instance
                 .collection('duels')
                 .doc(widget.duel.id)
                 .collection('participants')
                 .doc(opponentUid)
                 .get();
+      } on FirebaseException catch (error) {
+        _log(
+          'dashboard load opponent participant ignore duelId=${widget.duel.id} uid=${widget.uid} opponent=$opponentUid code=${error.code} message=${error.message}',
+        );
+      }
+    }
     final opponentProfile = DuelProfile.fromDoc(
       opponentProfileSnap,
       fallbackUid: opponentUid,
     );
-    return _ActiveDuelPayload(
+    final payload = _ActiveDuelPayload(
       participant: participant,
       metrics: metrics,
       opponentProfile: opponentProfile,
@@ -828,6 +927,10 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
         uid: opponentUid,
       ),
     );
+    _log(
+      'dashboard load success duelId=${widget.duel.id} uid=${widget.uid} holdings=${metrics.holdings.length} opponent=$opponentUid',
+    );
+    return payload;
   }
 
   Future<void> _openInfo(DuelHolding holding) async {
@@ -854,9 +957,11 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
     required Future<void> Function() action,
     required String successMessage,
   }) async {
+    _log('purchase intel start action=$actionKey duelId=${widget.duel.id}');
     setState(() => _intelAction = actionKey);
     try {
       await action();
+      _log('purchase intel success action=$actionKey duelId=${widget.duel.id}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(successMessage), backgroundColor: Colors.green),
@@ -864,6 +969,9 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
       setState(() => _future = _load());
       await widget.onRefreshProfile();
     } catch (error) {
+      _log(
+        'purchase intel error action=$actionKey duelId=${widget.duel.id} error=$error',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -883,6 +991,23 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
     return FutureBuilder<_ActiveDuelPayload>(
       future: _future,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          _log(
+            'dashboard load error duelId=${widget.duel.id} uid=${widget.uid} error=${snapshot.error}',
+          );
+          return _StatusInfoCard(
+            title: 'Dashboard duel indisponible',
+            subtitle:
+                'Le duel est bien lancé, mais son dashboard n’a pas pu être chargé. ${snapshot.error}',
+            tone: _CardTone.warning,
+            actionLabel: 'Recharger',
+            onAction: () {
+              setState(() => _future = _load());
+              unawaited(widget.onRefreshProfile());
+            },
+          );
+        }
+
         if (!snapshot.hasData) {
           return const _DuelContentSkeleton();
         }
@@ -890,6 +1015,7 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
         final payload = snapshot.data!;
         final metrics = payload.metrics;
         final remaining = widget.duel.endsAt?.difference(DateTime.now());
+        final tabs = <String>['Vue', 'Variations', 'Radar'];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -904,114 +1030,1112 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
               premium: true,
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatMiniCard(
-                    label: 'Portefeuille',
-                    value: _formatCoins(metrics.holdingsValue),
-                    caption: '${metrics.positionsCount} ligne(s)',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatMiniCard(
-                    label: 'Réserve',
-                    value: _formatCoins(metrics.reserveCoins),
-                    caption: 'coins disponibles',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _StatMiniCard(
-                    label: 'Bonus structure',
-                    value: '+${metrics.structureBonus.toStringAsFixed(1)}',
-                    caption: 'diversification',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatMiniCard(
-                    label: 'Malus concentration',
-                    value:
-                        '-${metrics.concentrationPenalty.toStringAsFixed(1)}',
-                    caption: 'risque de concentration',
-                  ),
-                ),
-              ],
+            _DashboardTabStrip(
+              labels: tabs,
+              selectedIndex: _selectedTab,
+              onSelected: (index) => setState(() => _selectedTab = index),
             ),
             const SizedBox(height: 14),
-            _IntelDeck(
-              duelId: widget.duel.id,
-              ownParticipant: payload.participant,
-              opponentParticipant: payload.opponentParticipant,
-              opponentProfile: payload.opponentProfile,
-              busyAction: _intelAction,
-              onBuyPerformance:
-                  () => _purchaseIntel(
-                    actionKey: 'performance',
-                    action:
-                        () => DuelService.purchasePerformanceIntel(
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: KeyedSubtree(
+                key: ValueKey<int>(_selectedTab),
+                child:
+                    _selectedTab == 0
+                        ? _DashboardOverviewTab(
+                          payload: payload,
+                          duel: widget.duel,
+                          remaining: remaining,
+                        )
+                        : _selectedTab == 1
+                        ? _DashboardVariationsTab(
+                          payload: payload,
+                          onOpenInfo: _openInfo,
+                        )
+                        : _DashboardRadarTab(
                           duelId: widget.duel.id,
                           uid: widget.uid,
+                          payload: payload,
+                          busyAction: _intelAction,
+                          onBuyPerformance:
+                              () => _purchaseIntel(
+                                actionKey: 'performance',
+                                action:
+                                    () => DuelService.purchasePerformanceIntel(
+                                      duelId: widget.duel.id,
+                                      uid: widget.uid,
+                                    ),
+                                successMessage:
+                                    'Fourchette de performance adverse affinée.',
+                              ),
+                          onBuyPositions:
+                              () => _purchaseIntel(
+                                actionKey: 'positions',
+                                action:
+                                    () => DuelService.purchasePositionsReveal(
+                                      duelId: widget.duel.id,
+                                      uid: widget.uid,
+                                    ),
+                                successMessage:
+                                    'Le nombre de lignes adverses est maintenant visible.',
+                              ),
+                          onBuyLine:
+                              () => _purchaseIntel(
+                                actionKey: 'line',
+                                action:
+                                    () => DuelService.purchaseLineReveal(
+                                      duelId: widget.duel.id,
+                                      uid: widget.uid,
+                                    ),
+                                successMessage:
+                                    'Une ligne adverse a été révélée dans ton radar.',
+                              ),
                         ),
-                    successMessage:
-                        'Fourchette de performance adverse affinée.',
-                  ),
-              onBuyPositions:
-                  () => _purchaseIntel(
-                    actionKey: 'positions',
-                    action:
-                        () => DuelService.purchasePositionsReveal(
-                          duelId: widget.duel.id,
-                          uid: widget.uid,
-                        ),
-                    successMessage:
-                        'Le nombre de lignes adverses est maintenant visible.',
-                  ),
-              onBuyLine:
-                  () => _purchaseIntel(
-                    actionKey: 'line',
-                    action:
-                        () => DuelService.purchaseLineReveal(
-                          duelId: widget.duel.id,
-                          uid: widget.uid,
-                        ),
-                    successMessage:
-                        'Une ligne adverse a été révélée dans ton radar.',
-                  ),
-            ),
-            const SizedBox(height: 14),
-            _SectionLabel(
-              title: 'Mes lignes',
-              subtitle:
-                  'Tes trades restent autorisés, mais la dernière ligne ne peut pas être vendue pendant le duel.',
-            ),
-            const SizedBox(height: 10),
-            if (metrics.holdings.isEmpty)
-              const _StatusInfoCard(
-                title: 'Portefeuille de jeu vide',
-                subtitle:
-                    'Cet état ne devrait pas arriver pendant un duel actif. Ouvre une fiche action pour rééquilibrer.',
-                tone: _CardTone.warning,
-              )
-            else
-              ...metrics.holdings.map(
-                (holding) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _HoldingRow(
-                    holding: holding,
-                    onTap: () => _openInfo(holding),
-                  ),
-                ),
               ),
+            ),
           ],
         );
       },
+    );
+  }
+}
+
+class _DashboardTabStrip extends StatelessWidget {
+  const _DashboardTabStrip({
+    required this.labels,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<String> labels;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+      ),
+      child: Row(
+        children: List<Widget>.generate(labels.length, (index) {
+          final selected = index == selectedIndex;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onSelected(index),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  gradient:
+                      selected
+                          ? const LinearGradient(
+                            colors: [detailsColor1, detailsColor2],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                          : null,
+                  color: selected ? null : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: selected ? Colors.white : textColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _DashboardOverviewTab extends StatelessWidget {
+  const _DashboardOverviewTab({
+    required this.payload,
+    required this.duel,
+    required this.remaining,
+  });
+
+  final _ActiveDuelPayload payload;
+  final DuelData duel;
+  final Duration? remaining;
+
+  @override
+  Widget build(BuildContext context) {
+    final participant = payload.participant;
+    final metrics = payload.metrics;
+    final totalDelta = metrics.totalCapital - participant.startingTotalCapital;
+    final holdingsDelta =
+        metrics.holdingsValue - participant.startingHoldingsValue;
+    final reserveDelta =
+        metrics.reserveCoins - participant.startingReserveCoins;
+    final progress = _duelProgress(duel.acceptedAt, duel.endsAt);
+    final currentPositions =
+        participant.currentPositionsCountCache ?? metrics.positionsCount;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE6E8EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Pulse du défi',
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: detailsColor2.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      remaining == null
+                          ? 'En cours'
+                          : _formatRemaining(remaining!),
+                      style: const TextStyle(
+                        color: detailsColor2,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Ton score suit la performance pure, la structure du portefeuille et le risque de concentration.',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  height: 1.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 14),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 10,
+                  backgroundColor: const Color(0xFFF0F2F5),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    detailsColor2,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '${(progress * 100).toStringAsFixed(0)}% du duel écoulé',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _StatMiniCard(
+                label: 'Capital duel',
+                value: _formatCoins(metrics.totalCapital),
+                caption:
+                    '${_formatSignedDelta(totalDelta, suffix: ' coins')} depuis le départ',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatMiniCard(
+                label: 'Lignes actives',
+                value: '$currentPositions',
+                caption:
+                    '${currentPositions - participant.startingPositionsCount >= 0 ? '+' : ''}${currentPositions - participant.startingPositionsCount} vs départ',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _StatMiniCard(
+                label: 'Portefeuille',
+                value: _formatCoins(metrics.holdingsValue),
+                caption: _formatSignedDelta(holdingsDelta, suffix: ' coins'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatMiniCard(
+                label: 'Réserve',
+                value: _formatCoins(metrics.reserveCoins),
+                caption: _formatSignedDelta(reserveDelta, suffix: ' coins'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const _SectionLabel(
+          title: 'Lecture du score',
+          subtitle:
+              'Ton dashboard sépare la vue synthèse, les variations réelles depuis le début du duel et le radar adverse.',
+        ),
+        const SizedBox(height: 12),
+        _ScoreBreakdownCard(metrics: metrics, participant: participant),
+        const SizedBox(height: 12),
+        _CapitalSparklineCard(
+          duel: duel,
+          participant: participant,
+          metrics: metrics,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _IntelMetricCard(
+                label: 'Bonus structure',
+                value: '+${metrics.structureBonus.toStringAsFixed(2)}',
+                accent: detailsColor1,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _IntelMetricCard(
+                label: 'Malus concentration',
+                value: '-${metrics.concentrationPenalty.toStringAsFixed(2)}',
+                accent: detailsColor2,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _IntelMetricCard(
+          label: 'Concentration max',
+          value: '${(metrics.maxPositionWeight * 100).toStringAsFixed(1)}%',
+          accent: detailsColor2,
+        ),
+        const SizedBox(height: 12),
+        _DuelJournalCard(
+          duel: duel,
+          participant: participant,
+          metrics: metrics,
+        ),
+      ],
+    );
+  }
+}
+
+class _DashboardVariationsTab extends StatelessWidget {
+  const _DashboardVariationsTab({
+    required this.payload,
+    required this.onOpenInfo,
+  });
+
+  final _ActiveDuelPayload payload;
+  final Future<void> Function(DuelHolding holding) onOpenInfo;
+
+  @override
+  Widget build(BuildContext context) {
+    final participant = payload.participant;
+    final metrics = payload.metrics;
+    final totalDelta = metrics.totalCapital - participant.startingTotalCapital;
+    final totalDeltaPct =
+        participant.startingTotalCapital <= 0
+            ? 0.0
+            : (totalDelta / participant.startingTotalCapital) * 100;
+    final variations = _buildHoldingVariations(
+      starting: participant.startingHoldings,
+      current: metrics.holdings,
+      currentHoldingsValue: metrics.holdingsValue,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionLabel(
+          title: 'Variations depuis le départ',
+          subtitle:
+              'Cette vue compare ton portefeuille actuel à la photo prise au démarrage du défi.',
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _StatMiniCard(
+                label: 'Capital initial',
+                value: _formatCoins(participant.startingTotalCapital),
+                caption: 'Base du duel',
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _StatMiniCard(
+                label: 'Capital actuel',
+                value: _formatCoins(metrics.totalCapital),
+                caption:
+                    '${_formatSignedDelta(totalDelta, suffix: ' coins')} · ${_formatSignedDelta(totalDeltaPct, suffix: '%', digits: 2)}',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE6E8EB)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _VariationMetric(
+                  label: 'Valeur lignes',
+                  value:
+                      '${_formatCoins(metrics.holdingsValue)} · ${_formatSignedDelta(metrics.holdingsValue - participant.startingHoldingsValue, suffix: ' coins')}',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _VariationMetric(
+                  label: 'Réserve coins',
+                  value:
+                      '${_formatCoins(metrics.reserveCoins)} · ${_formatSignedDelta(metrics.reserveCoins - participant.startingReserveCoins, suffix: ' coins')}',
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (participant.startingHoldings.isEmpty)
+          const _StatusInfoCard(
+            title: 'Photo de départ en cours',
+            subtitle:
+                'Le snapshot initial du portefeuille est encore en train d’être capturé. Recharge dans quelques instants pour afficher les variations ligne par ligne.',
+            tone: _CardTone.neutral,
+          )
+        else if (variations.isEmpty)
+          const _StatusInfoCard(
+            title: 'Aucune variation détaillée',
+            subtitle:
+                'Les lignes de ton portefeuille n’ont pas encore pu être comparées de façon fiable.',
+            tone: _CardTone.neutral,
+          )
+        else
+          ...List<Widget>.generate(variations.length, (index) {
+            final variation = variations[index];
+            final currentHolding = variation.currentHolding;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == variations.length - 1 ? 0 : 10,
+              ),
+              child: _HoldingVariationRow(
+                variation: variation,
+                onTap:
+                    currentHolding == null
+                        ? null
+                        : () => onOpenInfo(currentHolding),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+}
+
+class _DashboardRadarTab extends StatelessWidget {
+  const _DashboardRadarTab({
+    required this.duelId,
+    required this.uid,
+    required this.payload,
+    required this.busyAction,
+    required this.onBuyPerformance,
+    required this.onBuyPositions,
+    required this.onBuyLine,
+  });
+
+  final String duelId;
+  final String uid;
+  final _ActiveDuelPayload payload;
+  final String? busyAction;
+  final VoidCallback onBuyPerformance;
+  final VoidCallback onBuyPositions;
+  final VoidCallback onBuyLine;
+
+  @override
+  Widget build(BuildContext context) {
+    final opponentSync = payload.opponentParticipant.currentUpdatedAt;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionLabel(
+          title: 'Radar adverse',
+          subtitle:
+              opponentSync == null
+                  ? 'Les données adverses arrivent au fil de la synchronisation. Les reveals deviennent plus riches dès que l’autre joueur ouvre son duel.'
+                  : 'Dernière synchro adverse: ${_formatDashboardDateTime(opponentSync)}. Utilise tes coins pour affiner ta lecture.',
+        ),
+        const SizedBox(height: 12),
+        _IntelDeck(
+          duelId: duelId,
+          ownParticipant: payload.participant,
+          opponentParticipant: payload.opponentParticipant,
+          opponentProfile: payload.opponentProfile,
+          busyAction: busyAction,
+          onBuyPerformance: onBuyPerformance,
+          onBuyPositions: onBuyPositions,
+          onBuyLine: onBuyLine,
+        ),
+      ],
+    );
+  }
+}
+
+class _ScoreBreakdownCard extends StatelessWidget {
+  const _ScoreBreakdownCard({required this.metrics, required this.participant});
+
+  final DuelLiveMetrics metrics;
+  final DuelParticipant participant;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({String label, double value, Color tone, String prefix})>[
+      (
+        label: 'Perf pure',
+        value: metrics.pureReturnPct,
+        tone:
+            metrics.pureReturnPct >= 0
+                ? const Color(0xFF2F8F57)
+                : Colors.redAccent,
+        prefix: '',
+      ),
+      (
+        label: 'Bonus structure',
+        value: metrics.structureBonus,
+        tone: detailsColor1,
+        prefix: '+',
+      ),
+      (
+        label: 'Malus concentration',
+        value: metrics.concentrationPenalty,
+        tone: detailsColor2,
+        prefix: '-',
+      ),
+      (
+        label: 'Malus prolongé',
+        value: metrics.persistentConcentrationPenalty,
+        tone: Colors.deepOrange,
+        prefix: '-',
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Breakdown du score',
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 17,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Le score hybride additionne la performance pure, le bonus de structure et les malus de concentration.',
+            style: TextStyle(color: Colors.black54, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          ...items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${item.prefix}${item.value.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: item.tone,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const Divider(height: 20),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Score actuel',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                metrics.score.toStringAsFixed(2),
+                style: const TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          if (participant.highConcentrationDays.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Jours en concentration élevée: ${participant.highConcentrationDays.length}',
+              style: const TextStyle(
+                color: Colors.deepOrange,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CapitalSparklineCard extends StatelessWidget {
+  const _CapitalSparklineCard({
+    required this.duel,
+    required this.participant,
+    required this.metrics,
+  });
+
+  final DuelData duel;
+  final DuelParticipant participant;
+  final DuelLiveMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final points = <DuelCapitalPoint>[
+      ...participant.capitalTimeline,
+      if (participant.capitalTimeline.isEmpty)
+        DuelCapitalPoint(
+          at: duel.acceptedAt ?? DateTime.now(),
+          totalCapital: participant.startingTotalCapital,
+          score: 0,
+          returnPct: 0,
+        ),
+      DuelCapitalPoint(
+        at: participant.currentUpdatedAt ?? DateTime.now(),
+        totalCapital: metrics.totalCapital,
+        score: metrics.score,
+        returnPct: metrics.returnPct,
+      ),
+    ]..sort((left, right) => left.at.compareTo(right.at));
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Trajectoire du capital duel',
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 17,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Depuis ${_formatDashboardDateTime(duel.acceptedAt ?? DateTime.now())}',
+            style: const TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 120,
+            width: double.infinity,
+            child: CustomPaint(painter: _CapitalSparklinePainter(points)),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _VariationMetric(
+                  label: 'Départ',
+                  value: _formatCoins(participant.startingTotalCapital),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _VariationMetric(
+                  label: 'Actuel',
+                  value: _formatCoins(metrics.totalCapital),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DuelJournalCard extends StatelessWidget {
+  const _DuelJournalCard({
+    required this.duel,
+    required this.participant,
+    required this.metrics,
+  });
+
+  final DuelData duel;
+  final DuelParticipant participant;
+  final DuelLiveMetrics metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final events = <({String title, String subtitle, IconData icon})>[
+      (
+        title: 'Défi accepté',
+        subtitle: _formatDashboardDateTime(duel.acceptedAt ?? DateTime.now()),
+        icon: Icons.flag_rounded,
+      ),
+      (
+        title: 'Snapshot initial',
+        subtitle:
+            participant.startingHoldingsCapturedAt == null
+                ? 'Capture en attente'
+                : _formatDashboardDateTime(
+                  participant.startingHoldingsCapturedAt!,
+                ),
+        icon: Icons.camera_alt_rounded,
+      ),
+      (
+        title: 'Espionnage tactique',
+        subtitle:
+            participant.lastIntelPurchaseAt == null
+                ? 'Aucun achat pour le moment'
+                : 'Dernier achat: ${_formatDashboardDateTime(participant.lastIntelPurchaseAt!)} · ${participant.intelPurchaseDays.length} jour(s) utilisé(s)',
+        icon: Icons.radar_rounded,
+      ),
+      (
+        title: 'Fin du duel',
+        subtitle:
+            duel.endsAt == null
+                ? 'Date inconnue'
+                : 'Fin prévue ${_formatDashboardDateTime(duel.endsAt!)}',
+        icon: Icons.schedule_rounded,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Journal duel',
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 17,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Score actuel ${metrics.score.toStringAsFixed(2)} · perf ${_formatSignedDelta(metrics.returnPct, suffix: '%', digits: 2)}',
+            style: const TextStyle(color: Colors.black54, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          ...events.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: index == events.length - 1 ? 0 : 12,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: detailsColor2.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(item.icon, color: detailsColor2, size: 18),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          style: const TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.subtitle,
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _CapitalSparklinePainter extends CustomPainter {
+  const _CapitalSparklinePainter(this.points);
+
+  final List<DuelCapitalPoint> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+    final values = points.map((point) => point.totalCapital).toList();
+    final minValue = values.reduce(
+      (left, right) => left < right ? left : right,
+    );
+    final maxValue = values.reduce(
+      (left, right) => left > right ? left : right,
+    );
+    final range = (maxValue - minValue).abs() < 1 ? 1.0 : (maxValue - minValue);
+    final step =
+        points.length <= 1 ? size.width : size.width / (points.length - 1);
+
+    final fillPath = Path();
+    final linePath = Path();
+
+    for (var index = 0; index < points.length; index += 1) {
+      final point = points[index];
+      final x = step * index;
+      final normalized = (point.totalCapital - minValue) / range;
+      final y = size.height - (normalized * (size.height - 18)) - 9;
+      if (index == 0) {
+        linePath.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        linePath.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+    }
+
+    fillPath
+      ..lineTo(size.width, size.height)
+      ..close();
+
+    final fillPaint =
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [Color(0x44D4AF37), Color(0x222A0F45)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ).createShader(Offset.zero & size);
+    final linePaint =
+        Paint()
+          ..shader = const LinearGradient(
+            colors: [detailsColor1, detailsColor2],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ).createShader(Offset.zero & size)
+          ..strokeWidth = 3
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+    final gridPaint =
+        Paint()
+          ..color = const Color(0xFFE8EAED)
+          ..strokeWidth = 1;
+
+    for (var index = 1; index <= 3; index += 1) {
+      final y = (size.height / 4) * index;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(linePath, linePaint);
+
+    final last = points.last;
+    final lastY =
+        size.height -
+        (((last.totalCapital - minValue) / range) * (size.height - 18)) -
+        9;
+    final dotPaint =
+        Paint()
+          ..color = detailsColor2
+          ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(size.width, lastY), 5, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CapitalSparklinePainter oldDelegate) {
+    return oldDelegate.points != points;
+  }
+}
+
+class _VariationMetric extends StatelessWidget {
+  const _VariationMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.black54,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: const TextStyle(
+            color: textColor,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HoldingVariationRow extends StatelessWidget {
+  const _HoldingVariationRow({required this.variation, required this.onTap});
+
+  final _HoldingVariation variation;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentHolding = variation.currentHolding;
+    final tone =
+        variation.deltaValue >= 0 ? const Color(0xFF2F8F57) : Colors.redAccent;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF6E4A8), Color(0xFFD9C5EC)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    variation.symbol.isEmpty
+                        ? '?'
+                        : variation.symbol.characters.take(2).toString(),
+                    style: const TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        variation.displayName,
+                        style: const TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${variation.symbol} · ${variation.quoteType.isEmpty ? 'Actif' : variation.quoteType}',
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onTap != null)
+                  const Icon(
+                    Icons.open_in_new_rounded,
+                    color: Colors.black45,
+                    size: 18,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ...variation.riskMarkers.map(
+                  (marker) => _VariationPill(
+                    label: marker,
+                    tone:
+                        marker == 'Surpondérée'
+                            ? Colors.deepOrange
+                            : marker == 'Ligne sortie'
+                            ? Colors.black87
+                            : detailsColor2,
+                  ),
+                ),
+                _VariationPill(
+                  label:
+                      'Valeur ${_formatCoins(variation.currentValue)} · ${_formatSignedDelta(variation.deltaValue, suffix: ' coins')}',
+                  tone: tone,
+                ),
+                _VariationPill(
+                  label:
+                      'Perf ${_formatSignedDelta(variation.deltaPct, suffix: '%', digits: 2)}',
+                  tone: tone,
+                ),
+                _VariationPill(
+                  label:
+                      'Qté ${variation.startQuantity.toStringAsFixed(variation.startQuantity % 1 == 0 ? 0 : 2)} → ${variation.currentQuantity.toStringAsFixed(variation.currentQuantity % 1 == 0 ? 0 : 2)}',
+                  tone: Colors.black87,
+                ),
+                _VariationPill(
+                  label:
+                      'Prix ${variation.startPrice.toStringAsFixed(2)} → ${(currentHolding?.marketPrice ?? variation.startPrice).toStringAsFixed(2)}',
+                  tone: Colors.black87,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VariationPill extends StatelessWidget {
+  const _VariationPill({required this.label, required this.tone});
+
+  final String label;
+  final Color tone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: tone,
+          fontWeight: FontWeight.w700,
+          fontSize: 12.5,
+        ),
+      ),
     );
   }
 }
@@ -1134,6 +2258,16 @@ class _SettledDuelSectionState extends State<_SettledDuelSection> {
     return FutureBuilder<_SettledPayload>(
       future: _load(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _StatusInfoCard(
+            title: 'Résultat duel indisponible',
+            subtitle:
+                'Le défi est bien terminé, mais l’écran de résultat n’a pas pu être chargé. ${snapshot.error}',
+            tone: _CardTone.warning,
+            actionLabel: 'Recharger',
+            onAction: () => setState(() {}),
+          );
+        }
         if (!snapshot.hasData) {
           return const _DuelContentSkeleton();
         }
@@ -1795,7 +2929,7 @@ class _MatchmakingLaunchCard extends StatelessWidget {
 
   final bool enabled;
   final bool loading;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   static const String _duelSvg = '''
 <svg viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg">
@@ -2290,7 +3424,7 @@ class _IntelDeck extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Affûte ta lecture adverse avec des reveals progressifs. Dépense totale: ${_formatCoins(ownParticipant.spyCoinsSpent)} coins.',
+                'Affûte ta lecture adverse avec des reveals progressifs. Dépense totale: ${_formatCoins(ownParticipant.spyCoinsSpent)} coins. Limite: 1 achat par jour, gelé dans les 2 dernières heures.',
                 style: const TextStyle(
                   color: Colors.black54,
                   height: 1.4,
@@ -2341,7 +3475,7 @@ class _IntelDeck extends StatelessWidget {
                       title:
                           ownParticipant.hasUnlockedPositionsCount
                               ? 'Lignes révélées'
-                              : 'Révéler les lignes',
+                              : 'Révéler le nombre de lignes',
                       subtitle:
                           ownParticipant.hasUnlockedPositionsCount
                               ? 'Achat déjà effectué'
@@ -2545,106 +3679,6 @@ String _teaserLineLabel(Map<String, dynamic>? teaserLine) {
           : ' · ${symbol.characters.take(1).toString().toUpperCase()}••';
   final typeLabel = quoteType.isEmpty ? 'signal marché' : quoteType;
   return 'Signal capté: $maskedName$maskedSymbol · $typeLabel';
-}
-
-class _HoldingRow extends StatelessWidget {
-  const _HoldingRow({required this.holding, required this.onTap});
-
-  final DuelHolding holding;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final pnlPct =
-        holding.averagePrice <= 0
-            ? 0
-            : ((holding.marketPrice - holding.averagePrice) /
-                    holding.averagePrice) *
-                100;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE6E8EB)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                gradient: const LinearGradient(
-                  colors: [detailsColor1, detailsColor2],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                holding.symbol.characters.take(3).toString().toUpperCase(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    holding.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: textColor,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${holding.quantity.toStringAsFixed(2)} titres · PRU ${holding.averagePrice.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  _formatCoins(holding.marketValue),
-                  style: const TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${pnlPct >= 0 ? '+' : ''}${pnlPct.toStringAsFixed(2)}%',
-                  style: TextStyle(
-                    color: pnlPct >= 0 ? Colors.green : Colors.redAccent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _RewardPositionCard extends StatelessWidget {
@@ -3166,6 +4200,38 @@ class _SkeletonBlock extends StatelessWidget {
   }
 }
 
+class _HoldingVariation {
+  const _HoldingVariation({
+    required this.symbol,
+    required this.displayName,
+    required this.quoteType,
+    required this.startQuantity,
+    required this.currentQuantity,
+    required this.startPrice,
+    required this.currentPrice,
+    required this.startValue,
+    required this.currentValue,
+    required this.deltaValue,
+    required this.deltaPct,
+    required this.riskMarkers,
+    required this.currentHolding,
+  });
+
+  final String symbol;
+  final String displayName;
+  final String quoteType;
+  final double startQuantity;
+  final double currentQuantity;
+  final double startPrice;
+  final double currentPrice;
+  final double startValue;
+  final double currentValue;
+  final double deltaValue;
+  final double deltaPct;
+  final List<String> riskMarkers;
+  final DuelHolding? currentHolding;
+}
+
 class _ActiveDuelPayload {
   const _ActiveDuelPayload({
     required this.participant,
@@ -3208,4 +4274,80 @@ String _formatRemaining(Duration duration) {
   if (days > 0) return '${days}j ${hours}h';
   if (hours > 0) return '${hours}h ${minutes}min';
   return '${minutes}min';
+}
+
+double _duelProgress(DateTime? acceptedAt, DateTime? endsAt) {
+  if (acceptedAt == null || endsAt == null || !endsAt.isAfter(acceptedAt)) {
+    return 0;
+  }
+  final totalMs = endsAt.difference(acceptedAt).inMilliseconds;
+  if (totalMs <= 0) return 0;
+  final elapsedMs = DateTime.now()
+      .difference(acceptedAt)
+      .inMilliseconds
+      .clamp(0, totalMs);
+  return elapsedMs / totalMs;
+}
+
+String _formatSignedDelta(double value, {String suffix = '', int digits = 1}) {
+  final sign = value >= 0 ? '+' : '';
+  return '$sign${value.toStringAsFixed(digits)}$suffix';
+}
+
+String _formatDashboardDateTime(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')} à $hour:$minute';
+}
+
+List<_HoldingVariation> _buildHoldingVariations({
+  required List<DuelHolding> starting,
+  required List<DuelHolding> current,
+  required double currentHoldingsValue,
+}) {
+  final byStart = <String, DuelHolding>{
+    for (final holding in starting) holding.symbol: holding,
+  };
+  final byCurrent = <String, DuelHolding>{
+    for (final holding in current) holding.symbol: holding,
+  };
+  final symbols = <String>{...byStart.keys, ...byCurrent.keys}.toList()..sort();
+
+  return symbols.map((symbol) {
+    final start = byStart[symbol];
+    final now = byCurrent[symbol];
+    final startValue = start?.marketValue ?? 0;
+    final currentValue = now?.marketValue ?? 0;
+    final deltaValue = currentValue - startValue;
+    final deltaPct =
+        startValue <= 0
+            ? (currentValue > 0 ? 100.0 : 0.0)
+            : (deltaValue / startValue) * 100;
+    final riskMarkers = <String>[
+      if (start == null && now != null) 'Nouvelle ligne',
+      if (start != null && now == null) 'Ligne sortie',
+      if (currentHoldingsValue > 0 &&
+          currentValue / currentHoldingsValue >= 0.45 &&
+          now != null)
+        'Surpondérée',
+    ];
+    return _HoldingVariation(
+      symbol: symbol,
+      displayName:
+          (now?.displayName ?? start?.displayName ?? symbol).trim().isEmpty
+              ? symbol
+              : (now?.displayName ?? start?.displayName ?? symbol).trim(),
+      quoteType: (now?.quoteType ?? start?.quoteType ?? '').trim(),
+      startQuantity: start?.quantity ?? 0,
+      currentQuantity: now?.quantity ?? 0,
+      startPrice: start?.marketPrice ?? start?.averagePrice ?? 0,
+      currentPrice: now?.marketPrice ?? now?.averagePrice ?? 0,
+      startValue: startValue,
+      currentValue: currentValue,
+      deltaValue: deltaValue,
+      deltaPct: deltaPct,
+      riskMarkers: riskMarkers,
+      currentHolding: now,
+    );
+  }).toList();
 }

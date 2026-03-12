@@ -183,6 +183,7 @@ class _TodayPageState extends State<TodayPage> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final bottomScrollInset = MediaQuery.of(context).padding.bottom + 108;
     if (user == null) {
       return const Scaffold(
         backgroundColor: _bg,
@@ -226,7 +227,7 @@ class _TodayPageState extends State<TodayPage> {
                     .toList();
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, bottomScrollInset),
               children: [
                 Row(
                   children: [
@@ -1779,6 +1780,29 @@ class _TodayDuelHighlight extends StatelessWidget {
                     uid: userId,
                   );
                   final remaining = duel.endsAt?.difference(DateTime.now());
+                  final progress = _todayDuelProgress(
+                    duel.acceptedAt,
+                    duel.endsAt,
+                  );
+                  final startCapital =
+                      participant.startingTotalCapital > 0
+                          ? participant.startingTotalCapital
+                          : ((participant.currentTotalCapitalCache ??
+                                  (profile.holdingsValueEstimate +
+                                      profile.reserveCoins)) >
+                              0)
+                          ? (participant.currentTotalCapitalCache ??
+                              (profile.holdingsValueEstimate +
+                                  profile.reserveCoins))
+                          : 0.0;
+                  final currentCapital =
+                      participant.currentTotalCapitalCache ?? startCapital;
+                  final capitalDelta = currentCapital - startCapital;
+                  final capitalDeltaPct =
+                      startCapital <= 0
+                          ? 0.0
+                          : (capitalDelta / startCapital) * 100;
+                  final lastSync = participant.currentUpdatedAt;
 
                   return InkWell(
                     onTap: onOpenCommunity,
@@ -1851,27 +1875,81 @@ class _TodayDuelHighlight extends StatelessWidget {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: _TodayDuelStat(
-                                  label: 'Perf',
+                                  label: 'Capital',
                                   value:
-                                      '${_formatSigned(participant.currentReturnPctCache ?? 0)}%',
+                                      '${capitalDelta >= 0 ? '+' : ''}${_formatShortCoins(capitalDelta)}',
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Expanded(
+                              Expanded(
                                 child: _TodayDuelStat(
-                                  label: 'Adversaire',
-                                  value: 'Masqué',
+                                  label: 'Perf défi',
+                                  value: '${_formatSigned(capitalDeltaPct)}%',
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 8,
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.16,
+                              ),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                           Text(
-                            'Ouvre le dashboard duel pour suivre tes lignes, ton score hybride et la fin du défi.',
+                            lastSync == null
+                                ? 'Le duel est actif. Ouvre le dashboard pour charger les lignes, le radar adverse et les variations depuis le départ.'
+                                : 'Dernière synchro: ${_formatCompactDateTime(lastSync)} · ouvre le dashboard pour suivre les variations détaillées et le radar adverse.',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.92),
                               height: 1.35,
                               fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.pie_chart_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Ouvrir le dashboard duel',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.arrow_forward_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -1903,6 +1981,58 @@ class _AgendaCard extends StatelessWidget {
   final VoidCallback onOpenCommunity;
   final VoidCallback onOpenGoals;
 
+  num? _readNum(Map<String, dynamic>? data, String key) {
+    final raw = data?[key];
+    return raw is num ? raw : null;
+  }
+
+  Map<String, dynamic>? _latestBroadcast(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {
+    String? type,
+    bool requireMetalsPayload = false,
+  }) {
+    if (docs.isEmpty) return null;
+    final sorted = [...docs]..sort((left, right) {
+      final leftDate = left.data()['createdAt'];
+      final rightDate = right.data()['createdAt'];
+      final leftTime =
+          leftDate is Timestamp
+              ? leftDate.toDate()
+              : DateTime.fromMillisecondsSinceEpoch(0);
+      final rightTime =
+          rightDate is Timestamp
+              ? rightDate.toDate()
+              : DateTime.fromMillisecondsSinceEpoch(0);
+      return rightTime.compareTo(leftTime);
+    });
+    for (final doc in sorted) {
+      final data = doc.data();
+      if (type != null && data['type'] != type) continue;
+      if (requireMetalsPayload &&
+          _readNum(data, 'gold') == null &&
+          _readNum(data, 'silver') == null) {
+        continue;
+      }
+      return data;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _latestMetalsHistory(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    if (docs.isEmpty) return null;
+    final sorted = [...docs]
+      ..sort((left, right) => right.id.compareTo(left.id));
+    for (final doc in sorted) {
+      final data = doc.data();
+      if (_readNum(data, 'gold') != null || _readNum(data, 'silver') != null) {
+        return data;
+      }
+    }
+    return null;
+  }
+
   String _formatPrice(num? value, {int decimals = 2}) {
     if (value == null) return '--';
     return value.toStringAsFixed(decimals);
@@ -1910,18 +2040,15 @@ class _AgendaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final metalsStream =
+    final metalsTodayStream =
         FirebaseFirestore.instance
             .collection('metalsPrices')
-            .orderBy(FieldPath.documentId, descending: true)
-            .limit(1)
+            .doc(_todayKey())
             .snapshots();
+    final metalsHistoryStream =
+        FirebaseFirestore.instance.collection('metalsPrices').snapshots();
     final broadcastStream =
-        FirebaseFirestore.instance
-            .collection('broadcasts')
-            .orderBy('createdAt', descending: true)
-            .limit(1)
-            .snapshots();
+        FirebaseFirestore.instance.collection('broadcasts').snapshots();
     final duelProfileStream =
         FirebaseFirestore.instance
             .collection('duel_profiles')
@@ -1956,234 +2083,279 @@ class _AgendaCard extends StatelessWidget {
           ),
         ],
       ),
-      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: metalsStream,
-        builder: (context, metalsSnapshot) {
-          final metalsDoc =
-              metalsSnapshot.data?.docs.isNotEmpty == true
-                  ? metalsSnapshot.data!.docs.first.data()
-                  : null;
-          final gold = metalsDoc?['gold'] as num?;
-          final silver = metalsDoc?['silver'] as num?;
+      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: metalsTodayStream,
+        builder: (context, metalsTodaySnapshot) {
+          if (metalsTodaySnapshot.hasError) {
+            debugPrint(
+              '[TodayAgenda] Erreur metalsToday: ${metalsTodaySnapshot.error}',
+            );
+          }
 
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: broadcastStream,
-            builder: (context, broadcastSnapshot) {
-              final broadcast =
-                  broadcastSnapshot.data?.docs.isNotEmpty == true
-                      ? broadcastSnapshot.data!.docs.first.data()
-                      : null;
-              final latestTitle =
-                  (broadcast?['title'] as String?) ?? 'Aucune annonce récente';
+            stream: metalsHistoryStream,
+            builder: (context, metalsHistorySnapshot) {
+              if (metalsHistorySnapshot.hasError) {
+                debugPrint(
+                  '[TodayAgenda] Erreur metalsHistory: ${metalsHistorySnapshot.error}',
+                );
+              }
 
-              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: questStream,
-                builder: (context, questSnapshot) {
-                  final questData =
-                      questSnapshot.data?.data() ?? const <String, dynamic>{};
-                  final now = DateTime.now();
-                  final todayLabel = '${now.year}-${now.month}-${now.day}';
-                  final isToday = questData['date'] == todayLabel;
-                  final pendingRewards =
-                      ((isToday &&
-                              (questData['quizzes_done'] as num?) != null &&
-                              ((questData['quizzes_done'] as num?) ?? 0) >= 1 &&
-                              (questData['claimed_quizzes'] as bool?) != true)
-                          ? 1
-                          : 0) +
-                      ((isToday &&
-                              (questData['lessons_done'] as num?) != null &&
-                              ((questData['lessons_done'] as num?) ?? 0) >= 1 &&
-                              (questData['claimed_lessons'] as bool?) != true)
-                          ? 1
-                          : 0) +
-                      ((isToday &&
-                              (questData['trades_done'] as num?) != null &&
-                              ((questData['trades_done'] as num?) ?? 0) >= 1 &&
-                              (questData['claimed_trades'] as bool?) != true)
-                          ? 1
-                          : 0);
+              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: broadcastStream,
+                builder: (context, broadcastSnapshot) {
+                  if (broadcastSnapshot.hasError) {
+                    debugPrint(
+                      '[TodayAgenda] Erreur broadcasts: ${broadcastSnapshot.error}',
+                    );
+                  }
+
+                  final metalsToday = metalsTodaySnapshot.data?.data();
+                  final latestMetalsDoc = _latestMetalsHistory(
+                    metalsHistorySnapshot.data?.docs ?? const [],
+                  );
+                  final latestBroadcast = _latestBroadcast(
+                    broadcastSnapshot.data?.docs ?? const [],
+                  );
+                  final latestMetalsBroadcast = _latestBroadcast(
+                    broadcastSnapshot.data?.docs ?? const [],
+                    type: 'daily_metals',
+                    requireMetalsPayload: true,
+                  );
+                  final gold =
+                      _readNum(metalsToday, 'gold') ??
+                      _readNum(latestMetalsDoc, 'gold') ??
+                      _readNum(latestMetalsBroadcast, 'gold');
+                  final silver =
+                      _readNum(metalsToday, 'silver') ??
+                      _readNum(latestMetalsDoc, 'silver') ??
+                      _readNum(latestMetalsBroadcast, 'silver');
+                  final latestTitle =
+                      (latestBroadcast?['title'] as String?) ??
+                      'Aucune annonce récente';
 
                   return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    stream: freeStream,
-                    builder: (context, freeSnapshot) {
-                      final freeData =
-                          freeSnapshot.data?.data() ??
+                    stream: questStream,
+                    builder: (context, questSnapshot) {
+                      final questData =
+                          questSnapshot.data?.data() ??
                           const <String, dynamic>{};
-                      final quizAvailable =
-                          (freeData['free_actus_used'] as bool?) != true;
+                      final now = DateTime.now();
+                      final todayLabel = '${now.year}-${now.month}-${now.day}';
+                      final isToday = questData['date'] == todayLabel;
+                      final pendingRewards =
+                          ((isToday &&
+                                  (questData['quizzes_done'] as num?) != null &&
+                                  ((questData['quizzes_done'] as num?) ?? 0) >=
+                                      1 &&
+                                  (questData['claimed_quizzes'] as bool?) !=
+                                      true)
+                              ? 1
+                              : 0) +
+                          ((isToday &&
+                                  (questData['lessons_done'] as num?) != null &&
+                                  ((questData['lessons_done'] as num?) ?? 0) >=
+                                      1 &&
+                                  (questData['claimed_lessons'] as bool?) !=
+                                      true)
+                              ? 1
+                              : 0) +
+                          ((isToday &&
+                                  (questData['trades_done'] as num?) != null &&
+                                  ((questData['trades_done'] as num?) ?? 0) >=
+                                      1 &&
+                                  (questData['claimed_trades'] as bool?) !=
+                                      true)
+                              ? 1
+                              : 0);
 
                       return StreamBuilder<
                         DocumentSnapshot<Map<String, dynamic>>
                       >(
-                        stream: duelProfileStream,
-                        builder: (context, duelSnapshot) {
-                          final duelProfile = DuelProfile.fromDoc(
-                            duelSnapshot.data,
-                            fallbackUid: userId,
-                          );
-                          final duelSubtitle = switch (duelProfile.state) {
-                            'pending_received' =>
-                              'Une invitation t’attend. Réponds sous 48h.',
-                            'pending_sent' =>
-                              'Un adversaire a été trouvé. Attends sa réponse.',
-                            'active_duel' =>
-                              'Ton duel hebdo est actif. Ouvre le dashboard.',
-                            _ =>
-                              duelProfile.eligible
-                                  ? 'Ton portefeuille est prêt pour un matchmaking.'
-                                  : 'Atteins 10k coins de valeur et garde au moins 1 ligne.',
-                          };
+                        stream: freeStream,
+                        builder: (context, freeSnapshot) {
+                          final freeData =
+                              freeSnapshot.data?.data() ??
+                              const <String, dynamic>{};
+                          final quizAvailable =
+                              (freeData['free_actus_used'] as bool?) != true;
 
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                          return StreamBuilder<
+                            DocumentSnapshot<Map<String, dynamic>>
+                          >(
+                            stream: duelProfileStream,
+                            builder: (context, duelSnapshot) {
+                              final duelProfile = DuelProfile.fromDoc(
+                                duelSnapshot.data,
+                                fallbackUid: userId,
+                              );
+                              final duelSubtitle = switch (duelProfile.state) {
+                                'pending_received' =>
+                                  'Une invitation t’attend. Réponds sous 48h.',
+                                'pending_sent' =>
+                                  'Un adversaire a été trouvé. Attends sa réponse.',
+                                'active_duel' =>
+                                  'Ton duel hebdo est actif. Ouvre le dashboard.',
+                                _ =>
+                                  duelProfile.eligible
+                                      ? 'Ton portefeuille est prêt pour un matchmaking.'
+                                      : 'Atteins 10k coins de valeur et garde au moins 1 ligne.',
+                              };
+
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Expanded(
-                                    child: Text(
-                                      'Agenda marché',
-                                      style: TextStyle(
-                                        color: textColor,
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: onOpenNotifications,
-                                    child: const Text('Voir tout'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _AgendaTile(
-                                      title: 'Or',
-                                      value: '${_formatPrice(gold)} \$/oz',
-                                      icon: '🥇',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: _AgendaTile(
-                                      title: 'Argent',
-                                      value:
-                                          '${_formatPrice(silver, decimals: 3)} \$/oz',
-                                      icon: '🥈',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _AgendaTile(
-                                      title: 'Quiz du jour',
-                                      value:
-                                          quizAvailable
-                                              ? 'Session gratuite'
-                                              : 'Déjà lancée',
-                                      icon: '📰',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: _AgendaTile(
-                                      title: 'Récompenses',
-                                      value:
-                                          pendingRewards > 0
-                                              ? '$pendingRewards à récupérer'
-                                              : 'Rien en attente',
-                                      icon: '🎯',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              _AgendaActionRow(
-                                icon: Icons.event_available_rounded,
-                                title: 'Calendrier dividendes',
-                                subtitle:
-                                    'Vérifie les prochaines dates importantes de ton suivi.',
-                                onTap: onOpenDividendCalendar,
-                              ),
-                              const SizedBox(height: 10),
-                              _AgendaActionRow(
-                                icon: Icons.sports_kabaddi_rounded,
-                                title: 'Duel hebdo',
-                                subtitle: duelSubtitle,
-                                onTap: onOpenCommunity,
-                              ),
-                              const SizedBox(height: 10),
-                              _AgendaActionRow(
-                                icon: Icons.flag_rounded,
-                                title: 'Objectifs & quêtes',
-                                subtitle:
-                                    pendingRewards > 0
-                                        ? 'Des récompenses t’attendent dans les objectifs.'
-                                        : 'Passe voir les quêtes pour maintenir ton rythme.',
-                                onTap: onOpenGoals,
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(18),
-                                  color: const Color(0xFFF7F8FA),
-                                  border: Border.all(
-                                    color: const Color(0xFFE6E8EB),
-                                  ),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: detailsColor2.withValues(
-                                          alpha: 0.08,
+                                  Row(
+                                    children: [
+                                      const Expanded(
+                                        child: Text(
+                                          'Agenda marché',
+                                          style: TextStyle(
+                                            color: textColor,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 18,
+                                          ),
                                         ),
-                                        borderRadius: BorderRadius.circular(14),
                                       ),
-                                      child: const Icon(
-                                        Icons.campaign_rounded,
-                                        color: detailsColor2,
-                                        size: 18,
+                                      TextButton(
+                                        onPressed: onOpenNotifications,
+                                        child: const Text('Voir tout'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _AgendaTile(
+                                          title: 'Or',
+                                          value: '${_formatPrice(gold)} \$/oz',
+                                          icon: '🥇',
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _AgendaTile(
+                                          title: 'Argent',
+                                          value:
+                                              '${_formatPrice(silver, decimals: 3)} \$/oz',
+                                          icon: '🥈',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _AgendaTile(
+                                          title: 'Quiz du jour',
+                                          value:
+                                              quizAvailable
+                                                  ? 'Session gratuite'
+                                                  : 'Déjà lancée',
+                                          icon: '📰',
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: _AgendaTile(
+                                          title: 'Récompenses',
+                                          value:
+                                              pendingRewards > 0
+                                                  ? '$pendingRewards à récupérer'
+                                                  : 'Rien en attente',
+                                          icon: '🎯',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _AgendaActionRow(
+                                    icon: Icons.event_available_rounded,
+                                    title: 'Calendrier dividendes',
+                                    subtitle:
+                                        'Vérifie les prochaines dates importantes de ton suivi.',
+                                    onTap: onOpenDividendCalendar,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _AgendaActionRow(
+                                    icon: Icons.sports_kabaddi_rounded,
+                                    title: 'Duel hebdo',
+                                    subtitle: duelSubtitle,
+                                    onTap: onOpenCommunity,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _AgendaActionRow(
+                                    icon: Icons.flag_rounded,
+                                    title: 'Objectifs & quêtes',
+                                    subtitle:
+                                        pendingRewards > 0
+                                            ? 'Des récompenses t’attendent dans les objectifs.'
+                                            : 'Passe voir les quêtes pour maintenir ton rythme.',
+                                    onTap: onOpenGoals,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(14),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(18),
+                                      color: const Color(0xFFF7F8FA),
+                                      border: Border.all(
+                                        color: const Color(0xFFE6E8EB),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Dernière annonce',
-                                            style: TextStyle(
-                                              color: textColor,
-                                              fontWeight: FontWeight.w800,
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: detailsColor2.withValues(
+                                              alpha: 0.08,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
                                             ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            latestTitle,
-                                            style: const TextStyle(
-                                              color: Colors.black54,
-                                              height: 1.35,
-                                            ),
+                                          child: const Icon(
+                                            Icons.campaign_rounded,
+                                            color: detailsColor2,
+                                            size: 18,
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Dernière annonce',
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                latestTitle,
+                                                style: const TextStyle(
+                                                  color: Colors.black54,
+                                                  height: 1.35,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                  ),
+                                ],
+                              );
+                            },
                           );
                         },
                       );
@@ -2261,6 +2433,36 @@ String _formatCompactRemaining(Duration remaining) {
 String _formatSigned(double value) {
   final sign = value >= 0 ? '+' : '';
   return '$sign${value.toStringAsFixed(1)}';
+}
+
+double _todayDuelProgress(DateTime? acceptedAt, DateTime? endsAt) {
+  if (acceptedAt == null || endsAt == null || !endsAt.isAfter(acceptedAt)) {
+    return 0;
+  }
+  final totalMs = endsAt.difference(acceptedAt).inMilliseconds;
+  if (totalMs <= 0) return 0;
+  final elapsedMs = DateTime.now()
+      .difference(acceptedAt)
+      .inMilliseconds
+      .clamp(0, totalMs);
+  return elapsedMs / totalMs;
+}
+
+String _formatShortCoins(double value) {
+  final abs = value.abs();
+  if (abs >= 1000000) {
+    return '${(value / 1000000).toStringAsFixed(2)}M';
+  }
+  if (abs >= 1000) {
+    return '${(value / 1000).toStringAsFixed(1)}k';
+  }
+  return value.toStringAsFixed(0);
+}
+
+String _formatCompactDateTime(DateTime value) {
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')} · $hour:$minute';
 }
 
 class _AgendaTile extends StatelessWidget {

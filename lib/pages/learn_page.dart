@@ -6,12 +6,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui' as ui;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
-import '../widgets/help_fab.dart';
 import 'shop_page.dart';
 import 'package:fintech/core/constants.dart';
 import 'package:fintech/services/activity_tracking_service.dart';
+import 'learn_course3_data.dart';
+import 'learn_course4_data.dart';
+import 'learn_course5_data.dart';
 
 // --- Models ---
 
@@ -82,10 +85,12 @@ class LearnPage extends StatefulWidget {
   State<LearnPage> createState() => _LearnPageState();
 }
 
-class _LearnPageState extends State<LearnPage>
-    with SingleTickerProviderStateMixin {
+class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
   CourseContent? _course1;
   CourseContent? _course2;
+  CourseContent? _course3;
+  CourseContent? _course4;
+  CourseContent? _course5;
   bool _loading = true;
   String? _error;
   final Set<String> _completedLessons = {};
@@ -94,10 +99,20 @@ class _LearnPageState extends State<LearnPage>
   bool _isStreakActiveToday = false;
   late AnimationController _streakController;
   late Animation<double> _streakAnimation;
+  late AnimationController _ambientController;
+  late Animation<double> _ambientAnimation;
 
   @override
   void initState() {
     super.initState();
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat(reverse: true);
+    _ambientAnimation = CurvedAnimation(
+      parent: _ambientController,
+      curve: Curves.easeInOutSine,
+    );
     _streakController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -115,6 +130,7 @@ class _LearnPageState extends State<LearnPage>
 
   @override
   void dispose() {
+    _ambientController.dispose();
     _streakController.dispose();
     super.dispose();
   }
@@ -148,6 +164,24 @@ class _LearnPageState extends State<LearnPage>
       _course2 = _parseCourseContent(c2Json, q2Json);
     } catch (e) {
       debugPrint('Erreur chargement Chapitre 2 (ignorée): $e');
+    }
+
+    try {
+      _course3 = _parseCourseContent(chapter3CourseData, chapter3QuizData);
+    } catch (e) {
+      debugPrint('Erreur chargement Chapitre 3 (ignorée): $e');
+    }
+
+    try {
+      _course4 = _parseCourseContent(chapter4CourseData, chapter4QuizData);
+    } catch (e) {
+      debugPrint('Erreur chargement Chapitre 4 (ignorée): $e');
+    }
+
+    try {
+      _course5 = _parseCourseContent(chapter5CourseData, chapter5QuizData);
+    } catch (e) {
+      debugPrint('Erreur chargement Chapitre 5 (ignorée): $e');
     }
 
     // Filter duplicates in course 2 (remove chapters already in course 1)
@@ -611,131 +645,265 @@ class _LearnPageState extends State<LearnPage>
               ),
             ),
           ),
-          floatingActionButton: const HelpFab(
-            helpText:
-                "Bienvenue dans l'espace d'apprentissage ! Suivez les cours chapitre par chapitre, validez les quiz pour gagner de l'XP et maintenez votre série (streak) active.",
-          ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              _buildLearningHero(),
               _buildStreakWidget(),
               if (_course1 != null)
-                Card(
-                  color: backgroundColor,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 2,
-                  clipBehavior: Clip.antiAlias,
-                  child: Theme(
-                    data: Theme.of(
-                      context,
-                    ).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      tilePadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                      title: const Text(
-                        "Chapitre 1 : Investir en bourse",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20,
-                        ),
-                      ),
-                      leading: Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          gradient: const LinearGradient(
-                            colors: [detailsColor1, detailsColor2],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: .10),
-                              blurRadius: 16,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.school_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                      initiallyExpanded: false,
-                      children: _buildChapterContent(_course1!, isAdmin),
-                    ),
-                  ),
+                _buildCourseCard(
+                  title: 'Chapitre 1 : Investir en bourse',
+                  subtitle:
+                      'Fondations, habitudes, vocabulaire et premiers réflexes.',
+                  badge: 'Base',
+                  icon: Icons.school_rounded,
+                  accentColors: const [detailsColor1, detailsColor2],
+                  course: _course1!,
+                  isAdmin: isAdmin,
                 ),
               if (_course2 != null && _course2!.chapters.isNotEmpty)
                 if (isAdmin || _isCourseCompleted(_course1))
-                  Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 2,
-                    clipBehavior: Clip.antiAlias,
-                    child: Theme(
-                      data: Theme.of(
-                        context,
-                      ).copyWith(dividerColor: Colors.transparent),
-                      child: ExpansionTile(
-                        tilePadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
-                        title: const Text(
-                          "Chapitre 2 : Analyse fondamentale et graphique",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 20,
-                          ),
-                        ),
-                        leading: Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: const LinearGradient(
-                              colors: [detailsColor1, detailsColor2],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: .10),
-                                blurRadius: 16,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.trending_up_rounded,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                        initiallyExpanded: false,
-                        children: _buildChapterContent(_course2!, isAdmin),
-                      ),
-                    ),
+                  _buildCourseCard(
+                    title: 'Chapitre 2 : Analyse fondamentale et graphique',
+                    subtitle:
+                        'Ratios, graphiques et lecture du marché en profondeur.',
+                    badge: 'Analyse',
+                    icon: Icons.trending_up_rounded,
+                    accentColors: const [Color(0xFF6EE7D8), Color(0xFF2A0F45)],
+                    course: _course2!,
+                    isAdmin: isAdmin,
                   )
                 else
                   _buildLockedChapterCard(
-                    "Chapitre 2 : Analyse fondamentale et graphique",
-                    showSubtitle: false,
+                    'Chapitre 2 : Analyse fondamentale et graphique',
+                    subtitle: 'Termine le chapitre 1 pour ouvrir cette suite.',
                   ),
-              _buildLockedChapterCard("Chapitre 3 : ... "),
+              if (_course3 != null && _course3!.chapters.isNotEmpty)
+                if (isAdmin || _isCourseCompleted(_course2))
+                  _buildCourseCard(
+                    title: 'Chapitre 3 : Microéconomie et marchés financiers',
+                    subtitle:
+                        'Prix, arbitrage, CAPM, contrats et finance moderne.',
+                    badge: 'Avancé',
+                    icon: Icons.auto_graph_rounded,
+                    accentColors: const [Color(0xFFFFC46B), Color(0xFF2A0F45)],
+                    course: _course3!,
+                    isAdmin: isAdmin,
+                  )
+                else
+                  _buildLockedChapterCard(
+                    'Chapitre 3 : Microéconomie et marchés financiers',
+                    subtitle: 'Débloqué après validation du chapitre 2.',
+                  ),
+              if (_course4 != null && _course4!.chapters.isNotEmpty)
+                if (isAdmin || _isCourseCompleted(_course3))
+                  _buildCourseCard(
+                    title: 'Chapitre 4 : Macroéconomie et marchés financiers',
+                    subtitle:
+                        'Croissance, inflation, banques centrales et régimes macro-financiers.',
+                    badge: 'Macro',
+                    icon: Icons.public_rounded,
+                    accentColors: const [Color(0xFF9FD5FF), Color(0xFF1E3557)],
+                    course: _course4!,
+                    isAdmin: isAdmin,
+                  )
+                else
+                  _buildLockedChapterCard(
+                    'Chapitre 4 : Macroéconomie et marchés financiers',
+                    subtitle: 'Débloqué après validation du chapitre 3.',
+                  ),
+              if (_course5 != null && _course5!.chapters.isNotEmpty)
+                if (isAdmin || _isCourseCompleted(_course4))
+                  _buildCourseCard(
+                    title: 'Chapitre 5 : Les actifs financiers',
+                    subtitle:
+                        'Livrets, OPCVM, dérivés, structurés, matières premières et crypto-actifs.',
+                    badge: 'Actifs',
+                    icon: Icons.account_balance_wallet_rounded,
+                    accentColors: const [Color(0xFFB8F28F), Color(0xFF163328)],
+                    course: _course5!,
+                    isAdmin: isAdmin,
+                  )
+                else
+                  _buildLockedChapterCard(
+                    'Chapitre 5 : Les actifs financiers',
+                    subtitle: 'Débloqué après validation du chapitre 4.',
+                  ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLearningHero() {
+    return AnimatedBuilder(
+      animation: _ambientAnimation,
+      builder: (context, child) {
+        final drift = math.sin(_ambientAnimation.value * math.pi * 2);
+        final oppositeDrift = math.cos(_ambientAnimation.value * math.pi * 2);
+
+        return Container(
+          height: 212,
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF241532), Color(0xFF0F0A18)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            boxShadow: [
+              BoxShadow(
+                color: detailsColor2.withValues(alpha: 0.20),
+                blurRadius: 34,
+                offset: const Offset(0, 18),
+              ),
+              BoxShadow(
+                color: detailsColor1.withValues(alpha: 0.12),
+                blurRadius: 48,
+                spreadRadius: -10,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: -20 + drift * 10,
+                  top: -26,
+                  child: _GlowOrb(
+                    size: 130,
+                    color: detailsColor1.withValues(alpha: 0.24),
+                  ),
+                ),
+                Positioned(
+                  right: -16 + oppositeDrift * 12,
+                  bottom: -30,
+                  child: _GlowOrb(
+                    size: 150,
+                    color: const Color(0xFF6EE7D8).withValues(alpha: 0.18),
+                  ),
+                ),
+                Positioned(
+                  right: -4 + drift * 10,
+                  top: 4 + oppositeDrift * 8,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.38,
+                      child: Transform.rotate(
+                        angle: 0.03 * drift,
+                        child: SizedBox(
+                          width: 196,
+                          height: 188,
+                          child: SvgPicture.string(_learningHeroSvg),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0.04),
+                            Colors.white.withValues(alpha: 0.01),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.bolt_rounded,
+                              color: detailsColor1,
+                              size: 16,
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              'Parcours FinHub',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const SizedBox(
+                        width: 228,
+                        child: Text(
+                          'Apprendre la finance avec plus de relief.',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 26,
+                            height: 1.05,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Cours hiérarchisés, schémas, formules et progression visuelle dans une surface plus premium.',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: 14,
+                          height: 1.45,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Spacer(),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: const [
+                          _HeroMetricChip(
+                            icon: Icons.layers_rounded,
+                            label: '5 chapitres',
+                          ),
+                          _HeroMetricChip(
+                            icon: Icons.functions_rounded,
+                            label: 'Formules',
+                          ),
+                          _HeroMetricChip(
+                            icon: Icons.quiz_rounded,
+                            label: 'QCM & progression',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -747,8 +915,12 @@ class _LearnPageState extends State<LearnPage>
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [Colors.white, Color(0xFFF7F4EE)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color:
               _isStreakActiveToday
@@ -761,55 +933,373 @@ class _LearnPageState extends State<LearnPage>
             color:
                 _isStreakActiveToday
                     ? detailsColor1.withValues(alpha: 0.14)
-                    : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+                    : Colors.black.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Row(
         children: [
-          ScaleTransition(
-            scale: _streakAnimation,
-            child: Icon(
-              Icons.local_fire_department_rounded,
-              color:
-                  _isStreakActiveToday || _streak > 0
-                      ? detailsColor1
-                      : Colors.grey.shade300,
-              size: 40,
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: LinearGradient(
+                colors:
+                    _isStreakActiveToday || _streak > 0
+                        ? [
+                          detailsColor1.withValues(alpha: 0.95),
+                          const Color(0xFFFF8A3D),
+                        ]
+                        : [Colors.grey.shade300, Colors.grey.shade200],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color:
+                      _isStreakActiveToday || _streak > 0
+                          ? detailsColor1.withValues(alpha: 0.22)
+                          : Colors.transparent,
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ScaleTransition(
+              scale: _streakAnimation,
+              child: const Icon(
+                Icons.local_fire_department_rounded,
+                color: Colors.white,
+                size: 30,
+              ),
             ),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '$_streak jours',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color:
-                      _isStreakActiveToday || _streak > 0
-                          ? detailsColor1
-                          : Colors.black87,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_streak jours de série',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color:
+                        _isStreakActiveToday || _streak > 0
+                            ? detailsColor2
+                            : Colors.black87,
+                  ),
                 ),
-              ),
-              Text(
-                _isStreakActiveToday
-                    ? "Série prolongée !"
-                    : "Terminez une leçon pour valider",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
+                Text(
+                  _isStreakActiveToday
+                      ? 'Activité validée aujourd’hui'
+                      : 'Termine une leçon pour garder le rythme',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'Record $_maxStreak',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.w700,
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildCourseCard({
+    required String title,
+    required String subtitle,
+    required String badge,
+    required IconData icon,
+    required List<Color> accentColors,
+    required CourseContent course,
+    required bool isAdmin,
+  }) {
+    final totalLessons = _countCourseLessons(course);
+    final completedLessons = _countCompletedCourseLessons(course);
+    final progress = totalLessons == 0 ? 0.0 : completedLessons / totalLessons;
+
+    return AnimatedBuilder(
+      animation: _ambientAnimation,
+      builder: (context, child) {
+        final floatOffset =
+            math.sin(
+              (_ambientAnimation.value * math.pi * 2) + title.length / 6,
+            ) *
+            8;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              colors: [
+                accentColors.last.withValues(alpha: 0.95),
+                const Color(0xFF0F0A18),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            boxShadow: [
+              BoxShadow(
+                color: accentColors.first.withValues(alpha: 0.16),
+                blurRadius: 28,
+                spreadRadius: -4,
+                offset: const Offset(0, 16),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: Stack(
+              children: [
+                Positioned(
+                  right: -18 + floatOffset,
+                  top: -14,
+                  child: _GlowOrb(
+                    size: 110,
+                    color: accentColors.first.withValues(alpha: 0.22),
+                  ),
+                ),
+                Positioned(
+                  left: -24,
+                  bottom: -34 + floatOffset / 2,
+                  child: _GlowOrb(
+                    size: 124,
+                    color: accentColors.last.withValues(alpha: 0.20),
+                  ),
+                ),
+                Positioned(
+                  right: 4 + floatOffset,
+                  top: 10,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.24,
+                      child: SizedBox(
+                        width: 170,
+                        height: 160,
+                        child: SvgPicture.string(_courseBackdropSvg),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.02),
+                      ),
+                    ),
+                  ),
+                ),
+                Theme(
+                  data: Theme.of(context).copyWith(
+                    dividerColor: Colors.transparent,
+                    splashColor: Colors.white.withValues(alpha: 0.06),
+                    highlightColor: Colors.white.withValues(alpha: 0.04),
+                  ),
+                  child: ExpansionTile(
+                    tilePadding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                    childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                    collapsedIconColor: Colors.white,
+                    iconColor: Colors.white,
+                    leading: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        gradient: LinearGradient(
+                          colors: [
+                            accentColors.first,
+                            accentColors.first.withValues(alpha: 0.70),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColors.first.withValues(alpha: 0.28),
+                            blurRadius: 18,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Icon(icon, color: Colors.white, size: 24),
+                    ),
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20,
+                                  color: Colors.white,
+                                  height: 1.08,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.10),
+                                ),
+                              ),
+                              child: Text(
+                                badge,
+                                style: TextStyle(
+                                  color: accentColors.first,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.72),
+                            fontSize: 13,
+                            height: 1.35,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Text(
+                              '$completedLessons/$totalLessons leçons',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.92),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${course.chapters.length} modules',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.60),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 7,
+                            backgroundColor: Colors.white.withValues(
+                              alpha: 0.10,
+                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              accentColors.first,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.10),
+                          ),
+                        ),
+                        child: Column(
+                          children: _buildChapterContent(course, isAdmin),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  int _countCourseLessons(CourseContent course) {
+    return course.chapters.fold(
+      0,
+      (total, chapter) => total + _countChapterLessons(chapter),
+    );
+  }
+
+  int _countCompletedCourseLessons(CourseContent course) {
+    return course.chapters.fold(
+      0,
+      (total, chapter) => total + _countCompletedChapterLessons(chapter),
+    );
+  }
+
+  int _countChapterLessons(ChapterContent chapter) {
+    return chapter.lessons.length +
+        chapter.subChapters.fold(
+          0,
+          (total, subChapter) => total + _countChapterLessons(subChapter),
+        );
+  }
+
+  int _countCompletedChapterLessons(ChapterContent chapter) {
+    final localCompleted =
+        chapter.lessons
+            .where((lesson) => _completedLessons.contains(lesson.title))
+            .length;
+    return localCompleted +
+        chapter.subChapters.fold(
+          0,
+          (total, subChapter) =>
+              total + _countCompletedChapterLessons(subChapter),
+        );
   }
 
   List<Widget> _buildChapterContent(CourseContent course, bool isAdmin) {
@@ -846,6 +1336,9 @@ class _LearnPageState extends State<LearnPage>
   }) {
     List<Widget> children = [];
     bool currentUnlocked = unlocked;
+    final isCompleted = _isChapterCompleted(chapter);
+    final chapterLessons = _countChapterLessons(chapter);
+    final chapterCompletedLessons = _countCompletedChapterLessons(chapter);
 
     void buildLessons() {
       for (var lesson in chapter.lessons) {
@@ -853,53 +1346,99 @@ class _LearnPageState extends State<LearnPage>
         final isLocked = !isAdmin && !currentUnlocked;
 
         children.add(
-          ListTile(
-            title: Text(
-              lesson.title,
-              style: TextStyle(
-                color: isLocked ? Colors.grey : Colors.black87,
-                fontWeight: isLocked ? FontWeight.normal : FontWeight.w500,
-              ),
-            ),
-            leading: Icon(
-              isLocked
-                  ? Icons.lock_outline_rounded
-                  : (isCompleted
-                      ? Icons.check_circle_rounded
-                      : Icons.article_outlined),
-              size: 20,
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
               color:
                   isLocked
-                      ? Colors.grey
-                      : (isCompleted ? Colors.green : Colors.black54),
+                      ? Colors.white.withValues(alpha: 0.04)
+                      : Colors.white.withValues(alpha: 0.08),
+              border: Border.all(
+                color:
+                    isCompleted
+                        ? detailsColor1.withValues(alpha: 0.35)
+                        : Colors.white.withValues(alpha: 0.08),
+              ),
             ),
-            trailing:
-                isLocked
-                    ? null
-                    : const Icon(
-                      Icons.chevron_right,
-                      size: 20,
-                      color: Colors.black45,
-                    ),
-            onTap:
-                isLocked
-                    ? null
-                    : () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder:
-                              (_) => LessonPage(
-                                lesson: lesson,
-                                onCompleted:
-                                    (score, results) => _onLessonCompleted(
-                                      lesson.title,
-                                      score,
-                                      results,
-                                    ),
-                              ),
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 4,
+              ),
+              title: Text(
+                lesson.title,
+                style: TextStyle(
+                  color:
+                      isLocked
+                          ? Colors.white.withValues(alpha: 0.45)
+                          : Colors.white,
+                  fontWeight: isLocked ? FontWeight.w500 : FontWeight.w700,
+                ),
+              ),
+              subtitle:
+                  isCompleted
+                      ? Text(
+                        'Validée',
+                        style: TextStyle(
+                          color: detailsColor1.withValues(alpha: 0.92),
+                          fontWeight: FontWeight.w600,
                         ),
-                      );
-                    },
+                      )
+                      : null,
+              leading: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color:
+                      isLocked
+                          ? Colors.white.withValues(alpha: 0.07)
+                          : (isCompleted
+                              ? detailsColor1.withValues(alpha: 0.16)
+                              : Colors.white.withValues(alpha: 0.10)),
+                ),
+                child: Icon(
+                  isLocked
+                      ? Icons.lock_outline_rounded
+                      : (isCompleted
+                          ? Icons.check_rounded
+                          : Icons.article_outlined),
+                  size: 18,
+                  color:
+                      isLocked
+                          ? Colors.white.withValues(alpha: 0.48)
+                          : (isCompleted ? detailsColor1 : Colors.white),
+                ),
+              ),
+              trailing:
+                  isLocked
+                      ? null
+                      : const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: Colors.white70,
+                      ),
+              onTap:
+                  isLocked
+                      ? null
+                      : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:
+                                (_) => LessonPage(
+                                  lesson: lesson,
+                                  onCompleted:
+                                      (score, results) => _onLessonCompleted(
+                                        lesson.title,
+                                        score,
+                                        results,
+                                      ),
+                                ),
+                          ),
+                        );
+                      },
+            ),
           ),
         );
 
@@ -936,30 +1475,92 @@ class _LearnPageState extends State<LearnPage>
     }
 
     if (isTopLevel) {
-      return Card(
-        elevation: 0,
-        color: const Color(0xFFFAFAFA),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: Color(0xFFE6E8EB)),
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: unlocked ? 0.10 : 0.05),
+              Colors.white.withValues(alpha: 0.04),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color:
+                isCompleted
+                    ? detailsColor1.withValues(alpha: 0.32)
+                    : Colors.white.withValues(alpha: 0.08),
+          ),
         ),
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
           child: ExpansionTile(
-            title: Text(
-              chapter.title,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
             ),
-            leading: CircleAvatar(
-              backgroundColor: Colors.black54,
-              foregroundColor: Colors.white,
-              radius: 14,
-              child: Text(
-                '$index',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+            childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            collapsedIconColor: Colors.white70,
+            iconColor: Colors.white,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  chapter.title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color:
+                        unlocked
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.58),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$chapterCompletedLessons/$chapterLessons leçons validées',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.62),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            leading: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors:
+                      isCompleted
+                          ? [detailsColor1, const Color(0xFFFFA94D)]
+                          : [Colors.white70, Colors.white24],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow:
+                    isCompleted
+                        ? [
+                          BoxShadow(
+                            color: detailsColor1.withValues(alpha: 0.20),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
+                          ),
+                        ]
+                        : null,
+              ),
+              child: Center(
+                child: Text(
+                  '$index',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: isCompleted ? Colors.black : Colors.black87,
+                  ),
                 ),
               ),
             ),
@@ -968,59 +1569,138 @@ class _LearnPageState extends State<LearnPage>
         ),
       );
     } else {
-      return Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          title: Text(
-            chapter.title,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      return Container(
+        margin: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.white.withValues(alpha: 0.05),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 4,
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            collapsedIconColor: Colors.white70,
+            iconColor: Colors.white,
+            title: Text(
+              chapter.title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: Colors.white,
+              ),
+            ),
+            leading: const Icon(
+              Icons.account_tree_rounded,
+              size: 19,
+              color: Colors.white70,
+            ),
+            children: children,
           ),
-          leading: const Icon(
-            Icons.subdirectory_arrow_right_rounded,
-            size: 20,
-            color: Colors.black54,
-          ),
-          childrenPadding: const EdgeInsets.only(left: 16),
-          children: children,
         ),
       );
     }
   }
 
-  Widget _buildLockedChapterCard(String title, {bool showSubtitle = true}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: const BorderSide(color: Color(0xFFE6E8EB)),
-      ),
-      elevation: 0,
-      color: const Color(0xFFE0E0E0),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 12,
+  Widget _buildLockedChapterCard(String title, {String? subtitle}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3D3944), Color(0xFF232028)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: Colors.grey,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
           ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -12,
+              top: -12,
+              child: Opacity(
+                opacity: 0.10,
+                child: SizedBox(
+                  width: 150,
+                  height: 140,
+                  child: SvgPicture.string(_courseBackdropSvg),
+                ),
+              ),
+            ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+              title: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 19,
+                  color: Colors.white,
+                ),
+              ),
+              subtitle:
+                  subtitle == null
+                      ? null
+                      : Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.62),
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+              leading: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+                child: const Icon(
+                  Icons.lock_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+                child: Text(
+                  'Verrouillé',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.74),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-        leading: const CircleAvatar(
-          radius: 20,
-          backgroundColor: Colors.grey,
-          child: Icon(Icons.lock_rounded, color: Colors.white, size: 20),
-        ),
-        subtitle:
-            showSubtitle
-                ? const Text(
-                  "Bientôt disponible",
-                  style: TextStyle(color: Colors.grey),
-                )
-                : null,
       ),
     );
   }
@@ -1116,6 +1796,102 @@ class _LevelIndicator extends StatelessWidget {
     );
   }
 }
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color,
+              blurRadius: size * 0.6,
+              spreadRadius: size * 0.08,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroMetricChip extends StatelessWidget {
+  const _HeroMetricChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: detailsColor1, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const String _learningHeroSvg = '''
+<svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="line" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F4D06F" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#7CE7D7" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+  <path d="M22 165 C40 124, 63 135, 86 96 S134 60, 157 93 194 84, 201 46" fill="none" stroke="url(#line)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M22 164 L22 190 L198 190" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="3"/>
+  <circle cx="86" cy="96" r="9" fill="#F4D06F" fill-opacity="0.94"/>
+  <circle cx="157" cy="93" r="9" fill="#7CE7D7" fill-opacity="0.94"/>
+  <rect x="46" y="132" width="16" height="36" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
+  <rect x="78" y="110" width="16" height="58" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
+  <rect x="110" y="118" width="16" height="50" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
+  <rect x="142" y="92" width="16" height="76" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
+  <rect x="174" y="70" width="16" height="98" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
+</svg>
+''';
+
+const String _courseBackdropSvg = '''
+<svg viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="2.5">
+    <path d="M18 126 C42 102, 58 112, 84 84 S128 54, 162 34"/>
+    <path d="M26 144 L154 144"/>
+    <path d="M38 144 L38 122"/>
+    <path d="M70 144 L70 108"/>
+    <path d="M102 144 L102 92"/>
+    <path d="M134 144 L134 74"/>
+  </g>
+  <circle cx="84" cy="84" r="7" fill="#F4D06F" fill-opacity="0.85"/>
+  <circle cx="134" cy="74" r="7" fill="#7CE7D7" fill-opacity="0.85"/>
+</svg>
+''';
 
 class _LearnLoadingView extends StatelessWidget {
   const _LearnLoadingView();
@@ -1259,6 +2035,107 @@ class _LearnSkeletonBlock extends StatelessWidget {
   }
 }
 
+class _LessonHeaderCard extends StatelessWidget {
+  const _LessonHeaderCard({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF241532), Color(0xFF0F0A18)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: detailsColor2.withValues(alpha: 0.16),
+            blurRadius: 26,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -10,
+            top: -6,
+            child: Opacity(
+              opacity: 0.26,
+              child: SizedBox(
+                width: 132,
+                height: 120,
+                child: SvgPicture.string(_courseBackdropSvg),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.menu_book_rounded,
+                      color: detailsColor1,
+                      size: 16,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Leçon',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w900,
+                  height: 1.08,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Lis, comprends, puis valide la leçon pour faire progresser ton parcours.',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.70),
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class LessonPage extends StatelessWidget {
   final LessonContent lesson;
   final Function(int score, List<bool> results)? onCompleted;
@@ -1270,24 +2147,18 @@ class LessonPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text(lesson.title),
+        title: const Text('Cours'),
         backgroundColor: backgroundColor,
         foregroundColor: textColor,
-        elevation: 0.5,
-      ),
-      floatingActionButton: const HelpFab(
-        helpText:
-            "Lisez attentivement le cours ci-dessous. Prenez le temps de comprendre les concepts avant de passer au quiz.",
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              lesson.title,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
+            _LessonHeaderCard(title: lesson.title),
             const SizedBox(height: 20),
             _FormattedLessonText(lesson.content),
             const SizedBox(height: 40),
@@ -1420,14 +2291,26 @@ class _FormattedLessonText extends StatelessWidget {
       return Container(
         margin: const EdgeInsets.only(bottom: 24, top: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF6C5CE7), width: 2),
+          gradient: const LinearGradient(
+            colors: [Colors.white, Color(0xFFFCFBF7)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: detailsColor1.withValues(alpha: 0.42),
+            width: 1.6,
+          ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF6C5CE7).withOpacity(0.25),
-              blurRadius: 0,
-              offset: const Offset(0, 6),
+              color: detailsColor2.withValues(alpha: 0.10),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+            BoxShadow(
+              color: detailsColor1.withValues(alpha: 0.10),
+              blurRadius: 26,
+              spreadRadius: -8,
             ),
           ],
         ),
@@ -1436,13 +2319,23 @@ class _FormattedLessonText extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(
-                color: Color(0xFF6C5CE7),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [detailsColor2, Color(0xFF442164)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(22),
+                ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                  const Icon(
+                    Icons.auto_awesome,
+                    color: detailsColor1,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -1481,24 +2374,35 @@ class _FormattedLessonText extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
+        color: Colors.white,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-          bottomLeft: Radius.circular(4),
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+          bottomRight: Radius.circular(24),
+          bottomLeft: Radius.circular(10),
         ),
-        border: Border.all(color: const Color(0xFFDFE6E9), width: 1.5),
+        border: Border.all(color: const Color(0xFFE9E2D2), width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 4,
-            height: 24,
+            height: 30,
             margin: const EdgeInsets.only(top: 2, right: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFF00B894),
+              gradient: const LinearGradient(
+                colors: [detailsColor1, detailsColor2],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1622,14 +2526,24 @@ class _FormattedLessonText extends StatelessWidget {
       // Regular text
       int nextSpecial = -1;
       List<int> candidates = [];
-      if (text.contains('\\[', i)) candidates.add(text.indexOf('\\[', i));
-      if (text.contains('\$', i)) candidates.add(text.indexOf('\$', i));
-      if (text.contains('\\textsuperscript{', i))
+      if (text.contains('\\[', i)) {
+        candidates.add(text.indexOf('\\[', i));
+      }
+      if (text.contains('\$', i)) {
+        candidates.add(text.indexOf('\$', i));
+      }
+      if (text.contains('\\textsuperscript{', i)) {
         candidates.add(text.indexOf('\\textsuperscript{', i));
-      if (text.contains('**', i)) candidates.add(text.indexOf('**', i));
-      if (text.contains('* ', i)) candidates.add(text.indexOf('* ', i));
-      if (text.contains('\\begin{figure}', i))
+      }
+      if (text.contains('**', i)) {
+        candidates.add(text.indexOf('**', i));
+      }
+      if (text.contains('* ', i)) {
+        candidates.add(text.indexOf('* ', i));
+      }
+      if (text.contains('\\begin{figure}', i)) {
         candidates.add(text.indexOf('\\begin{figure}', i));
+      }
 
       if (candidates.isNotEmpty) {
         nextSpecial = candidates.reduce((min, val) => val < min ? val : min);
@@ -1714,7 +2628,7 @@ class _LatexRenderer extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.orange.withOpacity(0.15),
+              color: Colors.orange.withValues(alpha: 0.15),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -1758,6 +2672,21 @@ class _LatexRenderer extends StatelessWidget {
         } else if (cmd == r'\times') {
           children.add(const Text(' × ', style: TextStyle(fontSize: 16)));
           i = cmdEnd;
+        } else if (cmd == r'\approx') {
+          children.add(const Text(' ≈ ', style: TextStyle(fontSize: 16)));
+          i = cmdEnd;
+        } else if (cmd == r'\pi') {
+          children.add(const Text('π', style: TextStyle(fontSize: 18)));
+          i = cmdEnd;
+        } else if (cmd == r'\alpha') {
+          children.add(const Text('α', style: TextStyle(fontSize: 18)));
+          i = cmdEnd;
+        } else if (cmd == r'\beta') {
+          children.add(const Text('β', style: TextStyle(fontSize: 18)));
+          i = cmdEnd;
+        } else if (cmd == r'\varepsilon') {
+          children.add(const Text('ε', style: TextStyle(fontSize: 18)));
+          i = cmdEnd;
         } else if (cmd == r'\quad') {
           children.add(const SizedBox(width: 20));
           i = cmdEnd;
@@ -1795,6 +2724,28 @@ class _LatexRenderer extends StatelessWidget {
             ),
           ),
         );
+      } else if (text[i] == '_') {
+        String subContent = "";
+        int nextIdx = i + 1;
+        if (nextIdx < text.length && text[nextIdx] == '{') {
+          _ArgResult arg = _parseArg(text, i + 1);
+          subContent = arg.content;
+          i = arg.endIndex;
+        } else if (nextIdx < text.length) {
+          subContent = text[nextIdx];
+          i = nextIdx + 1;
+        } else {
+          i++;
+        }
+        children.add(
+          Transform.translate(
+            offset: const Offset(0, 5),
+            child: Text(
+              subContent,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
       } else if (text[i] == '{' || text[i] == '}') {
         i++;
       } else {
@@ -1802,6 +2753,7 @@ class _LatexRenderer extends StatelessWidget {
         while (i < text.length &&
             text[i] != '\\' &&
             text[i] != '^' &&
+            text[i] != '_' &&
             text[i] != '{' &&
             text[i] != '}') {
           i++;
@@ -1846,16 +2798,26 @@ class _LatexRenderer extends StatelessWidget {
 
   _ArgResult _parseArg(String text, int startIndex) {
     int i = startIndex;
-    while (i < text.length && text[i] == ' ') i++;
-    if (i >= text.length || text[i] != '{') return _ArgResult("", startIndex);
+    while (i < text.length && text[i] == ' ') {
+      i++;
+    }
+    if (i >= text.length || text[i] != '{') {
+      return _ArgResult("", startIndex);
+    }
 
     i++;
     int startContent = i;
     int balance = 1;
     while (i < text.length && balance > 0) {
-      if (text[i] == '{') balance++;
-      if (text[i] == '}') balance--;
-      if (balance > 0) i++;
+      if (text[i] == '{') {
+        balance++;
+      }
+      if (text[i] == '}') {
+        balance--;
+      }
+      if (balance > 0) {
+        i++;
+      }
     }
     return _ArgResult(text.substring(startContent, i), i + 1);
   }
@@ -1878,7 +2840,7 @@ class _TikzFigureRenderer extends StatelessWidget {
         border: Border.all(color: const Color(0xFF6C5CE7), width: 2.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6C5CE7).withOpacity(0.25),
+            color: const Color(0xFF6C5CE7).withValues(alpha: 0.25),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -2018,15 +2980,18 @@ class _TikzPainter extends CustomPainter {
 
       if (style.contains('draw=')) {
         final colorMatch = RegExp(r'draw=([a-zA-Z0-9_]+)').firstMatch(style);
-        if (colorMatch != null)
+        if (colorMatch != null) {
           strokeColor = definedColors[colorMatch.group(1)];
+        }
       } else if (type == 'draw') {
         strokeColor = Colors.black;
       }
 
       if (style.contains('fill=')) {
         final colorMatch = RegExp(r'fill=([a-zA-Z0-9_]+)').firstMatch(style);
-        if (colorMatch != null) fillColor = definedColors[colorMatch.group(1)];
+        if (colorMatch != null) {
+          fillColor = definedColors[colorMatch.group(1)];
+        }
       }
 
       if (style.contains('arrow')) {
@@ -2293,10 +3258,6 @@ class _QuizPageState extends State<QuizPage> {
     if (_finished) {
       return Scaffold(
         appBar: AppBar(title: const Text('Résultats')),
-        floatingActionButton: const HelpFab(
-          helpText:
-              "Le quiz est terminé. Votre score détermine l'XP gagnée. Vous pouvez revenir à la leçon.",
-        ),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -2330,10 +3291,6 @@ class _QuizPageState extends State<QuizPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Quizz (${_currentIndex + 1}/${widget.questions.length})'),
-      ),
-      floatingActionButton: const HelpFab(
-        helpText:
-            "Sélectionnez la bonne réponse parmi les choix proposés puis validez. Bonne chance !",
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

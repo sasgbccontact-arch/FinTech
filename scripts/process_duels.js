@@ -34,6 +34,7 @@ const messaging = admin.messaging();
 const FieldValue = admin.firestore.FieldValue;
 const quoteCache = new Map();
 const minEligibleHoldingsValue = 10000;
+const capitalTimelineSampleWindowMs = 6 * 60 * 60 * 1000;
 
 function asNumber(value, fallback = 0) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -222,12 +223,89 @@ function computeMetrics(portfolio, startingTotalCapital) {
   const bonus = structureBonus(portfolio.holdings, portfolio.holdingsValue);
   const penalty = concentrationPenalty(portfolio.holdings, portfolio.holdingsValue);
   return {
+    pureReturnPct: returnPct,
     returnPct,
     structureBonus: bonus,
     concentrationPenalty: penalty,
+    persistentConcentrationPenalty: 0,
     finalScore: returnPct + bonus - penalty,
     maxPositionWeight: maxWeight(portfolio.holdings, portfolio.holdingsValue),
   };
+}
+
+function normalizeDayList(raw) {
+  return Array.isArray(raw)
+    ? [...new Set(raw.map((value) => String(value || '').trim()).filter(Boolean))].sort()
+    : [];
+}
+
+function dayKey(date) {
+  const year = String(date.getFullYear()).padStart(4, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
+function updateHighConcentrationDays(existing, {now, maxPositionWeight}) {
+  const next = normalizeDayList(existing);
+  if (maxPositionWeight >= 0.85) {
+    const todayKey = dayKey(now);
+    if (!next.includes(todayKey)) {
+      next.push(todayKey);
+    }
+  }
+  return next.slice(-14);
+}
+
+function persistentConcentrationPenaltyFromDays(count) {
+  if (count >= 4) return 1.5;
+  if (count >= 3) return 1.0;
+  if (count >= 2) return 0.5;
+  return 0;
+}
+
+function normalizeCapitalTimeline(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((entry) => ({
+      at: asTimestampDate(entry?.at),
+      totalCapital: asNumber(entry?.totalCapital, 0),
+      score: asNumber(entry?.score, 0),
+      returnPct: asNumber(entry?.returnPct, 0),
+    }))
+    .filter((entry) => entry.at)
+    .sort((left, right) => left.at - right.at);
+}
+
+function appendCapitalTimeline(existing, {now, totalCapital, score, returnPct}) {
+  const next = normalizeCapitalTimeline(existing);
+  const point = {
+    at: now,
+    totalCapital,
+    score,
+    returnPct,
+  };
+  if (!next.length) {
+    return [point];
+  }
+
+  const last = next[next.length - 1];
+  const shouldReplace =
+    (now.getTime() - last.at.getTime()) < capitalTimelineSampleWindowMs &&
+    dayKey(now) === dayKey(last.at);
+
+  if (shouldReplace) {
+    next[next.length - 1] = point;
+  } else {
+    next.push(point);
+  }
+
+  return next.slice(-32).map((entry) => ({
+    at: admin.firestore.Timestamp.fromDate(entry.at),
+    totalCapital: entry.totalCapital,
+    score: entry.score,
+    returnPct: entry.returnPct,
+  }));
 }
 
 function compareScores(left, right) {
@@ -424,6 +502,75 @@ async function processConvertedRequests() {
   }
 }
 
+async function refreshActiveDuelSnapshots() {
+  const snap = await db
+    .collection('duels')
+    .where('status', '==', 'active')
+    .limit(30)
+    .get();
+
+  for (const doc of snap.docs) {
+    const duel = doc.data();
+    const participantIds = Array.isArray(duel.participants) ? duel.participants : [];
+    if (participantIds.length !== 2) continue;
+
+    const participantRefs = participantIds.map((uid) => doc.ref.collection('participants').doc(uid));
+    const participantSnaps = await Promise.all(participantRefs.map((ref) => ref.get()));
+    const participantStates = Object.fromEntries(
+      participantSnaps.map((snapItem, index) => [participantIds[index], snapItem.data() || {}]),
+    );
+    const portfolios = await Promise.all(participantIds.map((uid) => loadPortfolio(uid)));
+    const portfolioByUid = Object.fromEntries(portfolios.map((portfolio) => [portfolio.uid, portfolio]));
+    const now = new Date();
+
+    await db.runTransaction(async (transaction) => {
+      const freshDuel = await transaction.get(doc.ref);
+      if (!freshDuel.exists || freshDuel.data()?.status !== 'active') {
+        return;
+      }
+
+      for (const uid of participantIds) {
+        const state = participantStates[uid] || {};
+        const portfolio = portfolioByUid[uid];
+        const metrics = computeMetrics(portfolio, asNumber(state.startingTotalCapital, 0));
+        const highConcentrationDays = updateHighConcentrationDays(state.highConcentrationDays, {
+          now,
+          maxPositionWeight: metrics.maxPositionWeight,
+        });
+        const persistentPenalty = persistentConcentrationPenaltyFromDays(
+          highConcentrationDays.length,
+        );
+        const adjustedScore =
+          metrics.pureReturnPct +
+          metrics.structureBonus -
+          metrics.concentrationPenalty -
+          persistentPenalty;
+        const capitalTimeline = appendCapitalTimeline(state.capitalTimeline, {
+          now,
+          totalCapital: portfolio.totalCapital,
+          score: adjustedScore,
+          returnPct: metrics.returnPct,
+        });
+        const teaserHolding = pickTransferredHolding(portfolio.holdings, `${doc.id}:${uid}`);
+
+        transaction.set(doc.ref.collection('participants').doc(uid), {
+          currentReturnPctCache: metrics.returnPct,
+          currentScoreCache: adjustedScore,
+          currentHoldingsValueCache: portfolio.holdingsValue,
+          currentReserveCoinsCache: portfolio.reserveCoins,
+          currentTotalCapitalCache: portfolio.totalCapital,
+          currentPositionsCountCache: portfolio.positionsCount,
+          currentUpdatedAt: FieldValue.serverTimestamp(),
+          teaserLine: teaserHolding || null,
+          persistentConcentrationPenalty: persistentPenalty,
+          highConcentrationDays,
+          capitalTimeline,
+        }, {merge: true});
+      }
+    });
+  }
+}
+
 async function settleDuel(doc) {
   const duel = doc.data();
   if (duel.status !== 'active') return false;
@@ -444,7 +591,26 @@ async function settleDuel(doc) {
   const resultByUid = Object.fromEntries(
     participantIds.map((uid) => {
       const baseline = asNumber(participantStates[uid]?.startingTotalCapital, 0);
-      return [uid, computeMetrics(portfolioByUid[uid], baseline)];
+      const metrics = computeMetrics(portfolioByUid[uid], baseline);
+      const highConcentrationDays = updateHighConcentrationDays(
+        participantStates[uid]?.highConcentrationDays,
+        {
+          now: new Date(),
+          maxPositionWeight: metrics.maxPositionWeight,
+        },
+      );
+      const persistentPenalty = persistentConcentrationPenaltyFromDays(
+        highConcentrationDays.length,
+      );
+      return [uid, {
+        ...metrics,
+        persistentConcentrationPenalty: persistentPenalty,
+        finalScore:
+          metrics.pureReturnPct +
+          metrics.structureBonus -
+          metrics.concentrationPenalty -
+          persistentPenalty,
+      }];
     }),
   );
 
@@ -556,6 +722,7 @@ async function settleDuel(doc) {
         finalScore: metrics.finalScore,
         structureBonus: metrics.structureBonus,
         concentrationPenalty: metrics.concentrationPenalty,
+        persistentConcentrationPenalty: metrics.persistentConcentrationPenalty,
         currentHoldingsValueCache: portfolio.holdingsValue,
         currentReserveCoinsCache: portfolio.reserveCoins,
         currentTotalCapitalCache: portfolio.totalCapital,
@@ -675,6 +842,7 @@ async function main() {
   await processPendingRequests();
   await processRefusedRequests();
   await processConvertedRequests();
+  await refreshActiveDuelSnapshots();
   await processActiveDuels();
   await retryPendingResultNotifications();
   console.log('[duels] Worker duel terminé');

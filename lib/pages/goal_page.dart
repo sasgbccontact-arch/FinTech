@@ -504,36 +504,49 @@ class _GoalPageState extends State<GoalPage> {
               ),
               const SizedBox(height: 10),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _wine.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _wine.withValues(alpha: 0.18)),
-                    ),
-                    child: Text(
-                      'Récompense : $rewardText',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: _wine,
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _wine.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _wine.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: Text(
+                        'Récompense : $rewardText',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: _wine,
+                        ),
                       ),
                     ),
                   ),
-                  const Spacer(),
-                  if (isClaimed)
-                    const Text(
-                      'Déjà récupérée',
-                      style: TextStyle(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
+                  if (isClaimed) ...[
+                    const SizedBox(width: 10),
+                    const Flexible(
+                      child: Text(
+                        'Déjà récupérée',
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ],

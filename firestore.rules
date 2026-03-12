@@ -346,6 +346,12 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && resource.data.participants is list
         && resource.data.participants.hasAny([uid()])
+        && request.resource.data.keys().hasOnly([
+          'status', 'participants', 'acceptedAt', 'endsAt',
+          'requestId', 'winnerUid', 'loserUid',
+          'settledAt', 'scoringMode', 'resultAnimationReady',
+          'resultNotifiedAt'
+        ])
         && request.resource.data.participants == resource.data.participants
         && request.resource.data.acceptedAt == resource.data.acceptedAt
         && request.resource.data.endsAt == resource.data.endsAt
@@ -354,16 +360,22 @@ service cloud.firestore {
         && request.resource.data.loserUid == resource.data.loserUid
         && request.resource.data.settledAt == resource.data.settledAt
         && request.resource.data.scoringMode == resource.data.scoringMode
+        && request.resource.data.resultAnimationReady == resource.data.resultAnimationReady
         && request.resource.data.resultNotifiedAt == resource.data.resultNotifiedAt
         && (
           request.resource.data.status == resource.data.status
           || (
             resource.data.status == 'settled'
             && request.resource.data.status == 'reward_revealed'
+            && existsAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid()))
+            && getAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.result == 'win'
+            && getAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.rewardClaimedAt is timestamp
           )
           || (
             resource.data.status == 'reward_revealed'
             && request.resource.data.status == 'closed'
+            && existsAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid()))
+            && getAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.resultDismissedAt is timestamp
           )
         );
 
@@ -374,14 +386,18 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([uid()]);
 
         allow create: if isSignedIn()
-          && get(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([uid()])
-          && get(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([participantUid]);
+          && existsAfter(/databases/$(database)/documents/duels/$(duelId))
+          && getAfter(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([uid()])
+          && getAfter(/databases/$(database)/documents/duels/$(duelId)).data.participants.hasAny([participantUid]);
 
         allow update: if isSignedIn()
           && uid() == participantUid
           && request.resource.data.keys().hasOnly([
             'startingHoldingsValue', 'startingReserveCoins', 'startingTotalCapital',
-            'startingPositionsCount', 'currentReturnPctCache', 'currentScoreCache',
+            'startingPositionsCount', 'startingHoldings', 'startingHoldingsCapturedAt',
+            'capitalTimeline', 'highConcentrationDays', 'persistentConcentrationPenalty',
+            'intelPurchaseDays', 'lastIntelPurchaseAt',
+            'currentReturnPctCache', 'currentScoreCache',
             'currentHoldingsValueCache', 'currentTotalCapitalCache',
             'currentReserveCoinsCache', 'currentUpdatedAt',
             'currentPositionsCountCache', 'teaserLine',
@@ -394,6 +410,39 @@ service cloud.firestore {
           && request.resource.data.startingReserveCoins == resource.data.startingReserveCoins
           && request.resource.data.startingTotalCapital == resource.data.startingTotalCapital
           && request.resource.data.startingPositionsCount == resource.data.startingPositionsCount
+          && (
+            request.resource.data.startingHoldings == resource.data.startingHoldings
+            || (
+              (
+                !(resource.data.startingHoldings is list)
+                || resource.data.startingHoldings.size() == 0
+              )
+              && request.resource.data.startingHoldings is list
+              && request.resource.data.startingHoldings.size() <= 30
+            )
+          )
+          && (
+            request.resource.data.startingHoldingsCapturedAt == resource.data.startingHoldingsCapturedAt
+            || (
+              request.resource.data.startingHoldingsCapturedAt is timestamp
+              && (
+                !(resource.data.startingHoldings is list)
+                || resource.data.startingHoldings.size() == 0
+              )
+            )
+          )
+          && request.resource.data.capitalTimeline is list
+          && request.resource.data.capitalTimeline.size() <= 32
+          && request.resource.data.highConcentrationDays is list
+          && request.resource.data.highConcentrationDays.size() <= 14
+          && request.resource.data.persistentConcentrationPenalty is number
+          && request.resource.data.intelPurchaseDays is list
+          && request.resource.data.intelPurchaseDays.size() <= 14
+          && (
+            request.resource.data.lastIntelPurchaseAt == resource.data.lastIntelPurchaseAt
+            || request.resource.data.lastIntelPurchaseAt == null
+            || request.resource.data.lastIntelPurchaseAt is timestamp
+          )
           && request.resource.data.finalReturnPct == resource.data.finalReturnPct
           && request.resource.data.finalScore == resource.data.finalScore
           && request.resource.data.structureBonus == resource.data.structureBonus
@@ -458,9 +507,7 @@ service cloud.firestore {
     }
 
     match /friendships/{friendshipId} {
-      allow read: if isSignedIn()
-        && resource.data.participants is list
-        && resource.data.participants.hasAny([uid()]);
+      allow read: if isSignedIn();
 
       allow create: if isSignedIn()
         && request.resource.data.keys().hasOnly(['participants', 'createdAt', 'createdBy'])
@@ -756,6 +803,16 @@ service cloud.firestore {
     // =========================
     // Leaderboards lecture publique
     // =========================
+    match /metalsPrices/{dayKey} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /broadcasts/{broadcastId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /leaderboards/{leaderboardId} {
       allow read: if true;
       allow write: if false;

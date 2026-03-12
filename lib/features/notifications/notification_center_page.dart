@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -16,10 +18,14 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   static const Color _bg = backgroundColor;
   static const Color _ink = textColor;
   static const Color _gold = detailsColor1;
+  static const int _maxInboxItems = 36;
+
+  bool _isPruningInbox = false;
 
   User? get _user => FirebaseAuth.instance.currentUser;
 
   void _log(String message) {
+    print('[NotifCenter] $message');
     debugPrint('[NotifCenter] $message');
   }
 
@@ -28,6 +34,27 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _tryWritePeerInboxNotification({
+    required String targetUserId,
+    required String docId,
+    required Map<String, dynamic> payload,
+    required String debugContext,
+  }) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(targetUserId)
+          .collection('inbox')
+          .doc(docId)
+          .set(payload);
+      _log('Notif perso ecrite pour $targetUserId contexte=$debugContext');
+    } on FirebaseException catch (error) {
+      _log(
+        'Notif perso ignoree pour $targetUserId contexte=$debugContext code=${error.code} message=${error.message}',
+      );
+    }
   }
 
   Future<void> _markInboxRead(_NotificationItem item) async {
@@ -40,6 +67,50 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
         .collection('inbox')
         .doc(item.docId)
         .set({'isRead': true}, SetOptions(merge: true));
+  }
+
+  void _scheduleInboxPrune(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final user = _user;
+    if (user == null || docs.length <= _maxInboxItems || _isPruningInbox) {
+      return;
+    }
+    _isPruningInbox = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_pruneInboxOverflow(user.uid, docs));
+    });
+  }
+
+  Future<void> _pruneInboxOverflow(
+    String userId,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) async {
+    try {
+      final sorted = [...docs]..sort((left, right) {
+        final leftDate = _dateFromAny(left.data()['createdAt']);
+        final rightDate = _dateFromAny(right.data()['createdAt']);
+        return rightDate.compareTo(leftDate);
+      });
+      final overflow = sorted.length - _maxInboxItems;
+      if (overflow <= 0) return;
+      final toDelete = sorted.skip(_maxInboxItems).toList();
+      _log(
+        'Pruning inbox utilisateur=$userId totalAvant=${sorted.length} suppression=${toDelete.length}',
+      );
+      for (final doc in toDelete) {
+        await doc.reference.delete();
+        _log('Inbox supprimee docId=${doc.id}');
+      }
+    } on FirebaseException catch (error) {
+      _log(
+        'Erreur pruning inbox utilisateur=$userId code=${error.code} message=${error.message}',
+      );
+    } catch (error) {
+      _log('Erreur pruning inbox utilisateur=$userId error=$error');
+    } finally {
+      _isPruningInbox = false;
+    }
   }
 
   Future<void> _acceptFriendRequest(_NotificationItem item) async {
@@ -80,23 +151,6 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
       },
       SetOptions(merge: true),
     );
-    batch.set(
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(fromUid)
-          .collection('inbox')
-          .doc('friend_accept_${item.requestId}'),
-      {
-        'type': 'friend_request_accepted',
-        'title': 'Ta demande d’ami a été acceptée',
-        'body': 'Retrouve ce joueur dans ton classement amis.',
-        'createdAt': now,
-        'requestId': item.requestId,
-        'duelId': null,
-        'actorUid': user.uid,
-        'isRead': false,
-      },
-    );
     if (item.docId != null) {
       batch.set(
         FirebaseFirestore.instance
@@ -109,6 +163,21 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
       );
     }
     await batch.commit();
+    await _tryWritePeerInboxNotification(
+      targetUserId: fromUid,
+      docId: 'friend_accept_${item.requestId}',
+      debugContext: 'notification_center_friend_accept',
+      payload: {
+        'type': 'friend_request_accepted',
+        'title': 'Ta demande d’ami a été acceptée',
+        'body': 'Retrouve ce joueur dans ton classement amis.',
+        'createdAt': now,
+        'requestId': item.requestId,
+        'duelId': null,
+        'actorUid': user.uid,
+        'isRead': false,
+      },
+    );
     _log('Succes acceptation demande ami requestId=${item.requestId}');
     _snack('Demande acceptée.');
   }
@@ -140,23 +209,6 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
     final now = Timestamp.now();
     final batch = FirebaseFirestore.instance.batch();
     batch.update(requestRef, {'status': 'declined', 'declinedAt': now});
-    batch.set(
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(fromUid)
-          .collection('inbox')
-          .doc('friend_decline_${item.requestId}'),
-      {
-        'type': 'friend_request_declined',
-        'title': 'Ta demande d’ami a été refusée',
-        'body': 'Tu peux inviter un autre joueur à tout moment.',
-        'createdAt': now,
-        'requestId': item.requestId,
-        'duelId': null,
-        'actorUid': user.uid,
-        'isRead': false,
-      },
-    );
     if (item.docId != null) {
       batch.set(
         FirebaseFirestore.instance
@@ -169,6 +221,21 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
       );
     }
     await batch.commit();
+    await _tryWritePeerInboxNotification(
+      targetUserId: fromUid,
+      docId: 'friend_decline_${item.requestId}',
+      debugContext: 'notification_center_friend_decline',
+      payload: {
+        'type': 'friend_request_declined',
+        'title': 'Ta demande d’ami a été refusée',
+        'body': 'Tu peux inviter un autre joueur à tout moment.',
+        'createdAt': now,
+        'requestId': item.requestId,
+        'duelId': null,
+        'actorUid': user.uid,
+        'isRead': false,
+      },
+    );
     _log('Succes refus demande ami requestId=${item.requestId}');
     _snack('Demande refusée.');
   }
@@ -186,8 +253,15 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
         'Erreur metier acceptation duel requestId=${item.requestId} message=${error.message}',
       );
       _snack(error.message);
-    } catch (_) {
-      _log('Erreur inattendue acceptation duel requestId=${item.requestId}');
+    } on FirebaseException catch (error) {
+      _log(
+        'Erreur Firebase acceptation duel requestId=${item.requestId} code=${error.code} message=${error.message}',
+      );
+      _snack('Firestore refuse l’acceptation du duel pour le moment.');
+    } catch (error) {
+      _log(
+        'Erreur inattendue acceptation duel requestId=${item.requestId} error=$error',
+      );
       _snack('Impossible d’accepter ce duel pour le moment.');
     }
   }
@@ -215,11 +289,21 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   Widget build(BuildContext context) {
     final user = _user;
     final broadcastsStream =
-        FirebaseFirestore.instance
-            .collection('broadcasts')
-            .orderBy('createdAt', descending: true)
-            .limit(40)
-            .snapshots();
+        FirebaseFirestore.instance.collection('broadcasts').snapshots();
+    final incomingFriendRequestsStream =
+        user == null
+            ? null
+            : FirebaseFirestore.instance
+                .collection('friend_requests')
+                .where('toUid', isEqualTo: user.uid)
+                .snapshots();
+    final incomingDuelRequestsStream =
+        user == null
+            ? null
+            : FirebaseFirestore.instance
+                .collection('duel_requests')
+                .where('targetUid', isEqualTo: user.uid)
+                .snapshots();
     final inboxStream =
         user == null
             ? null
@@ -227,8 +311,6 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
                 .collection('users')
                 .doc(user.uid)
                 .collection('inbox')
-                .orderBy('createdAt', descending: true)
-                .limit(40)
                 .snapshots();
 
     return Scaffold(
@@ -250,55 +332,101 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
             return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: inboxStream,
               builder: (context, inboxSnapshot) {
-                if (broadcastsSnapshot.connectionState ==
-                        ConnectionState.waiting &&
-                    inboxSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: _gold,
-                      strokeWidth: 2.5,
-                    ),
-                  );
-                }
+                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: incomingFriendRequestsStream,
+                  builder: (context, friendRequestsSnapshot) {
+                    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: incomingDuelRequestsStream,
+                      builder: (context, duelRequestsSnapshot) {
+                        if (broadcastsSnapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            inboxSnapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            friendRequestsSnapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            duelRequestsSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: _gold,
+                              strokeWidth: 2.5,
+                            ),
+                          );
+                        }
 
-                if (broadcastsSnapshot.hasError || inboxSnapshot.hasError) {
-                  return const _EmptyState(
-                    title: 'Notifications indisponibles',
-                    subtitle:
-                        'Le flux in-app sera visible dès que les prochaines diffusions seront enregistrées.',
-                    icon: Icons.wifi_off_rounded,
-                  );
-                }
+                        if (broadcastsSnapshot.hasError) {
+                          _log(
+                            'Erreur stream broadcasts: ${broadcastsSnapshot.error}',
+                          );
+                        }
+                        if (inboxSnapshot.hasError) {
+                          _log('Erreur stream inbox: ${inboxSnapshot.error}');
+                        }
+                        if (friendRequestsSnapshot.hasError) {
+                          _log(
+                            'Erreur stream friend_requests: ${friendRequestsSnapshot.error}',
+                          );
+                        }
+                        if (duelRequestsSnapshot.hasError) {
+                          _log(
+                            'Erreur stream duel_requests: ${duelRequestsSnapshot.error}',
+                          );
+                        }
 
-                final items = <_NotificationItem>[
-                  ..._broadcastItems(broadcastsSnapshot.data?.docs ?? const []),
-                  ..._inboxItems(inboxSnapshot.data?.docs ?? const []),
-                ]..sort(
-                  (left, right) => right.createdAt.compareTo(left.createdAt),
-                );
+                        final items = _dedupeItems(<_NotificationItem>[
+                          ..._broadcastItems(
+                            broadcastsSnapshot.data?.docs ?? const [],
+                          ),
+                          ..._inboxItems(inboxSnapshot.data?.docs ?? const []),
+                          ..._friendRequestItems(
+                            friendRequestsSnapshot.data?.docs ?? const [],
+                          ),
+                          ..._duelInviteItems(
+                            duelRequestsSnapshot.data?.docs ?? const [],
+                          ),
+                        ])..sort(
+                          (left, right) =>
+                              right.createdAt.compareTo(left.createdAt),
+                        );
+                        final visibleItems = items.take(50).toList();
+                        _scheduleInboxPrune(
+                          inboxSnapshot.data?.docs ?? const [],
+                        );
 
-                if (items.isEmpty) {
-                  return const _EmptyState(
-                    title: 'Aucune notification enregistrée',
-                    subtitle:
-                        'Les demandes d’amis, invitations de duel et broadcasts FinHub apparaîtront ici.',
-                    icon: Icons.notifications_none_rounded,
-                  );
-                }
+                        _log(
+                          'Render centre notifications: broadcasts=${broadcastsSnapshot.data?.docs.length ?? 0} inbox=${inboxSnapshot.data?.docs.length ?? 0} friendRequests=${friendRequestsSnapshot.data?.docs.length ?? 0} duelRequests=${duelRequestsSnapshot.data?.docs.length ?? 0} visibles=${visibleItems.length}',
+                        );
 
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return _NotificationCard(
-                      item: item,
-                      currentUserId: user?.uid,
-                      onAcceptFriendRequest: () => _acceptFriendRequest(item),
-                      onDeclineFriendRequest: () => _declineFriendRequest(item),
-                      onAcceptDuelInvite: () => _acceptDuelInvite(item),
-                      onDeclineDuelInvite: () => _refuseDuelInvite(item),
+                        if (visibleItems.isEmpty) {
+                          return const _EmptyState(
+                            title: 'Aucune notification enregistrée',
+                            subtitle:
+                                'Les demandes d’amis, invitations de duel et broadcasts FinHub apparaîtront ici.',
+                            icon: Icons.notifications_none_rounded,
+                          );
+                        }
+
+                        return ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                          itemCount: visibleItems.length,
+                          separatorBuilder:
+                              (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final item = visibleItems[index];
+                            return _NotificationCard(
+                              item: item,
+                              currentUserId: user?.uid,
+                              onAcceptFriendRequest:
+                                  () => _acceptFriendRequest(item),
+                              onDeclineFriendRequest:
+                                  () => _declineFriendRequest(item),
+                              onAcceptDuelInvite: () => _acceptDuelInvite(item),
+                              onDeclineDuelInvite:
+                                  () => _refuseDuelInvite(item),
+                            );
+                          },
+                        );
+                      },
                     );
                   },
                 );
@@ -353,6 +481,70 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
         actorUid: (data['actorUid'] as String?)?.trim(),
       );
     }).toList();
+  }
+
+  List<_NotificationItem> _friendRequestItems(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    return docs.where((doc) => (doc.data()['status'] as String?) == 'pending').map((
+      doc,
+    ) {
+      final data = doc.data();
+      return _NotificationItem(
+        title: 'Nouvelle demande d’ami',
+        body:
+            'Un autre joueur veut rejoindre ton cercle social. Tu peux traiter cette demande ici.',
+        topic: 'social',
+        type: 'friend_request',
+        createdAt: _dateFromAny(data['createdAt']),
+        sourceLabel: 'Demande',
+        requestId: doc.id,
+        actorUid: (data['fromUid'] as String?)?.trim(),
+      );
+    }).toList();
+  }
+
+  List<_NotificationItem> _duelInviteItems(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    return docs
+        .where((doc) => (doc.data()['status'] as String?) == 'pending_response')
+        .map((doc) {
+          final data = doc.data();
+          final initiatorSnapshot =
+              data['initiatorSnapshot'] as Map<String, dynamic>? ??
+              const <String, dynamic>{};
+          final initiatorName =
+              (initiatorSnapshot['displayName'] as String?)
+                          ?.trim()
+                          .isNotEmpty ==
+                      true
+                  ? (initiatorSnapshot['displayName'] as String).trim()
+                  : 'Un joueur';
+          return _NotificationItem(
+            title: '$initiatorName te provoque en duel',
+            body: 'Tu as 48h pour accepter ce défi hebdomadaire.',
+            topic: 'duel',
+            type: 'duel_invite',
+            createdAt: _dateFromAny(data['createdAt']),
+            sourceLabel: 'Duel',
+            requestId: doc.id,
+            actorUid: (data['initiatorUid'] as String?)?.trim(),
+          );
+        })
+        .toList();
+  }
+
+  List<_NotificationItem> _dedupeItems(List<_NotificationItem> items) {
+    final byKey = <String, _NotificationItem>{};
+    for (final item in items) {
+      final key =
+          item.requestId != null
+              ? '${item.type}:${item.requestId}'
+              : '${item.type}:${item.docId ?? item.createdAt.microsecondsSinceEpoch}:${item.title}';
+      byKey.putIfAbsent(key, () => item);
+    }
+    return byKey.values.toList();
   }
 
   String _safeText(dynamic raw, {required String fallback}) {

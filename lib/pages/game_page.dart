@@ -11,7 +11,6 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import '../features/notifications/metals_notification_service.dart';
 import '../models/chart_models.dart';
-import '../widgets/help_fab.dart';
 import '../services/yahoo_finance_service.dart';
 import 'info_page.dart';
 import 'goal_page.dart';
@@ -254,10 +253,6 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
             surfaceTintColor: backgroundColor,
             elevation: 0,
             centerTitle: false,
-          ),
-          floatingActionButton: const HelpFab(
-            helpText:
-                "Ici, vous pouvez participer à des simulations de marché. Choisissez un scénario, gérez votre portefeuille face à des événements et gagnez des récompenses.",
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),

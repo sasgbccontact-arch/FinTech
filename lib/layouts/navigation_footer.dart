@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:fintech/core/constants.dart';
 
 /// Modern animated bottom footer with 5 items:
-/// Aujourd'hui, Dashboard, Apprendre, Game, Forum.
+/// Aujourd'hui, Dashboard, Apprendre, Game, Social.
 ///
 /// Notes:
 /// - The parent widget (AppStructure) controls ALL tabs (0..4) via [onTap].
@@ -67,9 +67,7 @@ class _NavigationFooterState extends State<NavigationFooter>
         height: 70,
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(
-            alpha: brightness == Brightness.dark ? 0.10 : 0.55,
-          ),
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: border, width: 1),
           boxShadow: [
@@ -92,7 +90,7 @@ class _NavigationFooterState extends State<NavigationFooter>
                 filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: Container(
                   color: Colors.white.withValues(
-                    alpha: brightness == Brightness.dark ? 0.06 : 0.22,
+                    alpha: brightness == Brightness.dark ? 0.03 : 0.10,
                   ),
                 ),
               ),
@@ -112,7 +110,7 @@ class _NavigationFooterState extends State<NavigationFooter>
                   gradient: LinearGradient(
                     colors: [
                       Colors.white.withValues(
-                        alpha: brightness == Brightness.dark ? 0.04 : 0.20,
+                        alpha: brightness == Brightness.dark ? 0.03 : 0.10,
                       ),
                       Colors.white.withValues(alpha: 0.00),
                     ],
@@ -128,8 +126,8 @@ class _NavigationFooterState extends State<NavigationFooter>
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      detailsColor1.withValues(alpha: 0.08),
-                      detailsColor2.withValues(alpha: 0.08),
+                      detailsColor1.withValues(alpha: 0.05),
+                      detailsColor2.withValues(alpha: 0.05),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -265,15 +263,15 @@ class _AnimatedBar extends StatelessWidget {
     Icons.dashboard_rounded,
     Icons.school_rounded,
     Icons.sports_esports_rounded,
-    Icons.forum_rounded,
+    Icons.groups_rounded,
   ];
 
   static const List<String> _labels = [
-    'Aujourd.',
+    'Home.',
     'Dashboard',
     'Apprendre',
     'Game',
-    'Forum',
+    'Social',
   ];
 }
 

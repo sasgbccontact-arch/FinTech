@@ -8,7 +8,7 @@ import '../pages/forum_page.dart';
 import '../pages/today_page.dart';
 
 /// Modern animated bottom footer with 5 items:
-/// Aujourd'hui, Dashboard, Apprendre, Game, Forum.
+/// Aujourd'hui, Dashboard, Apprendre, Game, Social.
 ///
 /// IMPORTANT:
 /// - This footer does NOT navigate by itself.
@@ -20,7 +20,7 @@ import '../pages/today_page.dart';
 /// 1 Dashboard (PortfolioDashboardPage)
 /// 2 Apprendre (LearnPage)
 /// 3 Game (MarketSimulationPage)
-/// 4 Forum (ForumPage)
+/// 4 Social (ForumPage)
 class AppStructure extends StatefulWidget {
   const AppStructure({super.key, this.initialIndex = 0});
 
@@ -85,18 +85,28 @@ class _AppStructureState extends State<AppStructure> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: PageView(
-        controller:
-            (_pageController ??= PageController(initialPage: _selectedIndex)),
-        onPageChanged: (i) {
-          if (i == _selectedIndex) return;
-          setState(() => _selectedIndex = i);
-        },
-        children: _pages,
-      ),
-      bottomNavigationBar: NavigationFooter(
-        currentIndex: _selectedIndex,
-        onTap: _onTabTap,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView(
+            controller:
+                (_pageController ??= PageController(
+                  initialPage: _selectedIndex,
+                )),
+            onPageChanged: (i) {
+              if (i == _selectedIndex) return;
+              setState(() => _selectedIndex = i);
+            },
+            children: _pages,
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: NavigationFooter(
+              currentIndex: _selectedIndex,
+              onTap: _onTabTap,
+            ),
+          ),
+        ],
       ),
     );
   }
