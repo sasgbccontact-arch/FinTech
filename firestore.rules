@@ -379,15 +379,15 @@ service cloud.firestore {
           || (
             resource.data.status == 'settled'
             && request.resource.data.status == 'reward_revealed'
-            && existsAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid()))
-            && getAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.result == 'win'
-            && getAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.rewardClaimedAt is timestamp
+            && exists(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid()))
+            && get(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.result == 'win'
+            && get(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.rewardClaimedAt is timestamp
           )
           || (
             resource.data.status == 'reward_revealed'
             && request.resource.data.status == 'closed'
-            && existsAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid()))
-            && getAfter(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.resultDismissedAt is timestamp
+            && exists(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid()))
+            && get(/databases/$(database)/documents/duels/$(duelId)/participants/$(uid())).data.resultDismissedAt is timestamp
           )
         );
 
@@ -404,7 +404,18 @@ service cloud.firestore {
 
         allow update: if isSignedIn()
           && uid() == participantUid
-          && request.resource.data.keys().hasOnly([
+          && (
+            (
+              request.resource.data.diff(resource.data).changedKeys().hasOnly(['rewardClaimedAt'])
+              && request.resource.data.rewardClaimedAt is timestamp
+              && resource.data.result == 'win'
+            )
+            || (
+              request.resource.data.diff(resource.data).changedKeys().hasOnly(['resultDismissedAt'])
+              && request.resource.data.resultDismissedAt is timestamp
+            )
+            || (
+              request.resource.data.keys().hasOnly([
             'startingHoldingsValue', 'startingReserveCoins', 'startingTotalCapital',
             'startingPositionsCount', 'startingHoldings', 'startingHoldingsCapturedAt',
             'capitalTimeline', 'highConcentrationDays', 'persistentConcentrationPenalty',
@@ -457,7 +468,9 @@ service cloud.firestore {
           && request.resource.data.concentrationPenalty == resource.data.concentrationPenalty
           && request.resource.data.result == resource.data.result
           && request.resource.data.rewardPosition == resource.data.rewardPosition
-          && request.resource.data.lossPosition == resource.data.lossPosition;
+          && request.resource.data.lossPosition == resource.data.lossPosition
+            )
+          );
 
         allow delete: if false;
       }

@@ -1235,28 +1235,26 @@ class DuelService {
     required String uid,
   }) async {
     _log('revealWinnerResult: duelId=$duelId uid=$uid');
-    await _firestore.runTransaction((transaction) async {
-      final duelSnap = await transaction.get(duelRef(duelId));
-      final participantSnap = await transaction.get(
-        _duelParticipantRef(duelId, uid),
-      );
-      final duel = DuelData.fromDoc(duelSnap);
-      final participant = DuelParticipant.fromDoc(participantSnap, uid: uid);
-      if (!duel.isSettled) {
-        throw DuelException('Le duel n’est pas encore terminé.');
-      }
-      if (!participant.isWinner) {
-        return;
-      }
-      transaction.set(_duelParticipantRef(duelId, uid), {
-        'rewardClaimedAt': FieldValue.serverTimestamp(),
+    final duelSnap = await duelRef(duelId).get();
+    final participantSnap = await _duelParticipantRef(duelId, uid).get();
+    final duel = DuelData.fromDoc(duelSnap);
+    final participant = DuelParticipant.fromDoc(participantSnap, uid: uid);
+    if (!duel.isSettled) {
+      throw DuelException('Le duel n’est pas encore terminé.');
+    }
+    if (!participant.isWinner) {
+      return;
+    }
+
+    await _duelParticipantRef(duelId, uid).set({
+      'rewardClaimedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    if (duel.status == 'settled') {
+      await duelRef(duelId).set({
+        'status': 'reward_revealed',
       }, SetOptions(merge: true));
-      if (duel.status == 'settled') {
-        transaction.set(duelRef(duelId), {
-          'status': 'reward_revealed',
-        }, SetOptions(merge: true));
-      }
-    });
+    }
     _log('revealWinnerResult: duelId=$duelId uid=$uid succes');
   }
 

@@ -669,7 +669,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         'Ratios, graphiques et lecture du marché en profondeur.',
                     badge: 'Analyse',
                     icon: Icons.trending_up_rounded,
-                    accentColors: const [Color(0xFF6EE7D8), Color(0xFF2A0F45)],
+                    accentColors: const [Color(0xFFE7C874), Color(0xFF4A1D5E)],
                     course: _course2!,
                     isAdmin: isAdmin,
                   )
@@ -686,7 +686,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         'Prix, arbitrage, CAPM, contrats et finance moderne.',
                     badge: 'Avancé',
                     icon: Icons.auto_graph_rounded,
-                    accentColors: const [Color(0xFFFFC46B), Color(0xFF2A0F45)],
+                    accentColors: const [Color(0xFFF0B36D), Color(0xFF562243)],
                     course: _course3!,
                     isAdmin: isAdmin,
                   )
@@ -694,7 +694,12 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   _buildLockedChapterCard(
                     'Chapitre 3 : Microéconomie et marchés financiers',
                     subtitle: 'Débloqué après validation du chapitre 2.',
-                  ),
+                  )
+              else
+                _buildLockedChapterCard(
+                  'Chapitre 3 : Microéconomie et marchés financiers',
+                  subtitle: 'Contenu en cours de chargement.',
+                ),
               if (_course4 != null && _course4!.chapters.isNotEmpty)
                 if (isAdmin || _isCourseCompleted(_course3))
                   _buildCourseCard(
@@ -703,7 +708,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         'Croissance, inflation, banques centrales et régimes macro-financiers.',
                     badge: 'Macro',
                     icon: Icons.public_rounded,
-                    accentColors: const [Color(0xFF9FD5FF), Color(0xFF1E3557)],
+                    accentColors: const [Color(0xFFDAB98A), Color(0xFF4C2A5E)],
                     course: _course4!,
                     isAdmin: isAdmin,
                   )
@@ -711,7 +716,12 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   _buildLockedChapterCard(
                     'Chapitre 4 : Macroéconomie et marchés financiers',
                     subtitle: 'Débloqué après validation du chapitre 3.',
-                  ),
+                  )
+              else
+                _buildLockedChapterCard(
+                  'Chapitre 4 : Macroéconomie et marchés financiers',
+                  subtitle: 'Contenu en cours de chargement.',
+                ),
               if (_course5 != null && _course5!.chapters.isNotEmpty)
                 if (isAdmin || _isCourseCompleted(_course4))
                   _buildCourseCard(
@@ -720,7 +730,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         'Livrets, OPCVM, dérivés, structurés, matières premières et crypto-actifs.',
                     badge: 'Actifs',
                     icon: Icons.account_balance_wallet_rounded,
-                    accentColors: const [Color(0xFFB8F28F), Color(0xFF163328)],
+                    accentColors: const [Color(0xFFC9B06D), Color(0xFF453055)],
                     course: _course5!,
                     isAdmin: isAdmin,
                   )
@@ -728,7 +738,12 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   _buildLockedChapterCard(
                     'Chapitre 5 : Les actifs financiers',
                     subtitle: 'Débloqué après validation du chapitre 4.',
-                  ),
+                  )
+              else
+                _buildLockedChapterCard(
+                  'Chapitre 5 : Les actifs financiers',
+                  subtitle: 'Contenu en cours de chargement.',
+                ),
             ],
           ),
         );
@@ -744,16 +759,16 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
         final oppositeDrift = math.cos(_ambientAnimation.value * math.pi * 2);
 
         return Container(
-          height: 212,
+          constraints: const BoxConstraints(minHeight: 244),
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
             gradient: const LinearGradient(
-              colors: [Color(0xFF241532), Color(0xFF0F0A18)],
+              colors: [Color(0xFF33154E), Color(0xFF140A1E)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            border: Border.all(color: detailsColor1.withValues(alpha: 0.16)),
             boxShadow: [
               BoxShadow(
                 color: detailsColor2.withValues(alpha: 0.20),
@@ -784,7 +799,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   bottom: -30,
                   child: _GlowOrb(
                     size: 150,
-                    color: const Color(0xFF6EE7D8).withValues(alpha: 0.18),
+                    color: const Color(0xFFB88AD8).withValues(alpha: 0.16),
                   ),
                 ),
                 Positioned(
@@ -824,6 +839,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
@@ -832,7 +848,14 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.10),
+                          gradient: LinearGradient(
+                            colors: [
+                              detailsColor1.withValues(alpha: 0.18),
+                              detailsColor2.withValues(alpha: 0.20),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
                             color: Colors.white.withValues(alpha: 0.12),
@@ -857,9 +880,9 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 16),
                       const SizedBox(
-                        width: 228,
+                        width: 220,
                         child: Text(
                           'Apprendre la finance avec plus de relief.',
                           style: TextStyle(
@@ -874,16 +897,16 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                       Text(
                         'Cours hiérarchisés, schémas, formules et progression visuelle dans une surface plus premium.',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.72),
+                          color: Colors.white.withValues(alpha: 0.74),
                           fontSize: 14,
                           height: 1.45,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 18),
                       Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: const [
                           _HeroMetricChip(
                             icon: Icons.layers_rounded,
@@ -895,7 +918,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                           ),
                           _HeroMetricChip(
                             icon: Icons.quiz_rounded,
-                            label: 'QCM & progression',
+                            label: 'Quiz',
                           ),
                         ],
                       ),
@@ -1009,14 +1032,15 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: detailsColor1.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: detailsColor2.withValues(alpha: 0.08)),
             ),
             child: Text(
               'Record $_maxStreak',
               style: TextStyle(
                 fontSize: 12,
-                color: Colors.grey.shade700,
+                color: detailsColor2,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1047,29 +1071,31 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
               (_ambientAnimation.value * math.pi * 2) + title.length / 6,
             ) *
             8;
+        final outerTone = Color.lerp(accentColors.last, detailsColor2, 0.35)!;
+        final innerTone = Color.lerp(outerTone, const Color(0xFF120915), 0.58)!;
+        final panelTone = Color.lerp(Colors.white, accentColors.first, 0.12)!;
 
         return Container(
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             gradient: LinearGradient(
-              colors: [
-                accentColors.last.withValues(alpha: 0.95),
-                const Color(0xFF0F0A18),
-              ],
+              colors: [outerTone.withValues(alpha: 0.97), innerTone],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            border: Border.all(
+              color: accentColors.first.withValues(alpha: 0.16),
+            ),
             boxShadow: [
               BoxShadow(
-                color: accentColors.first.withValues(alpha: 0.16),
+                color: accentColors.first.withValues(alpha: 0.14),
                 blurRadius: 28,
                 spreadRadius: -4,
                 offset: const Offset(0, 16),
               ),
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
+                color: Colors.black.withValues(alpha: 0.10),
                 blurRadius: 24,
                 offset: const Offset(0, 12),
               ),
@@ -1114,7 +1140,14 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                     filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.02),
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.white.withValues(alpha: 0.035),
+                            accentColors.first.withValues(alpha: 0.035),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
                     ),
                   ),
@@ -1246,10 +1279,10 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                       Container(
                         padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: panelTone.withValues(alpha: 0.10),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.10),
+                            color: accentColors.first.withValues(alpha: 0.12),
                           ),
                         ),
                         child: Column(
@@ -1612,11 +1645,11 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [Color(0xFF3D3944), Color(0xFF232028)],
+          colors: [Color(0xFF5A4A63), Color(0xFF2A2233)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: detailsColor1.withValues(alpha: 0.10)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -1835,9 +1868,16 @@ class _HeroMetricChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
+        gradient: LinearGradient(
+          colors: [
+            detailsColor1.withValues(alpha: 0.18),
+            detailsColor2.withValues(alpha: 0.24),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1863,13 +1903,13 @@ const String _learningHeroSvg = '''
   <defs>
     <linearGradient id="line" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#F4D06F" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#7CE7D7" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#B88AD8" stop-opacity="0.9"/>
     </linearGradient>
   </defs>
   <path d="M22 165 C40 124, 63 135, 86 96 S134 60, 157 93 194 84, 201 46" fill="none" stroke="url(#line)" stroke-width="7" stroke-linecap="round"/>
   <path d="M22 164 L22 190 L198 190" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="3"/>
   <circle cx="86" cy="96" r="9" fill="#F4D06F" fill-opacity="0.94"/>
-  <circle cx="157" cy="93" r="9" fill="#7CE7D7" fill-opacity="0.94"/>
+  <circle cx="157" cy="93" r="9" fill="#B88AD8" fill-opacity="0.94"/>
   <rect x="46" y="132" width="16" height="36" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
   <rect x="78" y="110" width="16" height="58" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
   <rect x="110" y="118" width="16" height="50" rx="8" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22"/>
@@ -1889,7 +1929,7 @@ const String _courseBackdropSvg = '''
     <path d="M134 144 L134 74"/>
   </g>
   <circle cx="84" cy="84" r="7" fill="#F4D06F" fill-opacity="0.85"/>
-  <circle cx="134" cy="74" r="7" fill="#7CE7D7" fill-opacity="0.85"/>
+  <circle cx="134" cy="74" r="7" fill="#B88AD8" fill-opacity="0.85"/>
 </svg>
 ''';
 
@@ -2048,16 +2088,21 @@ class _LessonHeaderCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [Color(0xFF241532), Color(0xFF0F0A18)],
+          colors: [Color(0xFF33154E), Color(0xFF140A1E)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: detailsColor1.withValues(alpha: 0.14)),
         boxShadow: [
           BoxShadow(
             color: detailsColor2.withValues(alpha: 0.16),
             blurRadius: 26,
             offset: const Offset(0, 14),
+          ),
+          BoxShadow(
+            color: detailsColor1.withValues(alpha: 0.08),
+            blurRadius: 20,
+            spreadRadius: -6,
           ),
         ],
       ),
@@ -2084,7 +2129,14 @@ class _LessonHeaderCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.10),
+                  gradient: LinearGradient(
+                    colors: [
+                      detailsColor1.withValues(alpha: 0.18),
+                      detailsColor2.withValues(alpha: 0.18),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(999),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.08),
