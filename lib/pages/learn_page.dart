@@ -94,6 +94,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
   bool _loading = true;
   String? _error;
   final Set<String> _completedLessons = {};
+  int _xp = 0;
   int _streak = 0;
   int _maxStreak = 0;
   bool _isStreakActiveToday = false;
@@ -167,19 +168,31 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
     }
 
     try {
-      _course3 = _parseCourseContent(chapter3CourseData, chapter3QuizData);
+      _course3 = _parseCourseContentSafely(
+        chapter3CourseData,
+        chapter3QuizData,
+        'Chapitre 3',
+      );
     } catch (e) {
       debugPrint('Erreur chargement Chapitre 3 (ignorée): $e');
     }
 
     try {
-      _course4 = _parseCourseContent(chapter4CourseData, chapter4QuizData);
+      _course4 = _parseCourseContentSafely(
+        chapter4CourseData,
+        chapter4QuizData,
+        'Chapitre 4',
+      );
     } catch (e) {
       debugPrint('Erreur chargement Chapitre 4 (ignorée): $e');
     }
 
     try {
-      _course5 = _parseCourseContent(chapter5CourseData, chapter5QuizData);
+      _course5 = _parseCourseContentSafely(
+        chapter5CourseData,
+        chapter5QuizData,
+        'Chapitre 5',
+      );
     } catch (e) {
       debugPrint('Erreur chargement Chapitre 5 (ignorée): $e');
     }
@@ -211,6 +224,24 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
       author: courseJson['author'] ?? '',
       chapters: chapters,
     );
+  }
+
+  CourseContent? _parseCourseContentSafely(
+    dynamic courseJson,
+    dynamic quizJson,
+    String label,
+  ) {
+    try {
+      return _parseCourseContent(courseJson, quizJson);
+    } catch (e) {
+      debugPrint('$label: échec du parsing avec quiz, fallback sans quiz: $e');
+      try {
+        return _parseCourseContent(courseJson, {'chapters': <dynamic>[]});
+      } catch (fallbackError) {
+        debugPrint('$label: échec du fallback sans quiz: $fallbackError');
+        return null;
+      }
+    }
   }
 
   ChapterContent _parseChapter(
@@ -304,6 +335,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
       if (doc.exists && mounted) {
         final data = doc.data();
         final completed = List<String>.from(data?['completed_lessons'] ?? []);
+        final xp = (data?['xp'] as num?)?.toInt() ?? 0;
 
         // Gestion du Streak
         int streak = (data?['current_streak'] as num?)?.toInt() ?? 0;
@@ -334,6 +366,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
 
         setState(() {
           _completedLessons.addAll(completed);
+          _xp = xp;
           _streak = streak;
           _maxStreak = maxStreak;
           _isStreakActiveToday = isActiveToday;
@@ -450,6 +483,11 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
         await progressRef.set({
           'xp': FieldValue.increment(xpGained),
         }, SetOptions(merge: true));
+        if (mounted) {
+          setState(() {
+            _xp += xpGained;
+          });
+        }
       }
 
       unawaited(
@@ -521,6 +559,33 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
     return true;
   }
 
+  int _requiredLevelForCourse(int courseIndex) {
+    switch (courseIndex) {
+      case 2:
+        return 2;
+      case 3:
+        return 4;
+      case 4:
+        return 6;
+      case 5:
+        return 8;
+      default:
+        return 1;
+    }
+  }
+
+  int get _currentLevel => (_xp / 100).floor() + 1;
+
+  bool _isCourseUnlocked({
+    required int courseIndex,
+    required bool isAdmin,
+    CourseContent? previousCourse,
+  }) {
+    if (courseIndex <= 1 || isAdmin) return true;
+    if (_isCourseCompleted(previousCourse)) return true;
+    return _currentLevel >= _requiredLevelForCourse(courseIndex);
+  }
+
   Future<void> _checkUnlockables() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -564,7 +629,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
 
     final user = FirebaseAuth.instance.currentUser;
 
-    return StreamBuilder<DocumentSnapshot>(
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream:
           user != null
               ? FirebaseFirestore.instance
@@ -573,9 +638,27 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   .snapshots()
               : null,
       builder: (context, snapshot) {
-        final bool isAdmin =
-            (snapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ??
-            false;
+        final bool isAdmin = snapshot.data?.data()?['isAdmin'] == true;
+        final isCourse2Unlocked = _isCourseUnlocked(
+          courseIndex: 2,
+          isAdmin: isAdmin,
+          previousCourse: _course1,
+        );
+        final isCourse3Unlocked = _isCourseUnlocked(
+          courseIndex: 3,
+          isAdmin: isAdmin,
+          previousCourse: _course2,
+        );
+        final isCourse4Unlocked = _isCourseUnlocked(
+          courseIndex: 4,
+          isAdmin: isAdmin,
+          previousCourse: _course3,
+        );
+        final isCourse5Unlocked = _isCourseUnlocked(
+          courseIndex: 5,
+          isAdmin: isAdmin,
+          previousCourse: _course4,
+        );
 
         return Scaffold(
           backgroundColor: backgroundColor,
@@ -662,7 +745,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   isAdmin: isAdmin,
                 ),
               if (_course2 != null && _course2!.chapters.isNotEmpty)
-                if (isAdmin || _isCourseCompleted(_course1))
+                if (isCourse2Unlocked)
                   _buildCourseCard(
                     title: 'Chapitre 2 : Analyse fondamentale et graphique',
                     subtitle:
@@ -676,10 +759,11 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 else
                   _buildLockedChapterCard(
                     'Chapitre 2 : Analyse fondamentale et graphique',
-                    subtitle: 'Termine le chapitre 1 pour ouvrir cette suite.',
+                    subtitle:
+                        'Débloqué en validant le chapitre 1 ou au niveau ${_requiredLevelForCourse(2)}.',
                   ),
               if (_course3 != null && _course3!.chapters.isNotEmpty)
-                if (isAdmin || _isCourseCompleted(_course2))
+                if (isCourse3Unlocked)
                   _buildCourseCard(
                     title: 'Chapitre 3 : Microéconomie et marchés financiers',
                     subtitle:
@@ -693,7 +777,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 else
                   _buildLockedChapterCard(
                     'Chapitre 3 : Microéconomie et marchés financiers',
-                    subtitle: 'Débloqué après validation du chapitre 2.',
+                    subtitle:
+                        'Débloqué en validant le chapitre 2 ou au niveau ${_requiredLevelForCourse(3)}.',
                   )
               else
                 _buildLockedChapterCard(
@@ -701,7 +786,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   subtitle: 'Contenu en cours de chargement.',
                 ),
               if (_course4 != null && _course4!.chapters.isNotEmpty)
-                if (isAdmin || _isCourseCompleted(_course3))
+                if (isCourse4Unlocked)
                   _buildCourseCard(
                     title: 'Chapitre 4 : Macroéconomie et marchés financiers',
                     subtitle:
@@ -715,7 +800,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 else
                   _buildLockedChapterCard(
                     'Chapitre 4 : Macroéconomie et marchés financiers',
-                    subtitle: 'Débloqué après validation du chapitre 3.',
+                    subtitle:
+                        'Débloqué en validant le chapitre 3 ou au niveau ${_requiredLevelForCourse(4)}.',
                   )
               else
                 _buildLockedChapterCard(
@@ -723,7 +809,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   subtitle: 'Contenu en cours de chargement.',
                 ),
               if (_course5 != null && _course5!.chapters.isNotEmpty)
-                if (isAdmin || _isCourseCompleted(_course4))
+                if (isCourse5Unlocked)
                   _buildCourseCard(
                     title: 'Chapitre 5 : Les actifs financiers',
                     subtitle:
@@ -737,7 +823,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 else
                   _buildLockedChapterCard(
                     'Chapitre 5 : Les actifs financiers',
-                    subtitle: 'Débloqué après validation du chapitre 4.',
+                    subtitle:
+                        'Débloqué en validant le chapitre 4 ou au niveau ${_requiredLevelForCourse(5)}.',
                   )
               else
                 _buildLockedChapterCard(
@@ -821,7 +908,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 ),
                 Positioned.fill(
                   child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -1071,33 +1158,36 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
               (_ambientAnimation.value * math.pi * 2) + title.length / 6,
             ) *
             8;
-        final outerTone = Color.lerp(accentColors.last, detailsColor2, 0.35)!;
-        final innerTone = Color.lerp(outerTone, const Color(0xFF120915), 0.58)!;
-        final panelTone = Color.lerp(Colors.white, accentColors.first, 0.12)!;
+        final topTone =
+            Color.lerp(const Color(0xFFFFFCF4), accentColors.first, 0.16)!;
+        final bottomTone =
+            Color.lerp(const Color(0xFFF9EBC5), accentColors.first, 0.28)!;
+        final panelTone = Color.lerp(Colors.white, accentColors.first, 0.08)!;
+        final titleColor = detailsColor2;
+        final bodyColor = Colors.black.withValues(alpha: 0.68);
+        final mutedColor = Colors.black.withValues(alpha: 0.54);
 
         return Container(
           margin: const EdgeInsets.only(bottom: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             gradient: LinearGradient(
-              colors: [outerTone.withValues(alpha: 0.97), innerTone],
+              colors: [topTone, bottomTone],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            border: Border.all(
-              color: accentColors.first.withValues(alpha: 0.16),
-            ),
+            border: Border.all(color: detailsColor1.withValues(alpha: 0.28)),
             boxShadow: [
               BoxShadow(
-                color: accentColors.first.withValues(alpha: 0.14),
-                blurRadius: 28,
-                spreadRadius: -4,
-                offset: const Offset(0, 16),
+                color: detailsColor1.withValues(alpha: 0.14),
+                blurRadius: 20,
+                spreadRadius: -8,
+                offset: const Offset(0, 10),
               ),
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.10),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -1137,13 +1227,13 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 ),
                 Positioned.fill(
                   child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    filter: ui.ImageFilter.blur(sigmaX: 2, sigmaY: 2),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.white.withValues(alpha: 0.035),
-                            accentColors.first.withValues(alpha: 0.035),
+                            Colors.white.withValues(alpha: 0.18),
+                            accentColors.first.withValues(alpha: 0.06),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -1161,8 +1251,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   child: ExpansionTile(
                     tilePadding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
                     childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                    collapsedIconColor: Colors.white,
-                    iconColor: Colors.white,
+                    collapsedIconColor: detailsColor2,
+                    iconColor: detailsColor2,
                     leading: Container(
                       width: 48,
                       height: 48,
@@ -1171,7 +1261,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         gradient: LinearGradient(
                           colors: [
                             accentColors.first,
-                            accentColors.first.withValues(alpha: 0.70),
+                            detailsColor1.withValues(alpha: 0.86),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -1179,12 +1269,12 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         boxShadow: [
                           BoxShadow(
                             color: accentColors.first.withValues(alpha: 0.28),
-                            blurRadius: 18,
-                            offset: const Offset(0, 10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
-                      child: Icon(icon, color: Colors.white, size: 24),
+                      child: Icon(icon, color: detailsColor2, size: 24),
                     ),
                     title: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1197,7 +1287,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 20,
-                                  color: Colors.white,
+                                  color: detailsColor2,
                                   height: 1.08,
                                 ),
                               ),
@@ -1209,16 +1299,16 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.10),
+                                color: Colors.white.withValues(alpha: 0.78),
                                 borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.10),
+                                  color: detailsColor2.withValues(alpha: 0.10),
                                 ),
                               ),
                               child: Text(
                                 badge,
                                 style: TextStyle(
-                                  color: accentColors.first,
+                                  color: detailsColor2,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.3,
@@ -1231,7 +1321,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         Text(
                           subtitle,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.72),
+                            color: bodyColor,
                             fontSize: 13,
                             height: 1.35,
                             fontWeight: FontWeight.w500,
@@ -1243,7 +1333,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                             Text(
                               '$completedLessons/$totalLessons leçons',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.92),
+                                color: titleColor,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1252,7 +1342,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                             Text(
                               '${course.chapters.length} modules',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.60),
+                                color: mutedColor,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1265,11 +1355,11 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                           child: LinearProgressIndicator(
                             value: progress,
                             minHeight: 7,
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.10,
+                            backgroundColor: Colors.black.withValues(
+                              alpha: 0.06,
                             ),
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              accentColors.first,
+                              detailsColor2,
                             ),
                           ),
                         ),
@@ -1279,10 +1369,10 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                       Container(
                         padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                         decoration: BoxDecoration(
-                          color: panelTone.withValues(alpha: 0.10),
+                          color: panelTone.withValues(alpha: 0.74),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: accentColors.first.withValues(alpha: 0.12),
+                            color: detailsColor1.withValues(alpha: 0.22),
                           ),
                         ),
                         child: Column(
@@ -1372,6 +1462,9 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
     final isCompleted = _isChapterCompleted(chapter);
     final chapterLessons = _countChapterLessons(chapter);
     final chapterCompletedLessons = _countCompletedChapterLessons(chapter);
+    final titleColor = detailsColor2;
+    final bodyColor = Colors.black.withValues(alpha: 0.66);
+    final mutedColor = Colors.black.withValues(alpha: 0.52);
 
     void buildLessons() {
       for (var lesson in chapter.lessons) {
@@ -1385,13 +1478,13 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
               borderRadius: BorderRadius.circular(20),
               color:
                   isLocked
-                      ? Colors.white.withValues(alpha: 0.04)
-                      : Colors.white.withValues(alpha: 0.08),
+                      ? Colors.white.withValues(alpha: 0.42)
+                      : Colors.white.withValues(alpha: 0.78),
               border: Border.all(
                 color:
                     isCompleted
                         ? detailsColor1.withValues(alpha: 0.35)
-                        : Colors.white.withValues(alpha: 0.08),
+                        : Colors.black.withValues(alpha: 0.05),
               ),
             ),
             child: ListTile(
@@ -1403,9 +1496,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 lesson.title,
                 style: TextStyle(
                   color:
-                      isLocked
-                          ? Colors.white.withValues(alpha: 0.45)
-                          : Colors.white,
+                      isLocked ? bodyColor.withValues(alpha: 0.52) : titleColor,
                   fontWeight: isLocked ? FontWeight.w500 : FontWeight.w700,
                 ),
               ),
@@ -1414,7 +1505,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                       ? Text(
                         'Validée',
                         style: TextStyle(
-                          color: detailsColor1.withValues(alpha: 0.92),
+                          color: detailsColor2,
                           fontWeight: FontWeight.w600,
                         ),
                       )
@@ -1426,10 +1517,10 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   shape: BoxShape.circle,
                   color:
                       isLocked
-                          ? Colors.white.withValues(alpha: 0.07)
+                          ? Colors.white.withValues(alpha: 0.44)
                           : (isCompleted
                               ? detailsColor1.withValues(alpha: 0.16)
-                              : Colors.white.withValues(alpha: 0.10)),
+                              : Colors.white.withValues(alpha: 0.62)),
                 ),
                 child: Icon(
                   isLocked
@@ -1440,17 +1531,17 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   size: 18,
                   color:
                       isLocked
-                          ? Colors.white.withValues(alpha: 0.48)
-                          : (isCompleted ? detailsColor1 : Colors.white),
+                          ? bodyColor.withValues(alpha: 0.5)
+                          : (isCompleted ? detailsColor2 : detailsColor2),
                 ),
               ),
               trailing:
                   isLocked
                       ? null
-                      : const Icon(
+                      : Icon(
                         Icons.chevron_right_rounded,
                         size: 20,
-                        color: Colors.white70,
+                        color: detailsColor2.withValues(alpha: 0.58),
                       ),
               onTap:
                   isLocked
@@ -1514,8 +1605,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
             colors: [
-              Colors.white.withValues(alpha: unlocked ? 0.10 : 0.05),
-              Colors.white.withValues(alpha: 0.04),
+              Colors.white.withValues(alpha: unlocked ? 0.78 : 0.62),
+              detailsColor1.withValues(alpha: 0.14),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1524,7 +1615,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
             color:
                 isCompleted
                     ? detailsColor1.withValues(alpha: 0.32)
-                    : Colors.white.withValues(alpha: 0.08),
+                    : Colors.black.withValues(alpha: 0.05),
           ),
         ),
         child: Theme(
@@ -1535,8 +1626,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
               vertical: 8,
             ),
             childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-            collapsedIconColor: Colors.white70,
-            iconColor: Colors.white,
+            collapsedIconColor: detailsColor2,
+            iconColor: detailsColor2,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1547,15 +1638,15 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                     fontSize: 16,
                     color:
                         unlocked
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.58),
+                            ? titleColor
+                            : bodyColor.withValues(alpha: 0.58),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '$chapterCompletedLessons/$chapterLessons leçons validées',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.62),
+                    color: mutedColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1571,7 +1662,10 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                   colors:
                       isCompleted
                           ? [detailsColor1, const Color(0xFFFFA94D)]
-                          : [Colors.white70, Colors.white24],
+                          : [
+                            detailsColor1.withValues(alpha: 0.55),
+                            Colors.white,
+                          ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -1606,8 +1700,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
         margin: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: Colors.white.withValues(alpha: 0.05),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          color: Colors.white.withValues(alpha: 0.56),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
         ),
         child: Theme(
           data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -1617,20 +1711,20 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
               vertical: 4,
             ),
             childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            collapsedIconColor: Colors.white70,
-            iconColor: Colors.white,
+            collapsedIconColor: detailsColor2,
+            iconColor: detailsColor2,
             title: Text(
               chapter.title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
-                color: Colors.white,
+                color: titleColor,
               ),
             ),
-            leading: const Icon(
+            leading: Icon(
               Icons.account_tree_rounded,
               size: 19,
-              color: Colors.white70,
+              color: detailsColor2.withValues(alpha: 0.72),
             ),
             children: children,
           ),
@@ -1645,16 +1739,16 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [Color(0xFF5A4A63), Color(0xFF2A2233)],
+          colors: [Color(0xFFFFFCF5), Color(0xFFF4E2AF)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: detailsColor1.withValues(alpha: 0.10)),
+        border: Border.all(color: detailsColor1.withValues(alpha: 0.24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
+            color: detailsColor1.withValues(alpha: 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -1684,7 +1778,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 19,
-                  color: Colors.white,
+                  color: detailsColor2,
                 ),
               ),
               subtitle:
@@ -1695,7 +1789,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                         child: Text(
                           subtitle,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.62),
+                            color: Colors.black.withValues(alpha: 0.62),
                             height: 1.35,
                           ),
                         ),
@@ -1705,11 +1799,14 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 height: 46,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: Colors.white.withValues(alpha: 0.70),
+                  border: Border.all(
+                    color: detailsColor2.withValues(alpha: 0.10),
+                  ),
                 ),
                 child: const Icon(
                   Icons.lock_rounded,
-                  color: Colors.white,
+                  color: detailsColor2,
                   size: 22,
                 ),
               ),
@@ -1720,12 +1817,15 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: Colors.white.withValues(alpha: 0.72),
+                  border: Border.all(
+                    color: detailsColor2.withValues(alpha: 0.08),
+                  ),
                 ),
                 child: Text(
                   'Verrouillé',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.74),
+                    color: detailsColor2.withValues(alpha: 0.82),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),

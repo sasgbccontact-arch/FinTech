@@ -470,6 +470,10 @@ class DuelService {
       throw DuelException('Le délai de 48h est dépassé pour cette invitation.');
     }
 
+    final acceptedUserHoldings = await fetchGameHoldings(
+      uid,
+      updatePositionDocs: false,
+    );
     final duelDoc = _firestore.collection('duels').doc();
     final acceptedAt = DateTime.now();
     final endsAt = acceptedAt.add(duelDuration);
@@ -566,8 +570,10 @@ class DuelService {
         'startingTotalCapital':
             targetProfile.holdingsValueEstimate + targetProfile.reserveCoins,
         'startingPositionsCount': targetProfile.positionsCount,
-        'startingHoldings': const <Map<String, dynamic>>[],
-        'startingHoldingsCapturedAt': null,
+        'startingHoldings': acceptedUserHoldings
+            .map((holding) => holding.toMap())
+            .toList(growable: false),
+        'startingHoldingsCapturedAt': Timestamp.fromDate(acceptedAt),
         'capitalTimeline': <Map<String, dynamic>>[
           <String, dynamic>{
             'at': Timestamp.fromDate(acceptedAt),
@@ -1251,9 +1257,9 @@ class DuelService {
     }, SetOptions(merge: true));
 
     if (duel.status == 'settled') {
-      await duelRef(duelId).set({
-        'status': 'reward_revealed',
-      }, SetOptions(merge: true));
+      await duelRef(
+        duelId,
+      ).set({'status': 'reward_revealed'}, SetOptions(merge: true));
     }
     _log('revealWinnerResult: duelId=$duelId uid=$uid succes');
   }
@@ -1265,45 +1271,43 @@ class DuelService {
     _log('closeSettledDuel: duelId=$duelId uid=$uid');
     final profileDoc = await duelProfileRef(uid).get();
     final profile = DuelProfile.fromDoc(profileDoc, fallbackUid: uid);
-    await _firestore.runTransaction((transaction) async {
-      final duelSnap = await transaction.get(duelRef(duelId));
-      if (!duelSnap.exists) return;
-      final duel = DuelData.fromDoc(duelSnap);
-      if (!duel.isSettled) {
-        throw DuelException('Le duel n’est pas encore terminé.');
-      }
-      final opponentUid = duel.participants.firstWhere(
-        (candidate) => candidate != uid,
-        orElse: () => '',
-      );
+    final duelSnap = await duelRef(duelId).get();
+    if (!duelSnap.exists) return;
+    final duel = DuelData.fromDoc(duelSnap);
+    if (!duel.isSettled) {
+      throw DuelException('Le duel n’est pas encore terminé.');
+    }
+    final opponentUid = duel.participants.firstWhere(
+      (candidate) => candidate != uid,
+      orElse: () => '',
+    );
+
+    await _duelParticipantRef(duelId, uid).set({
+      'resultDismissedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await duelProfileRef(uid).set({
+      'state': 'idle',
+      'currentDuelId': null,
+      'currentRequestId': null,
+      'eligible':
+          profile.holdingsValueEstimate >= minEligibleHoldingsValue &&
+          profile.positionsCount >= 1,
+    }, SetOptions(merge: true));
+
+    if (opponentUid.isNotEmpty) {
       final opponentParticipantSnap =
-          opponentUid.isEmpty
-              ? null
-              : await transaction.get(_duelParticipantRef(duelId, opponentUid));
+          await _duelParticipantRef(duelId, opponentUid).get();
       final opponentParticipant = DuelParticipant.fromDoc(
         opponentParticipantSnap,
         uid: opponentUid,
       );
-
-      transaction.set(_duelParticipantRef(duelId, uid), {
-        'resultDismissedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      transaction.set(duelProfileRef(uid), {
-        'state': 'idle',
-        'currentDuelId': null,
-        'currentRequestId': null,
-        'eligible':
-            profile.holdingsValueEstimate >= minEligibleHoldingsValue &&
-            profile.positionsCount >= 1,
-      }, SetOptions(merge: true));
-
       if (opponentParticipant.resultDismissedAt != null) {
-        transaction.set(duelRef(duelId), {
-          'status': 'closed',
-        }, SetOptions(merge: true));
+        await duelRef(
+          duelId,
+        ).set({'status': 'closed'}, SetOptions(merge: true));
       }
-    });
+    }
 
     await syncCurrentUserProfile(uid: uid, bumpActivity: true);
     _log('closeSettledDuel: duelId=$duelId uid=$uid succes');

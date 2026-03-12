@@ -21,6 +21,7 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
   static const int _maxInboxItems = 36;
 
   bool _isPruningInbox = false;
+  final Set<String> _busyRequestIds = <String>{};
 
   User? get _user => FirebaseAuth.instance.currentUser;
 
@@ -180,6 +181,23 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
     );
     _log('Succes acceptation demande ami requestId=${item.requestId}');
     _snack('Demande acceptée.');
+  }
+
+  Future<void> _runBusyRequest(
+    String requestId,
+    Future<void> Function() action,
+  ) async {
+    if (_busyRequestIds.contains(requestId)) return;
+    if (mounted) {
+      setState(() => _busyRequestIds.add(requestId));
+    }
+    try {
+      await action();
+    } finally {
+      if (mounted) {
+        setState(() => _busyRequestIds.remove(requestId));
+      }
+    }
   }
 
   Future<void> _declineFriendRequest(_NotificationItem item) async {
@@ -416,13 +434,29 @@ class _NotificationCenterPageState extends State<NotificationCenterPage> {
                             return _NotificationCard(
                               item: item,
                               currentUserId: user?.uid,
+                              isBusy:
+                                  item.requestId != null &&
+                                  _busyRequestIds.contains(item.requestId),
                               onAcceptFriendRequest:
-                                  () => _acceptFriendRequest(item),
+                                  () => _runBusyRequest(
+                                    item.requestId!,
+                                    () => _acceptFriendRequest(item),
+                                  ),
                               onDeclineFriendRequest:
-                                  () => _declineFriendRequest(item),
-                              onAcceptDuelInvite: () => _acceptDuelInvite(item),
+                                  () => _runBusyRequest(
+                                    item.requestId!,
+                                    () => _declineFriendRequest(item),
+                                  ),
+                              onAcceptDuelInvite:
+                                  () => _runBusyRequest(
+                                    item.requestId!,
+                                    () => _acceptDuelInvite(item),
+                                  ),
                               onDeclineDuelInvite:
-                                  () => _refuseDuelInvite(item),
+                                  () => _runBusyRequest(
+                                    item.requestId!,
+                                    () => _refuseDuelInvite(item),
+                                  ),
                             );
                           },
                         );
@@ -588,6 +622,7 @@ class _NotificationCard extends StatelessWidget {
   const _NotificationCard({
     required this.item,
     required this.currentUserId,
+    required this.isBusy,
     required this.onAcceptFriendRequest,
     required this.onDeclineFriendRequest,
     required this.onAcceptDuelInvite,
@@ -596,6 +631,7 @@ class _NotificationCard extends StatelessWidget {
 
   final _NotificationItem item;
   final String? currentUserId;
+  final bool isBusy;
   final Future<void> Function() onAcceptFriendRequest;
   final Future<void> Function() onDeclineFriendRequest;
   final Future<void> Function() onAcceptDuelInvite;
@@ -753,19 +789,40 @@ class _NotificationCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: onDeclineFriendRequest,
-                        child: const Text('Refuser'),
+                        onPressed: isBusy ? null : onDeclineFriendRequest,
+                        child:
+                            isBusy
+                                ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.1,
+                                  ),
+                                )
+                                : const Text('Refuser'),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: onAcceptFriendRequest,
+                        onPressed: isBusy ? null : onAcceptFriendRequest,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Accepter'),
+                        child:
+                            isBusy
+                                ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.1,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                                : const Text('Accepter'),
                       ),
                     ),
                   ],
@@ -803,19 +860,48 @@ class _NotificationCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: onDeclineDuelInvite,
-                        child: const Text('Refuser'),
+                        onPressed: isBusy ? null : onDeclineDuelInvite,
+                        child:
+                            isBusy
+                                ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.1,
+                                  ),
+                                )
+                                : const Text('Refuser'),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: onAcceptDuelInvite,
+                        onPressed: isBusy ? null : onAcceptDuelInvite,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
                         ),
-                        child: const Text('Accepter'),
+                        child:
+                            isBusy
+                                ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.1,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text('Acceptation...'),
+                                  ],
+                                )
+                                : const Text('Accepter'),
                       ),
                     ),
                   ],

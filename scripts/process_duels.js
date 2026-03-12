@@ -36,6 +36,19 @@ const quoteCache = new Map();
 const minEligibleHoldingsValue = 10000;
 const capitalTimelineSampleWindowMs = 6 * 60 * 60 * 1000;
 const cliOptions = parseArgs(process.argv.slice(2));
+const yahooBaseHeaders = {
+  Accept: 'application/json',
+  'Accept-Encoding': 'gzip, deflate',
+  'Accept-Language': 'en-US,en;q=0.9,fr-FR;q=0.8',
+  'User-Agent': 'Mozilla/5.0 (compatible; fintech-duel-worker/1.0)',
+  Connection: 'keep-alive',
+  Pragma: 'no-cache',
+  'Cache-Control': 'no-cache',
+};
+let yahooCookie = null;
+let yahooCrumb = null;
+let yahooCookieExpiry = null;
+const yahooCrumbRegex = /"CrumbStore":\\?\{"crumb":"([^"\\]*(?:\\.[^"\\]*)*)"/;
 
 function parseArgs(args) {
   const options = {
@@ -158,14 +171,324 @@ function deterministicIndex(seed, size) {
   return hash % size;
 }
 
-async function fetchQuoteFromEndpoint(symbol, endpoint) {
-  const url = `https://${endpoint}.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'Mozilla/5.0 (compatible; fintech-duel-worker/1.0)',
+function updateYahooCookiesFromSetCookie(setCookieHeader) {
+  if (!setCookieHeader || !String(setCookieHeader).trim()) return;
+  const pairs = new Map();
+  const source = String(setCookieHeader);
+
+  if (yahooCookie) {
+    for (const chunk of yahooCookie.split(';')) {
+      const [rawName, ...rawValue] = chunk.split('=');
+      const name = String(rawName || '').trim();
+      const value = rawValue.join('=').trim();
+      if (name && value) pairs.set(name, value);
+    }
+  }
+
+  const cookieRegex = /(^|,)\s*([^=;\s,]+)=([^;,\s]+)/g;
+  for (const match of source.matchAll(cookieRegex)) {
+    const name = String(match[2] || '').trim();
+    const value = String(match[3] || '').trim();
+    if (!name || !value) continue;
+    const lowered = name.toLowerCase();
+    if (
+      lowered === 'expires' ||
+      lowered === 'path' ||
+      lowered === 'domain' ||
+      lowered === 'max-age' ||
+      lowered === 'secure' ||
+      lowered === 'httponly' ||
+      lowered.startsWith('samesite')
+    ) {
+      continue;
+    }
+    pairs.set(name, value);
+  }
+
+  if (!pairs.size) return;
+  yahooCookie = [...pairs.entries()]
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ');
+  yahooCookieExpiry = new Date(Date.now() + (10 * 60 * 1000));
+  yahooCrumb = null;
+}
+
+function buildYahooHeaders(extra = {}) {
+  const headers = {...yahooBaseHeaders, ...extra};
+  if (yahooCookie) {
+    headers.Cookie = yahooCookie;
+  }
+  return headers;
+}
+
+function decodeYahooEscapedString(value) {
+  if (!value) return '';
+  try {
+    return JSON.parse(`"${String(value).replace(/"/g, '\\"')}"`);
+  } catch (_) {
+    return String(value)
+      .replace(/\\u002F/g, '/')
+      .replace(/\\u0026/g, '&')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+  }
+}
+
+function asMap(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function extractRawNumber(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value && typeof value === 'object' && typeof value.raw === 'number' && Number.isFinite(value.raw)) {
+    return value.raw;
+  }
+  return null;
+}
+
+function quoteReferer(symbol) {
+  return `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
+}
+
+function safeJsonParse(value) {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function bootstrapYahooCookies() {
+  if (yahooCookie && yahooCookieExpiry && yahooCookieExpiry > new Date()) {
+    return;
+  }
+
+  const targets = [
+    {
+      url: 'https://fc.yahoo.com',
+      headers: {},
     },
+    {
+      url: 'https://finance.yahoo.com',
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+    },
+  ];
+
+  for (const target of targets) {
+    try {
+      const response = await fetch(target.url, {
+        headers: buildYahooHeaders(target.headers),
+      });
+      updateYahooCookiesFromSetCookie(response.headers.get('set-cookie'));
+      if (yahooCookie) {
+        return;
+      }
+    } catch (error) {
+      console.warn(`[duels] Bootstrap Yahoo échoué ${target.url}:`, error.message);
+    }
+  }
+}
+
+async function getYahooQuoteHtml(symbol) {
+  const encodedSymbol = encodeURIComponent(symbol);
+  const targets = [
+    `https://finance.yahoo.com/quote/${encodedSymbol}`,
+    `https://finance.yahoo.com/quote/${encodedSymbol}?p=${encodedSymbol}&.tsrc=fin-srch`,
+    `https://finance.yahoo.com/quote/${encodedSymbol}?guccounter=1`,
+    `https://finance.yahoo.com/quote/${encodedSymbol}?.intl=us`,
+  ];
+
+  for (const url of targets) {
+    try {
+      const response = await fetch(url, {
+        headers: buildYahooHeaders({
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          Referer: quoteReferer(symbol),
+          'Upgrade-Insecure-Requests': '1',
+        }),
+      });
+      updateYahooCookiesFromSetCookie(response.headers.get('set-cookie'));
+      if (!response.ok) {
+        continue;
+      }
+      const html = await response.text();
+      if (html && html.length > 500) {
+        return html;
+      }
+    } catch (error) {
+      console.warn(`[duels] Quote HTML indisponible pour ${symbol} (${url}):`, error.message);
+    }
+  }
+
+  throw new Error(`Quote HTML introuvable pour ${symbol}`);
+}
+
+async function collectCrumbFromHtml(symbol) {
+  const html = await getYahooQuoteHtml(symbol);
+  const match = yahooCrumbRegex.exec(html);
+  if (!match?.[1]) {
+    throw new Error(`Crumb Yahoo introuvable dans le HTML pour ${symbol}`);
+  }
+  const crumb = decodeYahooEscapedString(match[1]).trim();
+  if (!crumb) {
+    throw new Error(`Crumb Yahoo vide dans le HTML pour ${symbol}`);
+  }
+  yahooCrumb = crumb;
+}
+
+function extractEmbeddedYahooState(html) {
+  const nextStart = html.indexOf('<script id="__NEXT_DATA__"');
+  if (nextStart !== -1) {
+    const openTagEnd = html.indexOf('>', nextStart);
+    const closeTag = html.indexOf('</script>', openTagEnd + 1);
+    if (openTagEnd !== -1 && closeTag !== -1) {
+      const jsonText = html.slice(openTagEnd + 1, closeTag).trim();
+      const parsed = safeJsonParse(jsonText);
+      if (parsed) return parsed;
+    }
+  }
+
+  const rootAppMatch = /root\.App\.main\s*=\s*(\{.*?\});\s*\n/s.exec(html);
+  if (rootAppMatch?.[1]) {
+    const parsed = safeJsonParse(rootAppMatch[1]);
+    if (parsed) return parsed;
+  }
+
+  const apolloIndex = html.indexOf('window.__APOLLO_STATE__=');
+  if (apolloIndex !== -1) {
+    const start = apolloIndex + 'window.__APOLLO_STATE__='.length;
+    const end = html.indexOf('</script>', start);
+    if (end !== -1) {
+      let snippet = html.slice(start, end).trim();
+      if (snippet.endsWith(';')) {
+        snippet = snippet.slice(0, -1);
+      }
+      const parsed = safeJsonParse(snippet);
+      if (parsed) return parsed;
+    }
+  }
+
+  return null;
+}
+
+function extractHtmlQuote(symbol, html) {
+  const root = extractEmbeddedYahooState(html);
+  const rootMap = asMap(root);
+  let price = null;
+
+  const context = asMap(rootMap?.context);
+  const dispatcher = asMap(context?.dispatcher);
+  const stores = asMap(dispatcher?.stores);
+  const quoteSummaryStore = asMap(stores?.QuoteSummaryStore);
+  price = asMap(quoteSummaryStore?.price);
+
+  if (!price) {
+    const quotePageStore = asMap(stores?.QuotePageStore);
+    price = asMap(quotePageStore?.price);
+  }
+
+  if (!price) {
+    const regexPrice =
+      /"regularMarketPrice"\s*:\s*\{\s*"raw"\s*:\s*([-0-9.eE]+)|"regularMarketPrice"\s*:\s*([-0-9.eE]+)/.exec(html);
+    const regexPrevClose =
+      /"regularMarketPreviousClose"\s*:\s*\{\s*"raw"\s*:\s*([-0-9.eE]+)|"previousClose"\s*:\s*([-0-9.eE]+)/.exec(html);
+    const displayNameMatch = /"longName"\s*:\s*"([^"]{1,200})"|"shortName"\s*:\s*"([^"]{1,200})"/.exec(html);
+    const exchangeMatch = /"exchangeName"\s*:\s*"([^"]{1,120})"/.exec(html);
+    const currencyMatch = /"currency"\s*:\s*"([A-Z]{3})"/.exec(html);
+    const instrumentTypeMatch = /"instrumentType"\s*:\s*"([^"]{1,60})"/.exec(html);
+    const marketPrice = asNumber(regexPrice?.[1] || regexPrice?.[2], 0);
+    const previousClose = asNumber(regexPrevClose?.[1] || regexPrevClose?.[2], 0);
+    const finalPrice = marketPrice || previousClose;
+    if (finalPrice > 0) {
+      return {
+        marketPrice: finalPrice,
+        displayName: decodeYahooEscapedString(displayNameMatch?.[1] || displayNameMatch?.[2] || symbol),
+        exchange: decodeYahooEscapedString(exchangeMatch?.[1] || ''),
+        currency: String(currencyMatch?.[1] || ''),
+        quoteType: decodeYahooEscapedString(instrumentTypeMatch?.[1] || 'UNKNOWN'),
+        source: marketPrice > 0 ? 'html_regularMarketPrice' : 'html_previousClose',
+      };
+    }
+    throw new Error(`Prix HTML introuvable pour ${symbol}`);
+  }
+
+  const regularMarketPrice =
+    extractRawNumber(price.regularMarketPrice) ??
+    extractRawNumber(price.postMarketPrice) ??
+    extractRawNumber(price.preMarketPrice);
+  const previousClose =
+    extractRawNumber(price.regularMarketPreviousClose) ??
+    extractRawNumber(price.previousClose);
+  const marketPrice = regularMarketPrice || previousClose || 0;
+  if (marketPrice <= 0) {
+    throw new Error(`Prix HTML introuvable pour ${symbol}`);
+  }
+
+  return {
+    marketPrice,
+    displayName: String(price.longName || price.shortName || symbol),
+    exchange: String(price.exchangeName || price.fullExchangeName || price.exchange || ''),
+    currency: String(price.currency || price.quoteCurrency || ''),
+    quoteType: String(price.quoteType || price.instrumentType || 'UNKNOWN'),
+    source: regularMarketPrice > 0 ? 'html_regularMarketPrice' : 'html_previousClose',
+  };
+}
+
+async function fetchQuoteFromHtml(symbol) {
+  const html = await getYahooQuoteHtml(symbol);
+  return extractHtmlQuote(symbol, html);
+}
+
+async function refreshYahooCrumb(force = false, symbol = null) {
+  const crumbValid =
+    !force &&
+    yahooCrumb &&
+    yahooCookieExpiry &&
+    yahooCookieExpiry > new Date();
+  if (crumbValid) return;
+
+  await bootstrapYahooCookies();
+  if (!yahooCookie) {
+    throw new Error('Yahoo cookie indisponible');
+  }
+
+  const response = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+    headers: buildYahooHeaders({
+      Accept: 'text/plain',
+    }),
   });
+  if (!response.ok) {
+    if (symbol) {
+      await collectCrumbFromHtml(symbol);
+      return;
+    }
+    throw new Error(`Yahoo crumb -> HTTP ${response.status}`);
+  }
+  const crumb = String(await response.text()).trim();
+  const crumbLooksValid = crumb && !crumb.includes('<') && crumb.length <= 64;
+  if (!crumbLooksValid) {
+    if (symbol) {
+      await collectCrumbFromHtml(symbol);
+      return;
+    }
+    throw new Error('Yahoo crumb vide');
+  }
+  yahooCrumb = crumb;
+}
+
+async function fetchQuoteFromEndpoint(symbol, endpoint) {
+  await refreshYahooCrumb(false, symbol);
+  const url =
+    `https://${endpoint}.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}` +
+    `&crumb=${encodeURIComponent(yahooCrumb)}`;
+  const response = await fetch(url, {
+    headers: buildYahooHeaders({
+      Referer: quoteReferer(symbol),
+    }),
+  });
+  updateYahooCookiesFromSetCookie(response.headers.get('set-cookie'));
   if (!response.ok) {
     throw new Error(`Yahoo ${symbol} ${endpoint} -> HTTP ${response.status}`);
   }
@@ -185,15 +508,16 @@ async function fetchQuoteFromEndpoint(symbol, endpoint) {
 }
 
 async function fetchChartPriceFromEndpoint(symbol, endpoint) {
+  await refreshYahooCrumb(false, symbol);
   const url =
     `https://${endpoint}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
-    '?range=1mo&interval=1d&includePrePost=false&events=div%2Csplits';
+    `?range=1mo&interval=1d&includePrePost=false&events=div%2Csplits&crumb=${encodeURIComponent(yahooCrumb)}`;
   const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'Mozilla/5.0 (compatible; fintech-duel-worker/1.0)',
-    },
+    headers: buildYahooHeaders({
+      Referer: quoteReferer(symbol),
+    }),
   });
+  updateYahooCookiesFromSetCookie(response.headers.get('set-cookie'));
   if (!response.ok) {
     throw new Error(`Yahoo chart ${symbol} ${endpoint} -> HTTP ${response.status}`);
   }
@@ -236,6 +560,12 @@ async function fetchQuote(symbol) {
   const cached = quoteCache.get(symbol);
   if (cached) return cached;
 
+  try {
+    await bootstrapYahooCookies();
+  } catch (error) {
+    console.warn(`[duels] Bootstrap Yahoo impossible pour ${symbol}:`, error.message);
+  }
+
   let lastError = null;
   for (const endpoint of ['query1', 'query2']) {
     try {
@@ -244,6 +574,14 @@ async function fetchQuote(symbol) {
       return quote;
     } catch (error) {
       lastError = error;
+      if (String(error.message || '').includes('HTTP 401')) {
+        yahooCrumb = null;
+        yahooCookieExpiry = null;
+        try {
+          await bootstrapYahooCookies();
+          await refreshYahooCrumb(true, symbol);
+        } catch (_) {}
+      }
     }
   }
 
@@ -254,7 +592,23 @@ async function fetchQuote(symbol) {
       return quote;
     } catch (error) {
       lastError = error;
+      if (String(error.message || '').includes('HTTP 401')) {
+        yahooCrumb = null;
+        yahooCookieExpiry = null;
+        try {
+          await bootstrapYahooCookies();
+          await refreshYahooCrumb(true, symbol);
+        } catch (_) {}
+      }
     }
+  }
+
+  try {
+    const quote = await fetchQuoteFromHtml(symbol);
+    quoteCache.set(symbol, quote);
+    return quote;
+  } catch (error) {
+    lastError = error;
   }
 
   throw lastError || new Error(`Quote introuvable pour ${symbol}`);
@@ -305,6 +659,11 @@ async function loadPortfolio(uid) {
 
     const averagePrice = asNumber(data.averagePrice, 0);
     const marketPrice = quote.marketPrice || averagePrice;
+    if (quote.source && quote.source !== 'query1') {
+      console.log(
+        `[duels] Prix ${symbol}: source=${quote.source} valeur=${marketPrice.toFixed(4)}`,
+      );
+    }
     holdings.push({
       symbol,
       quantity,

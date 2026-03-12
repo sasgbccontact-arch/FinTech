@@ -415,6 +415,64 @@ service cloud.firestore {
               && request.resource.data.resultDismissedAt is timestamp
             )
             || (
+              request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                'startingHoldings', 'startingHoldingsCapturedAt'
+              ])
+              && (
+                !(resource.data.startingHoldings is list)
+                || resource.data.startingHoldings.size() == 0
+              )
+              && request.resource.data.startingHoldings is list
+              && request.resource.data.startingHoldings.size() <= 30
+              && request.resource.data.startingHoldingsCapturedAt is timestamp
+            )
+            || (
+              request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                'performanceRevealTier', 'spyCoinsSpent', 'intelPurchaseDays', 'lastIntelPurchaseAt'
+              ])
+              && request.resource.data.performanceRevealTier is int
+              && (
+                !(resource.data.performanceRevealTier is int)
+                || request.resource.data.performanceRevealTier >= resource.data.performanceRevealTier
+              )
+              && isOptionalNumber(request.resource.data.spyCoinsSpent)
+              && (
+                !(resource.data.spyCoinsSpent is int)
+                && !(resource.data.spyCoinsSpent is float)
+                || request.resource.data.spyCoinsSpent >= resource.data.spyCoinsSpent
+              )
+              && isOptionalList(request.resource.data.intelPurchaseDays, 14)
+              && isOptionalTimestamp(request.resource.data.lastIntelPurchaseAt)
+            )
+            || (
+              request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                'positionsCountRevealedAt', 'spyCoinsSpent', 'intelPurchaseDays', 'lastIntelPurchaseAt'
+              ])
+              && request.resource.data.positionsCountRevealedAt is timestamp
+              && isOptionalNumber(request.resource.data.spyCoinsSpent)
+              && (
+                !(resource.data.spyCoinsSpent is int)
+                && !(resource.data.spyCoinsSpent is float)
+                || request.resource.data.spyCoinsSpent >= resource.data.spyCoinsSpent
+              )
+              && isOptionalList(request.resource.data.intelPurchaseDays, 14)
+              && isOptionalTimestamp(request.resource.data.lastIntelPurchaseAt)
+            )
+            || (
+              request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                'revealedLine', 'spyCoinsSpent', 'intelPurchaseDays', 'lastIntelPurchaseAt'
+              ])
+              && request.resource.data.revealedLine is map
+              && isOptionalNumber(request.resource.data.spyCoinsSpent)
+              && (
+                !(resource.data.spyCoinsSpent is int)
+                && !(resource.data.spyCoinsSpent is float)
+                || request.resource.data.spyCoinsSpent >= resource.data.spyCoinsSpent
+              )
+              && isOptionalList(request.resource.data.intelPurchaseDays, 14)
+              && isOptionalTimestamp(request.resource.data.lastIntelPurchaseAt)
+            )
+            || (
               request.resource.data.keys().hasOnly([
             'startingHoldingsValue', 'startingReserveCoins', 'startingTotalCapital',
             'startingPositionsCount', 'startingHoldings', 'startingHoldingsCapturedAt',

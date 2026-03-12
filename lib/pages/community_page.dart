@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -871,17 +872,35 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
       duelId: widget.duel.id,
       uid: widget.uid,
     );
-    final participantSnap =
+    var participantSnap =
         await FirebaseFirestore.instance
             .collection('duels')
             .doc(widget.duel.id)
             .collection('participants')
             .doc(widget.uid)
             .get();
-    final participant = DuelParticipant.fromDoc(
-      participantSnap,
-      uid: widget.uid,
-    );
+    var participant = DuelParticipant.fromDoc(participantSnap, uid: widget.uid);
+    if (participant.startingHoldings.isEmpty && metrics.holdings.isNotEmpty) {
+      try {
+        await DuelService.ensureStartingHoldingsSnapshot(
+          duelId: widget.duel.id,
+          uid: widget.uid,
+          holdings: metrics.holdings,
+        );
+        participantSnap =
+            await FirebaseFirestore.instance
+                .collection('duels')
+                .doc(widget.duel.id)
+                .collection('participants')
+                .doc(widget.uid)
+                .get();
+        participant = DuelParticipant.fromDoc(participantSnap, uid: widget.uid);
+      } on FirebaseException catch (error) {
+        _log(
+          'dashboard load starting snapshot ignore duelId=${widget.duel.id} uid=${widget.uid} code=${error.code} message=${error.message}',
+        );
+      }
+    }
     final opponentUid = widget.duel.participants.firstWhere(
       (candidate) => candidate != widget.uid,
       orElse: () => '',
@@ -1009,7 +1028,7 @@ class _ActiveDuelDashboardState extends State<_ActiveDuelDashboard> {
         }
 
         if (!snapshot.hasData) {
-          return const _DuelContentSkeleton();
+          return const _DuelDashboardLoader();
         }
 
         final payload = snapshot.data!;
@@ -1381,9 +1400,16 @@ class _DashboardVariationsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final participant = payload.participant;
     final metrics = payload.metrics;
+    final hasSavedSnapshot = participant.startingHoldings.isNotEmpty;
+    final effectiveStartingHoldings =
+        hasSavedSnapshot ? participant.startingHoldings : metrics.holdings;
+    final effectiveStartingHoldingsValue =
+        hasSavedSnapshot
+            ? participant.startingHoldingsValue
+            : metrics.holdingsValue;
     final totalDelta = metrics.totalCapital - participant.startingTotalCapital;
     final variations = _buildHoldingVariations(
-      starting: participant.startingHoldings,
+      starting: effectiveStartingHoldings,
       current: metrics.holdings,
       currentHoldingsValue: metrics.holdingsValue,
     );
@@ -1431,7 +1457,7 @@ class _DashboardVariationsTab extends StatelessWidget {
                 child: _VariationMetric(
                   label: 'Valeur lignes',
                   value:
-                      '${_formatCoins(metrics.holdingsValue)} · ${_formatSignedDelta(metrics.holdingsValue - participant.startingHoldingsValue, suffix: ' coins')}',
+                      '${_formatCoins(metrics.holdingsValue)} · ${_formatSignedDelta(metrics.holdingsValue - effectiveStartingHoldingsValue, suffix: ' coins')}',
                 ),
               ),
               const SizedBox(width: 12),
@@ -1446,14 +1472,16 @@ class _DashboardVariationsTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        if (participant.startingHoldings.isEmpty)
+        if (!hasSavedSnapshot) ...[
           const _StatusInfoCard(
-            title: 'Photo de départ en cours',
+            title: 'Photo de départ instantanée',
             subtitle:
-                'Le snapshot initial du portefeuille est encore en train d’être capturé. Recharge dans quelques instants pour afficher les variations ligne par ligne.',
+                'Le dashboard utilise provisoirement ta composition actuelle comme reference de depart. La sauvegarde Firestore se fera en arriere-plan, sans action de ta part.',
             tone: _CardTone.neutral,
-          )
-        else if (variations.isEmpty)
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (variations.isEmpty)
           const _StatusInfoCard(
             title: 'Aucune variation détaillée',
             subtitle:
@@ -2278,7 +2306,7 @@ class _SettledDuelSectionState extends State<_SettledDuelSection> {
           );
         }
         if (!snapshot.hasData) {
-          return const _DuelContentSkeleton();
+          return const _DuelDashboardLoader();
         }
         final payload = snapshot.data!;
         final own = payload.own;
@@ -3141,12 +3169,12 @@ class _OpponentPreview extends StatelessWidget {
 class _BlurredOpponentCard extends StatelessWidget {
   const _BlurredOpponentCard({
     required this.profile,
-    required this.teaserLine,
+    required this.detectedLine,
     required this.performanceTier,
   });
 
   final DuelProfile profile;
-  final Map<String, dynamic>? teaserLine;
+  final Map<String, dynamic>? detectedLine;
   final int performanceTier;
 
   static const String _radarSvg = '''
@@ -3172,7 +3200,7 @@ class _BlurredOpponentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final teaserLabel = _teaserLineLabel(teaserLine);
+    final teaserLabel = _teaserLineLabel(detectedLine);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -3390,7 +3418,11 @@ class _IntelDeck extends StatelessWidget {
       children: [
         _BlurredOpponentCard(
           profile: opponentProfile,
-          teaserLine: opponentParticipant.teaserLine,
+          detectedLine:
+              ownParticipant.hasUnlockedLine
+                  ? (ownParticipant.revealedLine ??
+                      opponentParticipant.teaserLine)
+                  : null,
           performanceTier: ownParticipant.performanceRevealTier,
         ),
         const SizedBox(height: 12),
@@ -3668,7 +3700,7 @@ String _performanceRevealLabel({required int tier, required double? value}) {
 
 String _teaserLineLabel(Map<String, dynamic>? teaserLine) {
   if (teaserLine == null) {
-    return 'Signal faible: la lecture adverse reste brouillée tant qu’aucun reveal n’a été acheté.';
+    return 'Lecture adverse brouillée: le nombre de lignes et la performance peuvent être affinés, mais seule la révélation de ligne débloque un actif précis.';
   }
 
   final displayName =
@@ -3678,16 +3710,9 @@ String _teaserLineLabel(Map<String, dynamic>? teaserLine) {
           .trim();
   final quoteType = (teaserLine['quoteType'] as String? ?? '').trim();
   final symbol = (teaserLine['symbol'] as String? ?? '').trim();
-  final maskedName =
-      displayName.length <= 3
-          ? displayName.toUpperCase()
-          : '${displayName.substring(0, 3).toUpperCase()}•••';
-  final maskedSymbol =
-      symbol.isEmpty
-          ? ''
-          : ' · ${symbol.characters.take(1).toString().toUpperCase()}••';
   final typeLabel = quoteType.isEmpty ? 'signal marché' : quoteType;
-  return 'Signal capté: $maskedName$maskedSymbol · $typeLabel';
+  final symbolLabel = symbol.isEmpty ? '' : ' · $symbol';
+  return '$displayName$symbolLabel · $typeLabel';
 }
 
 class _RewardPositionCard extends StatelessWidget {
@@ -4172,21 +4197,241 @@ class _DuelPageSkeleton extends StatelessWidget {
   }
 }
 
-class _DuelContentSkeleton extends StatelessWidget {
-  const _DuelContentSkeleton();
+class _DuelDashboardLoader extends StatefulWidget {
+  const _DuelDashboardLoader();
+
+  @override
+  State<_DuelDashboardLoader> createState() => _DuelDashboardLoaderState();
+}
+
+class _DuelDashboardLoaderState extends State<_DuelDashboardLoader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        _SkeletonBlock(height: 140),
-        SizedBox(height: 12),
-        _SkeletonBlock(height: 92),
-        SizedBox(height: 12),
-        _SkeletonBlock(height: 92),
-        SizedBox(height: 12),
-        _SkeletonBlock(height: 120),
-      ],
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        final orbitX = math.cos(_controller.value * math.pi * 2) * 26;
+        final orbitY = math.sin(_controller.value * math.pi * 2) * 14;
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFF7E7), Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFE6E8EB)),
+            boxShadow: [
+              BoxShadow(
+                color: detailsColor2.withValues(alpha: 0.08 + (0.03 * t)),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 142,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 116,
+                      height: 116,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          colors: [
+                            detailsColor1.withValues(alpha: 0.22 + (0.10 * t)),
+                            detailsColor2.withValues(
+                              alpha: 0.20 + (0.08 * (1 - t)),
+                            ),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: Offset(orbitX, orbitY),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: detailsColor1.withValues(alpha: 0.88),
+                          boxShadow: [
+                            BoxShadow(
+                              color: detailsColor1.withValues(alpha: 0.26),
+                              blurRadius: 16,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: Offset(-orbitX * 0.82, -orbitY * 1.15),
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: detailsColor2.withValues(alpha: 0.82),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 82,
+                      height: 82,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.94),
+                        border: Border.all(
+                          color: detailsColor1.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.sports_kabaddi_rounded,
+                        color: textColor,
+                        size: 34,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Text(
+                'Chargement du dashboard duel',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Analyse du portefeuille, calcul du score et synchronisation de l’adversaire.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black.withValues(alpha: 0.62),
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 18),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: 0.28 + (0.54 * t),
+                  minHeight: 9,
+                  backgroundColor: const Color(0xFFF0F1F5),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Color.lerp(detailsColor1, detailsColor2, t)!,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _LoaderChip(
+                      icon: Icons.candlestick_chart_rounded,
+                      label: 'Cotations',
+                      active: t > 0.2,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _LoaderChip(
+                      icon: Icons.account_balance_wallet_rounded,
+                      label: 'Portefeuille',
+                      active: t > 0.45,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _LoaderChip(
+                      icon: Icons.track_changes_rounded,
+                      label: 'Scoring',
+                      active: t > 0.7,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LoaderChip extends StatelessWidget {
+  const _LoaderChip({
+    required this.icon,
+    required this.label,
+    required this.active,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = active ? detailsColor2 : Colors.black26;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color:
+            active
+                ? detailsColor2.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color:
+              active
+                  ? detailsColor1.withValues(alpha: 0.18)
+                  : Colors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: tone, size: 18),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: active ? textColor : Colors.black45,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

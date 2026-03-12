@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:fintech/core/constants.dart';
 import '../models/chart_models.dart';
@@ -14,7 +15,7 @@ import '../services/yahoo_finance_service.dart';
 import '../utils/portfolio_dialogs.dart';
 import 'info_page.dart';
 import 'favorites_page.dart';
-import 'game_page.dart';
+import 'game_portfolio_dashboard_sheet.dart';
 
 /// Tableau de bord des portefeuilles – liste et fiche analytique animée.
 class PortfolioDashboardPage extends StatefulWidget {
@@ -707,17 +708,11 @@ class _PortfolioCard extends StatelessWidget {
     required this.summary,
     required this.onTap,
     this.onDelete,
-    this.backgroundColor,
-    this.iconBackgroundColor,
-    this.iconTextColor,
   });
 
   final _PortfolioSummary summary;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
-  final Color? backgroundColor;
-  final Color? iconBackgroundColor;
-  final Color? iconTextColor;
 
   @override
   Widget build(BuildContext context) {
@@ -742,7 +737,7 @@ class _PortfolioCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       child: Container(
         decoration: BoxDecoration(
-          color: backgroundColor ?? Colors.white,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: const Color(0xFFE6E8EB)),
           boxShadow: [
@@ -760,7 +755,7 @@ class _PortfolioCard extends StatelessWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: iconBackgroundColor ?? Colors.black,
+                color: Colors.black,
                 borderRadius: BorderRadius.circular(16),
               ),
               alignment: Alignment.center,
@@ -772,7 +767,7 @@ class _PortfolioCard extends StatelessWidget {
                     )
                     .toUpperCase(),
                 style: TextStyle(
-                  color: iconTextColor ?? Colors.white,
+                  color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.1,
@@ -846,55 +841,535 @@ typedef _OpenPositionCallback =
 typedef _DeletePositionCallback =
     Future<bool> Function(String positionId, String symbol);
 
-class _GamePortfolioShortcut extends StatelessWidget {
+class _GamePortfolioShortcut extends StatefulWidget {
   const _GamePortfolioShortcut({required this.uid});
+
   final String uid;
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream:
-          FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('games')
-              .doc('portofolio')
-              .collection('positions')
-              .snapshots(),
-      builder: (context, snapshot) {
-        final int count = snapshot.hasData ? snapshot.data!.docs.length : 0;
+  State<_GamePortfolioShortcut> createState() => _GamePortfolioShortcutState();
+}
 
-        // Création d'un résumé fictif pour réutiliser le composant _PortfolioCard
-        final summary = _PortfolioSummary(
-          id: 'game_portfolio',
-          ref: FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid), // Dummy ref
-          name: 'Portefeuille de Jeu',
-          positionsCount: count,
-          createdAt: null,
-          updatedAt: null, // On ne montre pas la date de maj pour simplifier
+class _GamePortfolioShortcutState extends State<_GamePortfolioShortcut>
+    with SingleTickerProviderStateMixin {
+  Future<_GamePortfolioShortcutMetrics>? _metricsFuture;
+  String? _metricsSignature;
+  late final AnimationController _motionController;
+
+  @override
+  void initState() {
+    super.initState();
+    _motionController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 8),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _motionController.dispose();
+    super.dispose();
+  }
+
+  Future<_GamePortfolioShortcutMetrics> _futureFor(
+    int coins,
+    List<_GamePortfolioShortcutPosition> positions,
+  ) {
+    final signature = StringBuffer()..write('coins=$coins|');
+    for (final position in positions) {
+      signature
+        ..write(position.symbol)
+        ..write(':')
+        ..write(position.quantity)
+        ..write(':')
+        ..write(position.averagePrice.toStringAsFixed(6))
+        ..write('|');
+    }
+    final key = signature.toString();
+    if (_metricsFuture != null && _metricsSignature == key) {
+      return _metricsFuture!;
+    }
+    _metricsSignature = key;
+    _metricsFuture = _loadMetrics(coins, positions);
+    return _metricsFuture!;
+  }
+
+  Future<_GamePortfolioShortcutMetrics> _loadMetrics(
+    int coins,
+    List<_GamePortfolioShortcutPosition> positions,
+  ) async {
+    if (positions.isEmpty) {
+      return _GamePortfolioShortcutMetrics(
+        reserveCoins: coins.toDouble(),
+        linesCount: 0,
+        investedCapital: 0,
+        latentPnlValue: 0,
+        latentPnlPercent: 0,
+        fallbackCount: 0,
+      );
+    }
+
+    final quotes = <String, QuoteDetail?>{};
+    final quoteTasks = positions.map((position) async {
+      try {
+        quotes[position.symbol] = await YahooFinanceService.fetchQuote(
+          position.symbol,
         );
+      } catch (_) {
+        quotes[position.symbol] = null;
+      }
+    });
+    await Future.wait(quoteTasks);
 
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _PortfolioCard(
-            summary: summary,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MarketSimulationPage()),
+    var investedCapital = 0.0;
+    var currentValue = 0.0;
+    var fallbackCount = 0;
+    for (final position in positions) {
+      final quote = quotes[position.symbol];
+      final marketPrice = quote?.regularMarketPrice;
+      final fallbackPrice =
+          position.averagePrice > 0 ? position.averagePrice : 0;
+      final currentPrice = marketPrice ?? fallbackPrice;
+      if (marketPrice == null && fallbackPrice > 0) fallbackCount += 1;
+      investedCapital += position.averagePrice * position.quantity;
+      currentValue += currentPrice * position.quantity;
+    }
+
+    final latentPnlValue = currentValue - investedCapital;
+    final latentPnlPercent =
+        investedCapital <= 0 ? 0.0 : (latentPnlValue / investedCapital) * 100;
+
+    return _GamePortfolioShortcutMetrics(
+      reserveCoins: coins.toDouble(),
+      linesCount: positions.length,
+      investedCapital: investedCapital,
+      latentPnlValue: latentPnlValue,
+      latentPnlPercent: latentPnlPercent,
+      fallbackCount: fallbackCount,
+    );
+  }
+
+  Future<void> _openSheet() async {
+    await showCupertinoModalBottomSheet(
+      context: context,
+      expand: true,
+      builder: (_) => GamePortfolioDashboardSheet(uid: widget.uid),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(widget.uid);
+    final positionsStream =
+        userRef
+            .collection('games')
+            .doc('portofolio')
+            .collection('positions')
+            .snapshots();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: userRef.snapshots(),
+        builder: (context, userSnapshot) {
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: positionsStream,
+            builder: (context, positionsSnapshot) {
+              if (userSnapshot.hasError || positionsSnapshot.hasError) {
+                return _buildCard(
+                  subtitle:
+                      'Le tableau de pilotage est momentanément indisponible.',
+                  badge: 'Erreur',
+                  kpis: const [
+                    _ShortcutChipData(label: 'Etat', value: 'Indisponible'),
+                    _ShortcutChipData(label: 'Accès', value: 'Réessaye'),
+                  ],
+                );
+              }
+
+              final waiting =
+                  !userSnapshot.hasData || !positionsSnapshot.hasData;
+              if (waiting) {
+                return _buildCard(
+                  subtitle: 'Chargement du portefeuille de jeu...',
+                  badge: 'Live',
+                  kpis: const [
+                    _ShortcutChipData(label: 'Réserve', value: '...'),
+                    _ShortcutChipData(label: 'Lignes', value: '...'),
+                    _ShortcutChipData(label: 'Perf', value: '...'),
+                  ],
+                );
+              }
+
+              final coins =
+                  (userSnapshot.data?.data()?['coins'] as num?)?.toInt() ?? 0;
+              final positions =
+                  (positionsSnapshot.data?.docs ?? const [])
+                      .map(_GamePortfolioShortcutPosition.fromDoc)
+                      .where((position) => position.symbol.isNotEmpty)
+                      .toList();
+
+              return FutureBuilder<_GamePortfolioShortcutMetrics>(
+                future: _futureFor(coins, positions),
+                builder: (context, metricsSnapshot) {
+                  final metrics =
+                      metricsSnapshot.data ??
+                      _GamePortfolioShortcutMetrics(
+                        reserveCoins: coins.toDouble(),
+                        linesCount: positions.length,
+                        investedCapital: 0,
+                        latentPnlValue: 0,
+                        latentPnlPercent: 0,
+                        fallbackCount: 0,
+                      );
+
+                  final hasLines = metrics.linesCount > 0;
+                  final perfLabel =
+                      hasLines
+                          ? _formatSignedPercent(metrics.latentPnlPercent)
+                          : 'Prêt';
+                  final fallbackText =
+                      metrics.fallbackCount > 0
+                          ? ' • ${metrics.fallbackCount} ligne(s) en secours PRU'
+                          : '';
+
+                  return _buildCard(
+                    subtitle:
+                        hasLines
+                            ? 'Pilote ta réserve, ta performance et tes lignes sans quitter le dashboard$fallbackText.'
+                            : 'Lance ton portefeuille de jeu, ajoute des lignes et suis-le dans un vrai tableau de bord.',
+                    badge: hasLines ? 'Actif' : 'Sandbox',
+                    kpis: [
+                      _ShortcutChipData(
+                        label: 'Réserve',
+                        value: _formatGameAmount(metrics.reserveCoins),
+                      ),
+                      _ShortcutChipData(
+                        label: 'Lignes',
+                        value: '${metrics.linesCount}',
+                      ),
+                      _ShortcutChipData(label: 'Perf', value: perfLabel),
+                    ],
+                    footer:
+                        hasLines
+                            ? 'Capital investi ${_formatGameAmount(metrics.investedCapital)}'
+                            : 'Ajoute une première ligne pour démarrer',
+                  );
+                },
               );
             },
-            backgroundColor: Colors.indigo.shade50,
-            iconBackgroundColor: Colors.indigo,
-            iconTextColor: Colors.white,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required String subtitle,
+    required String badge,
+    required List<_ShortcutChipData> kpis,
+    String? footer,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(30),
+        onTap: _openSheet,
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFF4CE), Color(0xFFFFFBF3)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: const Color(0xFFE9D49B)),
+            boxShadow: [
+              BoxShadow(
+                color: detailsColor1.withOpacity(0.12),
+                blurRadius: 22,
+                offset: const Offset(0, 14),
+              ),
+            ],
           ),
-        );
-      },
+          child: Stack(
+            children: [
+              Positioned(
+                right: -6,
+                top: -8,
+                child: AnimatedBuilder(
+                  animation: _motionController,
+                  builder: (context, child) {
+                    final dx =
+                        math.sin(_motionController.value * math.pi * 2) * 8;
+                    final dy =
+                        math.cos(_motionController.value * math.pi * 2) * 6;
+                    return Transform.translate(
+                      offset: Offset(dx, dy),
+                      child: child,
+                    );
+                  },
+                  child: SizedBox(
+                    width: 126,
+                    height: 126,
+                    child: SvgPicture.string(_gamePortfolioShortcutSvg),
+                  ),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.76),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.stacked_line_chart_rounded,
+                              size: 15,
+                              color: detailsColor2,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Portefeuille de jeu',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: textColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: detailsColor2.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          badge,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: detailsColor2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Portefeuille de jeu',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: 245,
+                    child: Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children:
+                        kpis
+                            .map(
+                              (chip) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.82),
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: detailsColor1.withOpacity(0.14),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      chip.label,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      chip.value,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          footer ?? 'Ouvrir le tableau de pilotage',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: detailsColor2,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Ouvrir',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            SizedBox(width: 6),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
+
+class _GamePortfolioShortcutMetrics {
+  const _GamePortfolioShortcutMetrics({
+    required this.reserveCoins,
+    required this.linesCount,
+    required this.investedCapital,
+    required this.latentPnlValue,
+    required this.latentPnlPercent,
+    required this.fallbackCount,
+  });
+
+  final double reserveCoins;
+  final int linesCount;
+  final double investedCapital;
+  final double latentPnlValue;
+  final double latentPnlPercent;
+  final int fallbackCount;
+}
+
+class _GamePortfolioShortcutPosition {
+  const _GamePortfolioShortcutPosition({
+    required this.symbol,
+    required this.quantity,
+    required this.averagePrice,
+  });
+
+  final String symbol;
+  final int quantity;
+  final double averagePrice;
+
+  factory _GamePortfolioShortcutPosition.fromDoc(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final data = doc.data();
+    return _GamePortfolioShortcutPosition(
+      symbol: (data['symbol'] as String? ?? doc.id).trim().toUpperCase(),
+      quantity: (data['quantity'] as num?)?.toInt() ?? 0,
+      averagePrice: (data['averagePrice'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
+class _ShortcutChipData {
+  const _ShortcutChipData({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+String _formatGameAmount(double value) {
+  final absolute = value.abs();
+  final prefix = value < 0 ? '-' : '';
+  if (absolute >= 1000000) {
+    return '$prefix${(absolute / 1000000).toStringAsFixed(2)} M';
+  }
+  if (absolute >= 1000) {
+    return '$prefix${(absolute / 1000).toStringAsFixed(1)} k';
+  }
+  return '$prefix${absolute.toStringAsFixed(0)}';
+}
+
+const String _gamePortfolioShortcutSvg = '''
+<svg viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="shortcutGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3D06C"/>
+      <stop offset="100%" stop-color="#9A5D44"/>
+    </linearGradient>
+  </defs>
+  <circle cx="88" cy="68" r="48" fill="#FFF5D6"/>
+  <path d="M30 104 C48 88, 64 80, 84 84 C104 88, 118 108, 136 100" fill="none" stroke="url(#shortcutGold)" stroke-width="7" stroke-linecap="round"/>
+  <rect x="42" y="76" width="16" height="34" rx="8" fill="#E4B84F"/>
+  <rect x="70" y="62" width="16" height="48" rx="8" fill="#C98746"/>
+  <rect x="98" y="48" width="16" height="62" rx="8" fill="#8D4F39"/>
+</svg>
+''';
 
 class _PortfolioDetailSheet extends StatefulWidget {
   const _PortfolioDetailSheet({required this.summary});
