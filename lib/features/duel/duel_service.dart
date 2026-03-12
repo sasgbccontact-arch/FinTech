@@ -799,11 +799,16 @@ class DuelService {
       (total, holding) => total + holding.marketValue,
     );
     final totalCapital = holdingsValue + reserveCoins;
-    final baseline =
+    final totalCapitalBaseline =
         participant.startingTotalCapital <= 0
             ? math.max(totalCapital, 1)
             : participant.startingTotalCapital;
-    final pureReturnPct = ((totalCapital - baseline) / baseline) * 100;
+    final engagedCapitalBaseline =
+        participant.startingHoldingsValue > 0
+            ? participant.startingHoldingsValue
+            : totalCapitalBaseline;
+    final pnl = totalCapital - totalCapitalBaseline;
+    final pureReturnPct = (pnl / math.max(engagedCapitalBaseline, 1)) * 100;
     final structureBonus = _structureBonus(holdings, holdingsValue);
     final concentrationPenalty = _concentrationPenalty(holdings, holdingsValue);
     final score = pureReturnPct + structureBonus - concentrationPenalty;
@@ -1549,13 +1554,12 @@ class DuelService {
   }
 
   static double _matchScore(DuelProfile initiator, DuelProfile target) {
-    return 0.45 *
+    return 0.85 *
             _relativeDiff(
               initiator.holdingsValueEstimate,
               target.holdingsValueEstimate,
             ) +
-        0.45 * _relativeDiff(initiator.reserveCoins, target.reserveCoins) +
-        0.10 *
+        0.15 *
             _relativeDiff(initiator.level.toDouble(), target.level.toDouble());
   }
 

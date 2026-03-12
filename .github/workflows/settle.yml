@@ -3,7 +3,17 @@ name: Process Weekly Duels
 on:
   schedule:
     - cron: "*/10 * * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      duel_id:
+        description: "ID du duel à traiter manuellement"
+        required: false
+        type: string
+      force_end:
+        description: "Forcer la fin immédiate du duel ciblé"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   process:
@@ -24,4 +34,15 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-        run: npm run settle
+          MANUAL_DUEL_ID: ${{ inputs.duel_id }}
+          MANUAL_FORCE_END: ${{ inputs.force_end }}
+        run: |
+          if [ -n "$MANUAL_DUEL_ID" ]; then
+            if [ "$MANUAL_FORCE_END" = "true" ]; then
+              node scripts/process_duels.js --duel-id "$MANUAL_DUEL_ID" --force-end
+            else
+              node scripts/process_duels.js --duel-id "$MANUAL_DUEL_ID"
+            fi
+          else
+            npm run settle
+          fi

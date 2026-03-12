@@ -35,6 +35,33 @@ const FieldValue = admin.firestore.FieldValue;
 const quoteCache = new Map();
 const minEligibleHoldingsValue = 10000;
 const capitalTimelineSampleWindowMs = 6 * 60 * 60 * 1000;
+const cliOptions = parseArgs(process.argv.slice(2));
+
+function parseArgs(args) {
+  const options = {
+    duelId: null,
+    forceEnd: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = String(args[index] || '').trim();
+    if (!arg) continue;
+    if (arg === '--force-end') {
+      options.forceEnd = true;
+      continue;
+    }
+    if (arg === '--duel-id' && args[index + 1]) {
+      options.duelId = String(args[index + 1]).trim();
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--duel-id=')) {
+      options.duelId = arg.slice('--duel-id='.length).trim();
+    }
+  }
+
+  return options;
+}
 
 function asNumber(value, fallback = 0) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
@@ -131,11 +158,8 @@ function deterministicIndex(seed, size) {
   return hash % size;
 }
 
-async function fetchQuote(symbol) {
-  const cached = quoteCache.get(symbol);
-  if (cached) return cached;
-
-  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+async function fetchQuoteFromEndpoint(symbol, endpoint) {
+  const url = `https://${endpoint}.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
   const response = await fetch(url, {
     headers: {
       Accept: 'application/json',
@@ -143,23 +167,97 @@ async function fetchQuote(symbol) {
     },
   });
   if (!response.ok) {
-    throw new Error(`Yahoo ${symbol} -> HTTP ${response.status}`);
+    throw new Error(`Yahoo ${symbol} ${endpoint} -> HTTP ${response.status}`);
   }
   const json = await response.json();
   const result = json?.quoteResponse?.result?.[0];
   if (!result) {
-    throw new Error(`Quote introuvable pour ${symbol}`);
+    throw new Error(`Quote introuvable pour ${symbol} via ${endpoint}`);
   }
-
-  const quote = {
+  return {
     marketPrice: asNumber(result.regularMarketPrice, 0),
     displayName: String(result.longName || result.shortName || symbol),
     exchange: String(result.fullExchangeName || result.exchange || ''),
     currency: String(result.currency || ''),
     quoteType: String(result.quoteType || 'UNKNOWN'),
+    source: endpoint,
   };
-  quoteCache.set(symbol, quote);
-  return quote;
+}
+
+async function fetchChartPriceFromEndpoint(symbol, endpoint) {
+  const url =
+    `https://${endpoint}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
+    '?range=1mo&interval=1d&includePrePost=false&events=div%2Csplits';
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'Mozilla/5.0 (compatible; fintech-duel-worker/1.0)',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Yahoo chart ${symbol} ${endpoint} -> HTTP ${response.status}`);
+  }
+
+  const json = await response.json();
+  const result = json?.chart?.result?.[0];
+  const meta = result?.meta || {};
+  const closes = result?.indicators?.quote?.[0]?.close;
+  const lastClose = Array.isArray(closes)
+    ? [...closes].reverse().find((value) => typeof value === 'number' && Number.isFinite(value))
+    : 0;
+  const regularMarketPrice = asNumber(meta.regularMarketPrice, 0);
+  const marketState = String(meta.marketState || '').toUpperCase();
+
+  const marketPrice =
+    (['REGULAR', 'PRE', 'POST', 'PREPRE', 'POSTPOST'].includes(marketState) &&
+      regularMarketPrice > 0)
+      ? regularMarketPrice
+      : asNumber(lastClose, regularMarketPrice);
+
+  if (!marketPrice || marketPrice <= 0) {
+    throw new Error(`Derniere cloture introuvable pour ${symbol} via ${endpoint}`);
+  }
+
+  return {
+    marketPrice,
+    displayName: String(meta.longName || meta.shortName || symbol),
+    exchange: String(meta.exchangeName || ''),
+    currency: String(meta.currency || ''),
+    quoteType: String(meta.instrumentType || 'UNKNOWN'),
+    source:
+      ['REGULAR', 'PRE', 'POST', 'PREPRE', 'POSTPOST'].includes(marketState) &&
+              regularMarketPrice > 0
+          ? `${endpoint}_chart_regularMarketPrice`
+          : `${endpoint}_chart_lastClose`,
+  };
+}
+
+async function fetchQuote(symbol) {
+  const cached = quoteCache.get(symbol);
+  if (cached) return cached;
+
+  let lastError = null;
+  for (const endpoint of ['query1', 'query2']) {
+    try {
+      const quote = await fetchQuoteFromEndpoint(symbol, endpoint);
+      quoteCache.set(symbol, quote);
+      return quote;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  for (const endpoint of ['query1', 'query2']) {
+    try {
+      const quote = await fetchChartPriceFromEndpoint(symbol, endpoint);
+      quoteCache.set(symbol, quote);
+      return quote;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error(`Quote introuvable pour ${symbol}`);
 }
 
 async function loadPortfolio(uid) {
@@ -181,13 +279,28 @@ async function loadPortfolio(uid) {
       quote = await fetchQuote(symbol);
     } catch (error) {
       console.warn(`[duels] Quote indisponible pour ${symbol}:`, error.message);
+      const storedRegularMarketPrice = asNumber(data.regularMarketPrice, 0);
+      const storedMarketPrice = asNumber(data.marketPrice, 0);
+      const averagePrice = asNumber(data.averagePrice, 0);
+      const fallbackPrice =
+        storedRegularMarketPrice || storedMarketPrice || averagePrice;
+      const fallbackSource =
+        storedRegularMarketPrice > 0
+          ? 'stored_regularMarketPrice'
+          : storedMarketPrice > 0
+            ? 'stored_marketPrice'
+            : 'averagePrice';
       quote = {
-        marketPrice: asNumber(data.regularMarketPrice, asNumber(data.averagePrice, 0)),
+        marketPrice: fallbackPrice,
         displayName: String(data.displayName || symbol),
         exchange: String(data.exchange || ''),
         currency: String(data.currency || ''),
         quoteType: String(data.quoteType || 'UNKNOWN'),
+        source: fallbackSource,
       };
+      console.warn(
+        `[duels] Fallback prix ${symbol}: source=${fallbackSource} valeur=${fallbackPrice.toFixed(4)}`,
+      );
     }
 
     const averagePrice = asNumber(data.averagePrice, 0);
@@ -202,6 +315,7 @@ async function loadPortfolio(uid) {
       exchange: quote.exchange || '',
       currency: quote.currency || '',
       quoteType: quote.quoteType || 'UNKNOWN',
+      priceSource: quote.source || 'unknown',
       raw: data,
     });
   }
@@ -217,9 +331,13 @@ async function loadPortfolio(uid) {
   };
 }
 
-function computeMetrics(portfolio, startingTotalCapital) {
-  const baseline = startingTotalCapital > 0 ? startingTotalCapital : Math.max(portfolio.totalCapital, 1);
-  const returnPct = ((portfolio.totalCapital - baseline) / baseline) * 100;
+function computeMetrics(portfolio, {startingTotalCapital, startingHoldingsValue}) {
+  const totalCapitalBaseline =
+    startingTotalCapital > 0 ? startingTotalCapital : Math.max(portfolio.totalCapital, 1);
+  const engagedCapitalBaseline =
+    startingHoldingsValue > 0 ? startingHoldingsValue : totalCapitalBaseline;
+  const pnl = portfolio.totalCapital - totalCapitalBaseline;
+  const returnPct = (pnl / Math.max(engagedCapitalBaseline, 1)) * 100;
   const bonus = structureBonus(portfolio.holdings, portfolio.holdingsValue);
   const penalty = concentrationPenalty(portfolio.holdings, portfolio.holdingsValue);
   return {
@@ -510,65 +628,73 @@ async function refreshActiveDuelSnapshots() {
     .get();
 
   for (const doc of snap.docs) {
-    const duel = doc.data();
-    const participantIds = Array.isArray(duel.participants) ? duel.participants : [];
-    if (participantIds.length !== 2) continue;
-
-    const participantRefs = participantIds.map((uid) => doc.ref.collection('participants').doc(uid));
-    const participantSnaps = await Promise.all(participantRefs.map((ref) => ref.get()));
-    const participantStates = Object.fromEntries(
-      participantSnaps.map((snapItem, index) => [participantIds[index], snapItem.data() || {}]),
-    );
-    const portfolios = await Promise.all(participantIds.map((uid) => loadPortfolio(uid)));
-    const portfolioByUid = Object.fromEntries(portfolios.map((portfolio) => [portfolio.uid, portfolio]));
-    const now = new Date();
-
-    await db.runTransaction(async (transaction) => {
-      const freshDuel = await transaction.get(doc.ref);
-      if (!freshDuel.exists || freshDuel.data()?.status !== 'active') {
-        return;
-      }
-
-      for (const uid of participantIds) {
-        const state = participantStates[uid] || {};
-        const portfolio = portfolioByUid[uid];
-        const metrics = computeMetrics(portfolio, asNumber(state.startingTotalCapital, 0));
-        const highConcentrationDays = updateHighConcentrationDays(state.highConcentrationDays, {
-          now,
-          maxPositionWeight: metrics.maxPositionWeight,
-        });
-        const persistentPenalty = persistentConcentrationPenaltyFromDays(
-          highConcentrationDays.length,
-        );
-        const adjustedScore =
-          metrics.pureReturnPct +
-          metrics.structureBonus -
-          metrics.concentrationPenalty -
-          persistentPenalty;
-        const capitalTimeline = appendCapitalTimeline(state.capitalTimeline, {
-          now,
-          totalCapital: portfolio.totalCapital,
-          score: adjustedScore,
-          returnPct: metrics.returnPct,
-        });
-        const teaserHolding = pickTransferredHolding(portfolio.holdings, `${doc.id}:${uid}`);
-
-        transaction.set(doc.ref.collection('participants').doc(uid), {
-          currentReturnPctCache: metrics.returnPct,
-          currentScoreCache: adjustedScore,
-          currentHoldingsValueCache: portfolio.holdingsValue,
-          currentReserveCoinsCache: portfolio.reserveCoins,
-          currentTotalCapitalCache: portfolio.totalCapital,
-          currentPositionsCountCache: portfolio.positionsCount,
-          currentUpdatedAt: FieldValue.serverTimestamp(),
-          teaserLine: teaserHolding || null,
-          persistentConcentrationPenalty: persistentPenalty,
-          highConcentrationDays,
-          capitalTimeline,
-        }, {merge: true});
-      }
-    });
+    await refreshSingleActiveDuelSnapshot(doc);
   }
+}
+
+async function refreshSingleActiveDuelSnapshot(doc) {
+  const duel = doc.data();
+  const participantIds = Array.isArray(duel.participants) ? duel.participants : [];
+  if (participantIds.length !== 2) return;
+
+  const participantRefs = participantIds.map((uid) => doc.ref.collection('participants').doc(uid));
+  const participantSnaps = await Promise.all(participantRefs.map((ref) => ref.get()));
+  const participantStates = Object.fromEntries(
+    participantSnaps.map((snapItem, index) => [participantIds[index], snapItem.data() || {}]),
+  );
+  const portfolios = await Promise.all(participantIds.map((uid) => loadPortfolio(uid)));
+  const portfolioByUid = Object.fromEntries(portfolios.map((portfolio) => [portfolio.uid, portfolio]));
+  const now = new Date();
+
+  await db.runTransaction(async (transaction) => {
+    const freshDuel = await transaction.get(doc.ref);
+    if (!freshDuel.exists || freshDuel.data()?.status !== 'active') {
+      return;
+    }
+
+    const duel = doc.data();
+    for (const uid of participantIds) {
+      const state = participantStates[uid] || {};
+      const portfolio = portfolioByUid[uid];
+      const metrics = computeMetrics(portfolio, {
+        startingTotalCapital: asNumber(state.startingTotalCapital, 0),
+        startingHoldingsValue: asNumber(state.startingHoldingsValue, 0),
+      });
+      const highConcentrationDays = updateHighConcentrationDays(state.highConcentrationDays, {
+        now,
+        maxPositionWeight: metrics.maxPositionWeight,
+      });
+      const persistentPenalty = persistentConcentrationPenaltyFromDays(
+        highConcentrationDays.length,
+      );
+      const adjustedScore =
+        metrics.pureReturnPct +
+        metrics.structureBonus -
+        metrics.concentrationPenalty -
+        persistentPenalty;
+      const capitalTimeline = appendCapitalTimeline(state.capitalTimeline, {
+        now,
+        totalCapital: portfolio.totalCapital,
+        score: adjustedScore,
+        returnPct: metrics.returnPct,
+      });
+      const teaserHolding = pickTransferredHolding(portfolio.holdings, `${doc.id}:${uid}`);
+
+      transaction.set(doc.ref.collection('participants').doc(uid), {
+        currentReturnPctCache: metrics.returnPct,
+        currentScoreCache: adjustedScore,
+        currentHoldingsValueCache: portfolio.holdingsValue,
+        currentReserveCoinsCache: portfolio.reserveCoins,
+        currentTotalCapitalCache: portfolio.totalCapital,
+        currentPositionsCountCache: portfolio.positionsCount,
+        currentUpdatedAt: FieldValue.serverTimestamp(),
+        teaserLine: teaserHolding || null,
+        persistentConcentrationPenalty: persistentPenalty,
+        highConcentrationDays,
+        capitalTimeline,
+      }, {merge: true});
+    }
+  });
 }
 
 async function settleDuel(doc) {
@@ -590,8 +716,10 @@ async function settleDuel(doc) {
 
   const resultByUid = Object.fromEntries(
     participantIds.map((uid) => {
-      const baseline = asNumber(participantStates[uid]?.startingTotalCapital, 0);
-      const metrics = computeMetrics(portfolioByUid[uid], baseline);
+      const metrics = computeMetrics(portfolioByUid[uid], {
+        startingTotalCapital: asNumber(participantStates[uid]?.startingTotalCapital, 0),
+        startingHoldingsValue: asNumber(participantStates[uid]?.startingHoldingsValue, 0),
+      });
       const highConcentrationDays = updateHighConcentrationDays(
         participantStates[uid]?.highConcentrationDays,
         {
@@ -764,6 +892,15 @@ async function settleDuel(doc) {
     notifiedAfterSettlement = !freshDuel.data()?.resultNotifiedAt;
   });
 
+  for (const uid of participantIds) {
+    const state = participantStates[uid] || {};
+    const metrics = resultByUid[uid];
+    const portfolio = portfolioByUid[uid];
+    console.log(
+      `[duels] Score ${doc.id} uid=${uid} startHoldings=${asNumber(state.startingHoldingsValue, 0).toFixed(2)} startTotal=${asNumber(state.startingTotalCapital, 0).toFixed(2)} currentHoldings=${portfolio.holdingsValue.toFixed(2)} currentTotal=${portfolio.totalCapital.toFixed(2)} returnPct=${metrics.returnPct.toFixed(4)} bonus=${metrics.structureBonus.toFixed(2)} concentration=${metrics.concentrationPenalty.toFixed(2)} persistent=${metrics.persistentConcentrationPenalty.toFixed(2)} finalScore=${metrics.finalScore.toFixed(4)}`,
+    );
+  }
+
   if (notifiedAfterSettlement) {
     await notifySettledDuel(doc.id, {
       winnerUid,
@@ -837,8 +974,61 @@ async function processActiveDuels() {
   }
 }
 
+async function processSpecificDuel(duelId, {forceEnd = false} = {}) {
+  const duelRef = db.collection('duels').doc(duelId);
+  let duelSnap = await duelRef.get();
+  if (!duelSnap.exists) {
+    throw new Error(`Duel introuvable: ${duelId}`);
+  }
+
+  if (forceEnd) {
+    const forcedEndAt = new Date(Date.now() - 1000);
+    await duelRef.set({
+      endsAt: admin.firestore.Timestamp.fromDate(forcedEndAt),
+    }, {merge: true});
+    console.log(`[duels] Duel ${duelId} forcé en fin de défi à ${forcedEndAt.toISOString()}`);
+    duelSnap = await duelRef.get();
+  }
+
+  const duel = duelSnap.data() || {};
+  if (duel.status === 'active') {
+    await refreshSingleActiveDuelSnapshot(duelSnap);
+    duelSnap = await duelRef.get();
+    const refreshedDuel = duelSnap.data() || {};
+    const endsAt = asTimestampDate(refreshedDuel.endsAt);
+    if (!forceEnd && endsAt && endsAt > new Date()) {
+      console.log(
+        `[duels] Duel ${duelId} toujours actif jusqu’au ${endsAt.toISOString()}. Utilise --force-end pour le régler immédiatement.`,
+      );
+      return;
+    }
+    await settleDuel(duelSnap);
+    return;
+  }
+
+  if ((duel.status === 'settled' || duel.status === 'reward_revealed') && duel.winnerUid && duel.loserUid) {
+    if (!duel.resultNotifiedAt) {
+      await notifySettledDuel(duelId, {
+        winnerUid: duel.winnerUid,
+        loserUid: duel.loserUid,
+      });
+    }
+    console.log(`[duels] Duel ${duelId} déjà ${duel.status}.`);
+    return;
+  }
+
+  console.log(`[duels] Duel ${duelId} dans l’état ${String(duel.status || 'inconnu')}, aucun règlement lancé.`);
+}
+
 async function main() {
   console.log('[duels] Début du worker duel');
+  if (cliOptions.duelId) {
+    await processSpecificDuel(cliOptions.duelId, {
+      forceEnd: cliOptions.forceEnd,
+    });
+    console.log('[duels] Worker duel terminé (mode ciblé)');
+    return;
+  }
   await processPendingRequests();
   await processRefusedRequests();
   await processConvertedRequests();

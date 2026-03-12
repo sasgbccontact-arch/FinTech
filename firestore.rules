@@ -17,6 +17,18 @@ service cloud.firestore {
       return text is string && text.size() > 0 && text.size() <= 2000;
     }
 
+    function isOptionalList(value, maxSize) {
+      return value == null || (value is list && value.size() <= maxSize);
+    }
+
+    function isOptionalNumber(value) {
+      return value == null || value is int || value is float;
+    }
+
+    function isOptionalTimestamp(value) {
+      return value == null || value is timestamp;
+    }
+
     function isDuelProfileState(state) {
       return state in ['idle', 'pending_sent', 'pending_received', 'active_duel'];
     }
@@ -431,17 +443,13 @@ service cloud.firestore {
               )
             )
           )
-          && request.resource.data.capitalTimeline is list
-          && request.resource.data.capitalTimeline.size() <= 32
-          && request.resource.data.highConcentrationDays is list
-          && request.resource.data.highConcentrationDays.size() <= 14
-          && request.resource.data.persistentConcentrationPenalty is number
-          && request.resource.data.intelPurchaseDays is list
-          && request.resource.data.intelPurchaseDays.size() <= 14
+          && isOptionalList(request.resource.data.capitalTimeline, 32)
+          && isOptionalList(request.resource.data.highConcentrationDays, 14)
+          && isOptionalNumber(request.resource.data.persistentConcentrationPenalty)
+          && isOptionalList(request.resource.data.intelPurchaseDays, 14)
           && (
             request.resource.data.lastIntelPurchaseAt == resource.data.lastIntelPurchaseAt
-            || request.resource.data.lastIntelPurchaseAt == null
-            || request.resource.data.lastIntelPurchaseAt is timestamp
+            || isOptionalTimestamp(request.resource.data.lastIntelPurchaseAt)
           )
           && request.resource.data.finalReturnPct == resource.data.finalReturnPct
           && request.resource.data.finalScore == resource.data.finalScore

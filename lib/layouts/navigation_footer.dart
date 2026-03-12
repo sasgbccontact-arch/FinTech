@@ -267,7 +267,7 @@ class _AnimatedBar extends StatelessWidget {
   ];
 
   static const List<String> _labels = [
-    'Home.',
+    'Home',
     'Dashboard',
     'Apprendre',
     'Game',

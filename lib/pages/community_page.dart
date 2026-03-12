@@ -1382,10 +1382,6 @@ class _DashboardVariationsTab extends StatelessWidget {
     final participant = payload.participant;
     final metrics = payload.metrics;
     final totalDelta = metrics.totalCapital - participant.startingTotalCapital;
-    final totalDeltaPct =
-        participant.startingTotalCapital <= 0
-            ? 0.0
-            : (totalDelta / participant.startingTotalCapital) * 100;
     final variations = _buildHoldingVariations(
       starting: participant.startingHoldings,
       current: metrics.holdings,
@@ -1416,7 +1412,7 @@ class _DashboardVariationsTab extends StatelessWidget {
                 label: 'Capital actuel',
                 value: _formatCoins(metrics.totalCapital),
                 caption:
-                    '${_formatSignedDelta(totalDelta, suffix: ' coins')} · ${_formatSignedDelta(totalDeltaPct, suffix: '%', digits: 2)}',
+                    '${_formatSignedDelta(totalDelta, suffix: ' coins')} · perf duel ${_formatSignedDelta(metrics.returnPct, suffix: '%', digits: 2)}',
               ),
             ),
           ],
@@ -2227,6 +2223,19 @@ class _SettledDuelSectionState extends State<_SettledDuelSection> {
       if (mounted) {
         setState(() => _phase = 3);
       }
+    } catch (error) {
+      print(
+        '[DuelUI] claim reward error duelId=${widget.duel.id} uid=${widget.uid} error=$error',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Impossible de recuperer la recompense pour le moment. '
+            'Si tu viens de publier les nouvelles regles Firestore, ferme puis rouvre cet ecran.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() => _claiming = false);
@@ -3044,7 +3053,7 @@ class _MatchmakingLaunchCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   enabled
-                      ? 'Recherche un adversaire au profil de portefeuille proche du tien.'
+                      ? 'Recherche un adversaire surtout sur la valeur de portefeuille de jeu, puis affine avec le niveau.'
                       : 'Le matchmaking se débloque dès que ton portefeuille de jeu vaut au moins 10k coins avec 1 ligne minimum.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
