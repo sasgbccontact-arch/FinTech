@@ -20,6 +20,7 @@ class DuelService {
   DuelService._();
 
   static const double minEligibleHoldingsValue = 10000;
+  static const double closeMatchThreshold = 0.38;
   static const Duration responseWindow = Duration(days: 2);
   static const Duration duelDuration = Duration(days: 7);
   static const Duration activeProfileWindow = Duration(days: 14);
@@ -28,6 +29,11 @@ class DuelService {
   static const int lineRevealCost = 1400;
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final math.Random _random = math.Random();
+
+  static void _log(String message) {
+    debugPrint('[Duel] $message');
+  }
 
   static CollectionReference<Map<String, dynamic>> _positionsRef(String uid) {
     return _firestore
@@ -78,6 +84,9 @@ class DuelService {
     if (currentUid == null) {
       throw DuelException('Utilisateur non connecté.');
     }
+    _log(
+      'syncCurrentUserProfile: uid=$currentUid bumpActivity=$bumpActivity start',
+    );
 
     final now = DateTime.now();
     final userRef = _firestore.collection('users').doc(currentUid);
@@ -127,6 +136,9 @@ class DuelService {
     }, SetOptions(merge: true));
 
     final refreshed = await duelProfileRef(currentUid).get();
+    _log(
+      'syncCurrentUserProfile: uid=$currentUid state=$nextState eligible=$eligible holdings=$holdingsValue positions=$positionsCount reserve=$reserveCoins',
+    );
     return DuelProfile.fromDoc(refreshed, fallbackUid: currentUid);
   }
 
@@ -134,6 +146,7 @@ class DuelService {
     String uid, {
     bool updatePositionDocs = false,
   }) async {
+    _log('fetchGameHoldings: uid=$uid updatePositionDocs=$updatePositionDocs');
     final positionsSnap = await _positionsRef(uid).get();
     if (positionsSnap.docs.isEmpty) return const <DuelHolding>[];
 
@@ -201,6 +214,7 @@ class DuelService {
     if (batch != null) {
       await batch.commit();
     }
+    _log('fetchGameHoldings: uid=$uid holdings=${holdings.length}');
     return holdings;
   }
 
@@ -209,9 +223,13 @@ class DuelService {
     if (uid == null) {
       throw DuelException('Utilisateur non connecté.');
     }
+    _log('startMatchmaking: uid=$uid');
 
     final profile = await syncCurrentUserProfile(uid: uid, bumpActivity: true);
     if (!profile.eligible) {
+      _log(
+        'startMatchmaking: profil non eligible uid=$uid holdings=${profile.holdingsValueEstimate} positions=${profile.positionsCount} state=${profile.state}',
+      );
       throw DuelException(
         'Le duel est réservé aux portefeuilles de jeu avec au moins 10k coins de valeur et 1 ligne minimum.',
       );
@@ -239,7 +257,9 @@ class DuelService {
             )
             .toList();
 
+    _log('startMatchmaking: uid=$uid candidatsEligibles=${candidates.length}');
     if (candidates.isEmpty) {
+      _log('startMatchmaking: aucun candidat recent disponible uid=$uid');
       throw DuelException(
         'Aucun adversaire proche de ton niveau de portefeuille n’est disponible pour le moment.',
       );
@@ -249,7 +269,29 @@ class DuelService {
       (left, right) =>
           _matchScore(profile, left).compareTo(_matchScore(profile, right)),
     );
-    final target = candidates.first;
+    final bestScore = _matchScore(profile, candidates.first);
+    final closeCandidates =
+        candidates
+            .where(
+              (candidate) =>
+                  _matchScore(profile, candidate) <= closeMatchThreshold,
+            )
+            .toList();
+    final fallbackPool =
+        candidates.take(math.min(12, candidates.length)).toList();
+    final target =
+        closeCandidates.isNotEmpty
+            ? closeCandidates.first
+            : fallbackPool[_random.nextInt(fallbackPool.length)];
+    if (closeCandidates.isEmpty) {
+      _log(
+        'startMatchmaking: aucun profil proche (bestScore=${bestScore.toStringAsFixed(3)}), fallback recent aleatoire=${target.uid}',
+      );
+    } else {
+      _log(
+        'startMatchmaking: match proche trouve uid=${target.uid} score=${_matchScore(profile, target).toStringAsFixed(3)}',
+      );
+    }
     final requestRef = _firestore.collection('duel_requests').doc();
     final matchScore = _matchScore(profile, target);
     final deadline = now.add(responseWindow);
@@ -313,6 +355,9 @@ class DuelService {
     });
 
     final requestDoc = await requestRef.get();
+    _log(
+      'startMatchmaking: requete creee requestId=${requestRef.id} initiator=$uid target=${target.uid} score=${matchScore.toStringAsFixed(3)}',
+    );
     return DuelRequest.fromDoc(requestDoc);
   }
 
@@ -321,18 +366,32 @@ class DuelService {
     if (uid == null) {
       throw DuelException('Utilisateur non connecté.');
     }
+    _log('acceptRequest: requestId=$requestId uid=$uid');
 
     await syncCurrentUserProfile(uid: uid, bumpActivity: true);
     final requestDoc = await duelRequestRef(requestId).get();
     if (!requestDoc.exists) {
+      _log('acceptRequest: invitation introuvable requestId=$requestId');
       throw DuelException('Invitation introuvable.');
     }
     final request = DuelRequest.fromDoc(requestDoc);
     if (request.targetUid != uid || !request.isPendingResponse) {
+      if (request.status == 'cancelled') {
+        _log(
+          'acceptRequest: invitation annulee par initiateur requestId=$requestId',
+        );
+        throw DuelException(
+          'Cette invitation a été annulée par son initiateur avant ton acceptation.',
+        );
+      }
+      _log(
+        'acceptRequest: invitation indisponible requestId=$requestId target=${request.targetUid} status=${request.status}',
+      );
       throw DuelException('Cette invitation n’est plus disponible.');
     }
     if (request.responseDeadline != null &&
         request.responseDeadline!.isBefore(DateTime.now())) {
+      _log('acceptRequest: invitation expiree requestId=$requestId');
       throw DuelException('Le délai de 48h est dépassé pour cette invitation.');
     }
 
@@ -357,6 +416,11 @@ class DuelService {
       );
 
       if (!freshRequest.isPendingResponse) {
+        if (freshRequest.status == 'cancelled') {
+          throw DuelException(
+            'Cette invitation a été annulée par son initiateur avant ton acceptation.',
+          );
+        }
         throw DuelException('Cette invitation a déjà été traitée.');
       }
       if (freshRequest.responseDeadline != null &&
@@ -469,6 +533,7 @@ class DuelService {
         'isRead': false,
       }, SetOptions(merge: true));
     });
+    _log('acceptRequest: succes requestId=$requestId duelId=${duelDoc.id}');
   }
 
   static Future<void> refuseRequest(String requestId) async {
@@ -476,13 +541,18 @@ class DuelService {
     if (uid == null) {
       throw DuelException('Utilisateur non connecté.');
     }
+    _log('refuseRequest: requestId=$requestId uid=$uid');
 
     final requestDoc = await duelRequestRef(requestId).get();
     if (!requestDoc.exists) {
+      _log('refuseRequest: invitation introuvable requestId=$requestId');
       throw DuelException('Invitation introuvable.');
     }
     final request = DuelRequest.fromDoc(requestDoc);
     if (request.targetUid != uid || !request.isPendingResponse) {
+      _log(
+        'refuseRequest: invitation deja traitee requestId=$requestId status=${request.status}',
+      );
       throw DuelException('Cette invitation a déjà été traitée.');
     }
 
@@ -533,12 +603,85 @@ class DuelService {
         SetOptions(merge: true),
       );
     });
+    _log('refuseRequest: succes requestId=$requestId');
+  }
+
+  static Future<void> cancelPendingRequest(String requestId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      throw DuelException('Utilisateur non connecté.');
+    }
+    _log('cancelPendingRequest: requestId=$requestId uid=$uid');
+
+    final requestDoc = await duelRequestRef(requestId).get();
+    if (!requestDoc.exists) {
+      _log('cancelPendingRequest: invitation introuvable requestId=$requestId');
+      throw DuelException('Invitation introuvable.');
+    }
+    final request = DuelRequest.fromDoc(requestDoc);
+    if (request.initiatorUid != uid || !request.isPendingResponse) {
+      _log(
+        'cancelPendingRequest: invitation non annulable requestId=$requestId status=${request.status}',
+      );
+      throw DuelException('Cette invitation ne peut plus être annulée.');
+    }
+
+    final now = DateTime.now();
+    await _firestore.runTransaction((transaction) async {
+      final initiatorProfileSnap = await transaction.get(duelProfileRef(uid));
+      final targetProfileSnap = await transaction.get(
+        duelProfileRef(request.targetUid),
+      );
+      final initiatorProfile = DuelProfile.fromDoc(
+        initiatorProfileSnap,
+        fallbackUid: uid,
+      );
+      final targetProfile = DuelProfile.fromDoc(
+        targetProfileSnap,
+        fallbackUid: request.targetUid,
+      );
+
+      transaction.set(duelRequestRef(requestId), {
+        'status': 'cancelled',
+        'cancelledAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
+
+      transaction.set(duelProfileRef(uid), {
+        'state': 'idle',
+        'currentRequestId': null,
+        'eligible': _profileCanBeEligible(initiatorProfile),
+      }, SetOptions(merge: true));
+
+      transaction.set(duelProfileRef(request.targetUid), {
+        'state': 'idle',
+        'currentRequestId': null,
+        'eligible': _profileCanBeEligible(targetProfile),
+      }, SetOptions(merge: true));
+
+      transaction.set(
+        _inboxRef(request.targetUid, 'cancelled_$requestId'),
+        {
+          'type': 'duel_cancelled',
+          'title': 'Défi annulé',
+          'body':
+              '${initiatorProfile.displayName} a annulé son matchmaking avant le départ du duel.',
+          'createdAt': Timestamp.fromDate(now),
+          'requestId': requestId,
+          'duelId': null,
+          'actorUid': uid,
+          'isRead': false,
+        },
+        SetOptions(merge: true),
+      );
+    });
+    _log('cancelPendingRequest: succes requestId=$requestId');
   }
 
   static Future<DuelLiveMetrics> computeLiveMetrics({
     required String uid,
     required DuelParticipant participant,
   }) async {
+    _log('computeLiveMetrics: duelParticipantUid=$uid');
     final userDoc = await _firestore.collection('users').doc(uid).get();
     final reserveCoins = (userDoc.data()?['coins'] as num?)?.toDouble() ?? 0;
     final holdings = await fetchGameHoldings(uid, updatePositionDocs: true);
@@ -574,6 +717,7 @@ class DuelService {
     required String duelId,
     required String uid,
   }) async {
+    _log('refreshActiveDuelMetrics: duelId=$duelId uid=$uid');
     final participantSnap = await _duelParticipantRef(duelId, uid).get();
     final participant = DuelParticipant.fromDoc(participantSnap, uid: uid);
     final metrics = await computeLiveMetrics(
@@ -592,6 +736,9 @@ class DuelService {
       'currentUpdatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     await syncCurrentUserProfile(uid: uid, bumpActivity: false);
+    _log(
+      'refreshActiveDuelMetrics: duelId=$duelId uid=$uid score=${metrics.score.toStringAsFixed(2)} return=${metrics.returnPct.toStringAsFixed(2)} positions=${metrics.positionsCount}',
+    );
     return metrics;
   }
 
@@ -599,6 +746,7 @@ class DuelService {
     required String duelId,
     required String uid,
   }) async {
+    _log('purchasePerformanceIntel: duelId=$duelId uid=$uid');
     final userRef = _firestore.collection('users').doc(uid);
     final participantRef = _duelParticipantRef(duelId, uid);
 
@@ -631,12 +779,14 @@ class DuelService {
         'spyCoinsSpent': participant.spyCoinsSpent + cost,
       }, SetOptions(merge: true));
     });
+    _log('purchasePerformanceIntel: duelId=$duelId uid=$uid succes');
   }
 
   static Future<void> purchasePositionsReveal({
     required String duelId,
     required String uid,
   }) async {
+    _log('purchasePositionsReveal: duelId=$duelId uid=$uid');
     final userRef = _firestore.collection('users').doc(uid);
     final participantRef = _duelParticipantRef(duelId, uid);
 
@@ -665,12 +815,14 @@ class DuelService {
         'spyCoinsSpent': participant.spyCoinsSpent + positionsRevealCost,
       }, SetOptions(merge: true));
     });
+    _log('purchasePositionsReveal: duelId=$duelId uid=$uid succes');
   }
 
   static Future<void> purchaseLineReveal({
     required String duelId,
     required String uid,
   }) async {
+    _log('purchaseLineReveal: duelId=$duelId uid=$uid');
     final duelSnap = await duelRef(duelId).get();
     final duel = DuelData.fromDoc(duelSnap);
     if (!duel.isActive) {
@@ -722,6 +874,9 @@ class DuelService {
         'spyCoinsSpent': participant.spyCoinsSpent + lineRevealCost,
       }, SetOptions(merge: true));
     });
+    _log(
+      'purchaseLineReveal: duelId=$duelId uid=$uid succes symbol=${revealedHolding.symbol}',
+    );
   }
 
   static Future<String?> validateSaleDuringActiveDuel({
@@ -729,6 +884,9 @@ class DuelService {
     required int currentQuantity,
     required int sellQuantity,
   }) async {
+    _log(
+      'validateSaleDuringActiveDuel: uid=$uid currentQuantity=$currentQuantity sellQuantity=$sellQuantity',
+    );
     if (sellQuantity < currentQuantity) return null;
     final profileDoc = await duelProfileRef(uid).get();
     final profile = DuelProfile.fromDoc(profileDoc, fallbackUid: uid);
@@ -742,8 +900,12 @@ class DuelService {
             .where((qty) => qty > 0)
             .length;
     if (positionsCount <= 1) {
+      _log(
+        'validateSaleDuringActiveDuel: blocage vente derniere ligne uid=$uid',
+      );
       return 'Impossible de vendre la dernière ligne pendant un duel actif.';
     }
+    _log('validateSaleDuringActiveDuel: vente autorisee uid=$uid');
     return null;
   }
 
@@ -751,6 +913,7 @@ class DuelService {
     required String duelId,
     required String uid,
   }) async {
+    _log('revealWinnerResult: duelId=$duelId uid=$uid');
     await _firestore.runTransaction((transaction) async {
       final duelSnap = await transaction.get(duelRef(duelId));
       final participantSnap = await transaction.get(
@@ -773,12 +936,14 @@ class DuelService {
         }, SetOptions(merge: true));
       }
     });
+    _log('revealWinnerResult: duelId=$duelId uid=$uid succes');
   }
 
   static Future<void> closeSettledDuel({
     required String duelId,
     required String uid,
   }) async {
+    _log('closeSettledDuel: duelId=$duelId uid=$uid');
     final profileDoc = await duelProfileRef(uid).get();
     final profile = DuelProfile.fromDoc(profileDoc, fallbackUid: uid);
     await _firestore.runTransaction((transaction) async {
@@ -822,6 +987,7 @@ class DuelService {
     });
 
     await syncCurrentUserProfile(uid: uid, bumpActivity: true);
+    _log('closeSettledDuel: duelId=$duelId uid=$uid succes');
   }
 
   static DocumentReference<Map<String, dynamic>> _duelParticipantRef(

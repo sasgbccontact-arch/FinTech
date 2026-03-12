@@ -119,6 +119,10 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   Future<void> _createThemeDialog() async {
     final user = _user;
     if (user == null) {
@@ -165,13 +169,9 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
 
     if (name == null || name.isEmpty) return;
 
-    final ref = await FirebaseFirestore.instance
-        .collection('forum_themes')
-        .add({
-          'name': name,
-          'createdAt': FieldValue.serverTimestamp(),
-          'createdByUid': user.uid,
-        });
+    final ref = await FirebaseFirestore.instance.collection('forum_themes').add(
+      {'name': name, 'createdAt': Timestamp.now(), 'createdByUid': user.uid},
+    );
     if (!mounted) return;
     setState(() {
       _selectedTheme = _ForumThemeLite(id: ref.id, name: name);
@@ -205,6 +205,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
 
     setState(() => _sending = true);
     try {
+      final now = Timestamp.now();
       await FirebaseFirestore.instance.collection('forum_chat_messages').add({
         'text': text,
         'uid': user.uid,
@@ -215,8 +216,8 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
         'upVotes': 0,
         'downVotes': 0,
         'score': 0,
-        'createdAt': FieldValue.serverTimestamp(),
-        'lastVoteAt': FieldValue.serverTimestamp(),
+        'createdAt': now,
+        'lastVoteAt': now,
         'reactions': <String, int>{'helpful': 0, 'clear': 0, 'insightful': 0},
         'isPinned': false,
         'postType': _selectedPostType,
@@ -250,6 +251,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
     if (replyText.isEmpty) return;
 
     try {
+      final now = Timestamp.now();
       await FirebaseFirestore.instance
           .collection('forum_chat_messages')
           .doc(message.id)
@@ -259,7 +261,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
             'uid': user.uid,
             'authorName': _authorName(user),
             'photoURL': user.photoURL,
-            'createdAt': FieldValue.serverTimestamp(),
+            'createdAt': now,
           });
       if (!mounted) return;
       setState(() => _expandedMessageId = message.id);
@@ -288,7 +290,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
         'themeId': message.themeId,
         'themeName': message.themeName,
         'postType': message.postType,
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': Timestamp.now(),
       });
     }
   }
@@ -314,6 +316,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
 
     try {
       await FirebaseFirestore.instance.runTransaction((tx) async {
+        final now = Timestamp.now();
         final voteSnap = await tx.get(voteRef);
         final previous =
             voteSnap.exists ? ((voteSnap.data()?['value'] as int?) ?? 0) : 0;
@@ -343,16 +346,13 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
           'upVotes': FieldValue.increment(deltaUp),
           'downVotes': FieldValue.increment(deltaDown),
           'score': FieldValue.increment(deltaScore),
-          'lastVoteAt': FieldValue.serverTimestamp(),
+          'lastVoteAt': now,
         });
 
         if (next == 0) {
           if (voteSnap.exists) tx.delete(voteRef);
         } else {
-          tx.set(voteRef, {
-            'value': next,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+          tx.set(voteRef, {'value': next, 'updatedAt': now});
         }
       });
     } catch (e) {
@@ -387,17 +387,28 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
         final reactionSnap = await tx.get(reactionRef);
         final previous = (reactionSnap.data()?['key'] as String?) ?? '';
         final next = previous == reactionKey ? '' : reactionKey;
-
-        final updates = <String, dynamic>{};
+        final now = Timestamp.now();
+        final rawReactions =
+            messageSnap.data()?['reactions'] as Map<String, dynamic>? ??
+            const <String, dynamic>{};
+        final nextReactions = <String, int>{
+          'helpful': (rawReactions['helpful'] as num?)?.toInt() ?? 0,
+          'clear': (rawReactions['clear'] as num?)?.toInt() ?? 0,
+          'insightful': (rawReactions['insightful'] as num?)?.toInt() ?? 0,
+        };
         if (previous.isNotEmpty) {
-          updates['reactions.$previous'] = FieldValue.increment(-1);
+          nextReactions[previous] = ((nextReactions[previous] ?? 0) - 1).clamp(
+            0,
+            999999,
+          );
         }
         if (next.isNotEmpty) {
-          updates['reactions.$next'] = FieldValue.increment(1);
+          nextReactions[next] = (nextReactions[next] ?? 0) + 1;
         }
-        if (updates.isNotEmpty) {
-          tx.set(messageRef, updates, SetOptions(merge: true));
-        }
+
+        tx.set(messageRef, {
+          'reactions': nextReactions,
+        }, SetOptions(merge: true));
 
         if (next.isEmpty) {
           if (reactionSnap.exists) {
@@ -406,7 +417,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
         } else {
           tx.set(reactionRef, {
             'key': next,
-            'updatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': now,
           }, SetOptions(merge: true));
         }
       });
@@ -471,6 +482,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
     if (reason == null) return;
 
     try {
+      final now = Timestamp.now();
       await FirebaseFirestore.instance.collection('forum_reports').add({
         'messageId': message.id,
         'messageUid': message.uid,
@@ -478,7 +490,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
         'reason': reason,
         'themeId': message.themeId,
         'themeName': message.themeName,
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': now,
       });
       _snack('Signalement envoyé.');
     } catch (e) {
@@ -560,6 +572,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: backgroundColor,
         surfaceTintColor: backgroundColor,
@@ -570,12 +583,9 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
         ),
       ),
       body: SafeArea(
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _dismissKeyboard,
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: _bookmarksStream(),
             builder: (context, bookmarkSnapshot) {
@@ -692,7 +702,12 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet> {
                   return ListView(
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+                    padding: EdgeInsets.fromLTRB(
+                      0,
+                      0,
+                      0,
+                      24 + MediaQuery.of(context).padding.bottom,
+                    ),
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -1169,6 +1184,8 @@ class _ForumComposerCard extends StatelessWidget {
               controller: textController,
               focusNode: focusNode,
               enabled: user != null && !sending,
+              onTapOutside:
+                  (_) => FocusManager.instance.primaryFocus?.unfocus(),
               minLines: 3,
               maxLines: 8,
               textInputAction: TextInputAction.newline,
@@ -1250,6 +1267,8 @@ class _ForumSearchBar extends StatelessWidget {
             child: TextField(
               controller: controller,
               onChanged: onChanged,
+              onTapOutside:
+                  (_) => FocusManager.instance.primaryFocus?.unfocus(),
               decoration: const InputDecoration(
                 border: InputBorder.none,
                 hintText: 'Rechercher un message, un tag ou un ticker...',
@@ -1618,6 +1637,8 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
                     child: TextField(
                       controller: _controller,
                       enabled: widget.currentUser != null && !_sending,
+                      onTapOutside:
+                          (_) => FocusManager.instance.primaryFocus?.unfocus(),
                       minLines: 1,
                       maxLines: 4,
                       decoration: const InputDecoration(
@@ -1749,6 +1770,8 @@ class _TickerAttachmentSearchSheetState
                 child: TextField(
                   controller: _controller,
                   autofocus: true,
+                  onTapOutside:
+                      (_) => FocusManager.instance.primaryFocus?.unfocus(),
                   onChanged: (value) {
                     _debounce?.cancel();
                     _debounce = Timer(
@@ -1902,6 +1925,13 @@ class _ForumTickerAttachmentPreview extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
+              _TickerMetaPill(
+                label:
+                    attachment.quoteType.trim().isEmpty
+                        ? 'Actif'
+                        : attachment.quoteType,
+              ),
               if (onRemove != null)
                 IconButton(
                   onPressed: onRemove,
@@ -1909,9 +1939,28 @@ class _ForumTickerAttachmentPreview extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _TickerMetaPill(
+                label:
+                    attachment.exchange.trim().isEmpty
+                        ? 'Marché inconnu'
+                        : attachment.exchange,
+              ),
+              _TickerMetaPill(
+                label:
+                    attachment.currency.trim().isEmpty
+                        ? 'Devise -'
+                        : attachment.currency,
+              ),
+            ],
+          ),
           if (!compact) ...[
             const SizedBox(height: 12),
-            _MiniTickerChart(symbol: attachment.symbol),
+            _MiniTickerChart(attachment: attachment),
           ],
         ],
       ),
@@ -1920,22 +1969,18 @@ class _ForumTickerAttachmentPreview extends StatelessWidget {
 }
 
 class _MiniTickerChart extends StatelessWidget {
-  const _MiniTickerChart({required this.symbol});
+  const _MiniTickerChart({required this.attachment});
 
-  final String symbol;
+  final _ForumTickerAttachment attachment;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<HistoricalPoint>>(
-      future: YahooFinanceService.fetchHistoricalSeries(
-        symbol,
-        ChartInterval.sevenDays,
-      ),
+    return FutureBuilder<_MiniTickerSnapshot?>(
+      future: _MiniTickerSnapshot.load(attachment),
       builder: (context, snapshot) {
-        final points = snapshot.data ?? const <HistoricalPoint>[];
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Container(
-            height: 86,
+            height: 132,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -1947,35 +1992,94 @@ class _MiniTickerChart extends StatelessWidget {
             ),
           );
         }
-        if (points.length < 2) {
+        final payload = snapshot.data;
+        if (payload == null) {
           return Container(
-            height: 86,
+            height: 132,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
             ),
             alignment: Alignment.center,
-            child: const Text(
-              'Mini-courbe indisponible',
-              style: TextStyle(color: Colors.black54),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18),
+              child: Text(
+                'Données de marché indisponibles pour le moment.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54),
+              ),
             ),
           );
         }
 
-        final positive = points.last.close >= points.first.close;
         return Container(
-          height: 86,
+          height: 132,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: CustomPaint(
-            painter: _MiniChartPainter(
-              points: points.map((point) => point.close).toList(),
-              color:
-                  positive ? const Color(0xFF177A53) : const Color(0xFF9A2D2D),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          payload.priceLabel,
+                          style: const TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          payload.changeLabel,
+                          style: TextStyle(
+                            color:
+                                payload.positive
+                                    ? const Color(0xFF177A53)
+                                    : const Color(0xFF9A2D2D),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _TickerMetaPill(label: payload.marketLabel),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child:
+                    payload.points.length < 2
+                        ? const Center(
+                          child: Text(
+                            'Mini-courbe indisponible',
+                            style: TextStyle(color: Colors.black54),
+                          ),
+                        )
+                        : SizedBox.expand(
+                          child: CustomPaint(
+                            painter: _MiniChartPainter(
+                              points:
+                                  payload.points
+                                      .map((point) => point.close)
+                                      .toList(),
+                              color:
+                                  payload.positive
+                                      ? const Color(0xFF177A53)
+                                      : const Color(0xFF9A2D2D),
+                            ),
+                          ),
+                        ),
+              ),
+            ],
           ),
         );
       },
@@ -2028,6 +2132,110 @@ class _MiniChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _MiniChartPainter oldDelegate) {
     return oldDelegate.points != points || oldDelegate.color != color;
+  }
+}
+
+class _TickerMetaPill extends StatelessWidget {
+  const _TickerMetaPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: detailsColor2.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: detailsColor2,
+          fontWeight: FontWeight.w800,
+          fontSize: 11.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniTickerSnapshot {
+  const _MiniTickerSnapshot({
+    required this.points,
+    required this.priceLabel,
+    required this.changeLabel,
+    required this.marketLabel,
+    required this.positive,
+  });
+
+  final List<HistoricalPoint> points;
+  final String priceLabel;
+  final String changeLabel;
+  final String marketLabel;
+  final bool positive;
+
+  static Future<_MiniTickerSnapshot?> load(
+    _ForumTickerAttachment attachment,
+  ) async {
+    QuoteDetail? quote;
+    List<HistoricalPoint> points = const <HistoricalPoint>[];
+
+    try {
+      quote = await YahooFinanceService.fetchQuote(attachment.symbol);
+    } catch (_) {
+      quote = null;
+    }
+
+    try {
+      points = await YahooFinanceService.fetchHistoricalSeries(
+        attachment.symbol,
+        ChartInterval.sevenDays,
+      );
+    } catch (_) {
+      points = const <HistoricalPoint>[];
+    }
+
+    final marketPrice = quote?.regularMarketPrice;
+    final change = quote?.regularMarketChange;
+    final changePercent = quote?.regularMarketChangePercent;
+    final positive =
+        points.length >= 2
+            ? points.last.close >= points.first.close
+            : (change ?? 0) >= 0;
+
+    if (marketPrice == null && points.isEmpty) {
+      return null;
+    }
+
+    final priceLabel =
+        marketPrice == null
+            ? attachment.currency.trim().isEmpty
+                ? 'Cours indisponible'
+                : 'Cours en ${attachment.currency}'
+            : '${marketPrice.toStringAsFixed(marketPrice >= 100 ? 2 : 3)} ${attachment.currency.trim().isEmpty ? '' : attachment.currency}'
+                .trim();
+    final changeLabel =
+        change == null
+            ? 'Variation en direct indisponible'
+            : '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}${changePercent == null ? '' : ' · ${changePercent >= 0 ? '+' : ''}${changePercent.toStringAsFixed(2)}%'}';
+    final marketLabel =
+        (quote?.fullExchangeName ?? quote?.exchange ?? attachment.exchange)
+                .trim()
+                .isEmpty
+            ? 'Marché'
+            : (quote?.fullExchangeName ??
+                    quote?.exchange ??
+                    attachment.exchange)
+                .trim();
+
+    return _MiniTickerSnapshot(
+      points: points,
+      priceLabel: priceLabel,
+      changeLabel: changeLabel,
+      marketLabel: marketLabel,
+      positive: positive,
+    );
   }
 }
 

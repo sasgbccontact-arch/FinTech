@@ -3,17 +3,217 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fintech/core/constants.dart';
+import 'package:fintech/features/duel/duel_service.dart';
 
-class NotificationCenterPage extends StatelessWidget {
+class NotificationCenterPage extends StatefulWidget {
   const NotificationCenterPage({super.key});
 
+  @override
+  State<NotificationCenterPage> createState() => _NotificationCenterPageState();
+}
+
+class _NotificationCenterPageState extends State<NotificationCenterPage> {
   static const Color _bg = backgroundColor;
   static const Color _ink = textColor;
   static const Color _gold = detailsColor1;
 
+  User? get _user => FirebaseAuth.instance.currentUser;
+
+  void _log(String message) {
+    debugPrint('[NotifCenter] $message');
+  }
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _markInboxRead(_NotificationItem item) async {
+    final user = _user;
+    if (user == null || !item.isInboxItem || item.docId == null) return;
+    _log('Marquage lu docId=${item.docId} type=${item.type}');
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('inbox')
+        .doc(item.docId)
+        .set({'isRead': true}, SetOptions(merge: true));
+  }
+
+  Future<void> _acceptFriendRequest(_NotificationItem item) async {
+    final user = _user;
+    if (user == null || item.requestId == null) return;
+    _log('Acceptation demande ami requestId=${item.requestId}');
+    final requestRef = FirebaseFirestore.instance
+        .collection('friend_requests')
+        .doc(item.requestId);
+    final requestSnap = await requestRef.get();
+    if (!requestSnap.exists) {
+      _log('Demande ami introuvable requestId=${item.requestId}');
+      _snack('Cette demande n’existe plus.');
+      return;
+    }
+    final data = requestSnap.data() ?? const <String, dynamic>{};
+    if ((data['toUid'] as String?) != user.uid ||
+        (data['status'] as String?) != 'pending') {
+      _log(
+        'Demande ami deja traitee requestId=${item.requestId} status=${data['status']}',
+      );
+      _snack('Cette demande a déjà été traitée.');
+      return;
+    }
+
+    final fromUid = (data['fromUid'] as String?) ?? '';
+    final now = Timestamp.now();
+    final batch = FirebaseFirestore.instance.batch();
+    batch.update(requestRef, {'status': 'accepted', 'acceptedAt': now});
+    batch.set(
+      FirebaseFirestore.instance
+          .collection('friendships')
+          .doc(_friendshipId(fromUid, user.uid)),
+      {
+        'participants': <String>[fromUid, user.uid]..sort(),
+        'createdAt': now,
+        'createdBy': user.uid,
+      },
+      SetOptions(merge: true),
+    );
+    batch.set(
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(fromUid)
+          .collection('inbox')
+          .doc('friend_accept_${item.requestId}'),
+      {
+        'type': 'friend_request_accepted',
+        'title': 'Ta demande d’ami a été acceptée',
+        'body': 'Retrouve ce joueur dans ton classement amis.',
+        'createdAt': now,
+        'requestId': item.requestId,
+        'duelId': null,
+        'actorUid': user.uid,
+        'isRead': false,
+      },
+    );
+    if (item.docId != null) {
+      batch.set(
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('inbox')
+            .doc(item.docId),
+        {'isRead': true},
+        SetOptions(merge: true),
+      );
+    }
+    await batch.commit();
+    _log('Succes acceptation demande ami requestId=${item.requestId}');
+    _snack('Demande acceptée.');
+  }
+
+  Future<void> _declineFriendRequest(_NotificationItem item) async {
+    final user = _user;
+    if (user == null || item.requestId == null) return;
+    _log('Refus demande ami requestId=${item.requestId}');
+    final requestRef = FirebaseFirestore.instance
+        .collection('friend_requests')
+        .doc(item.requestId);
+    final requestSnap = await requestRef.get();
+    if (!requestSnap.exists) {
+      _log('Demande ami introuvable requestId=${item.requestId}');
+      _snack('Cette demande n’existe plus.');
+      return;
+    }
+    final data = requestSnap.data() ?? const <String, dynamic>{};
+    if ((data['toUid'] as String?) != user.uid ||
+        (data['status'] as String?) != 'pending') {
+      _log(
+        'Demande ami deja traitee requestId=${item.requestId} status=${data['status']}',
+      );
+      _snack('Cette demande a déjà été traitée.');
+      return;
+    }
+
+    final fromUid = (data['fromUid'] as String?) ?? '';
+    final now = Timestamp.now();
+    final batch = FirebaseFirestore.instance.batch();
+    batch.update(requestRef, {'status': 'declined', 'declinedAt': now});
+    batch.set(
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(fromUid)
+          .collection('inbox')
+          .doc('friend_decline_${item.requestId}'),
+      {
+        'type': 'friend_request_declined',
+        'title': 'Ta demande d’ami a été refusée',
+        'body': 'Tu peux inviter un autre joueur à tout moment.',
+        'createdAt': now,
+        'requestId': item.requestId,
+        'duelId': null,
+        'actorUid': user.uid,
+        'isRead': false,
+      },
+    );
+    if (item.docId != null) {
+      batch.set(
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('inbox')
+            .doc(item.docId),
+        {'isRead': true},
+        SetOptions(merge: true),
+      );
+    }
+    await batch.commit();
+    _log('Succes refus demande ami requestId=${item.requestId}');
+    _snack('Demande refusée.');
+  }
+
+  Future<void> _acceptDuelInvite(_NotificationItem item) async {
+    if (item.requestId == null) return;
+    _log('Acceptation duel requestId=${item.requestId}');
+    try {
+      await DuelService.acceptRequest(item.requestId!);
+      await _markInboxRead(item);
+      _log('Succes acceptation duel requestId=${item.requestId}');
+      _snack('Duel accepté.');
+    } on DuelException catch (error) {
+      _log(
+        'Erreur metier acceptation duel requestId=${item.requestId} message=${error.message}',
+      );
+      _snack(error.message);
+    } catch (_) {
+      _log('Erreur inattendue acceptation duel requestId=${item.requestId}');
+      _snack('Impossible d’accepter ce duel pour le moment.');
+    }
+  }
+
+  Future<void> _refuseDuelInvite(_NotificationItem item) async {
+    if (item.requestId == null) return;
+    _log('Refus duel requestId=${item.requestId}');
+    try {
+      await DuelService.refuseRequest(item.requestId!);
+      await _markInboxRead(item);
+      _log('Succes refus duel requestId=${item.requestId}');
+      _snack('Duel refusé.');
+    } on DuelException catch (error) {
+      _log(
+        'Erreur metier refus duel requestId=${item.requestId} message=${error.message}',
+      );
+      _snack(error.message);
+    } catch (_) {
+      _log('Erreur inattendue refus duel requestId=${item.requestId}');
+      _snack('Impossible de refuser ce duel pour le moment.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _user;
     final broadcastsStream =
         FirebaseFirestore.instance
             .collection('broadcasts')
@@ -81,7 +281,7 @@ class NotificationCenterPage extends StatelessWidget {
                   return const _EmptyState(
                     title: 'Aucune notification enregistrée',
                     subtitle:
-                        'Les invitations de duel, résultats et broadcasts FinHub apparaîtront ici.',
+                        'Les demandes d’amis, invitations de duel et broadcasts FinHub apparaîtront ici.',
                     icon: Icons.notifications_none_rounded,
                   );
                 }
@@ -92,7 +292,14 @@ class NotificationCenterPage extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     final item = items[index];
-                    return _NotificationCard(item: item);
+                    return _NotificationCard(
+                      item: item,
+                      currentUserId: user?.uid,
+                      onAcceptFriendRequest: () => _acceptFriendRequest(item),
+                      onDeclineFriendRequest: () => _declineFriendRequest(item),
+                      onAcceptDuelInvite: () => _acceptDuelInvite(item),
+                      onDeclineDuelInvite: () => _refuseDuelInvite(item),
+                    );
                   },
                 );
               },
@@ -109,6 +316,7 @@ class NotificationCenterPage extends StatelessWidget {
     return docs.map((doc) {
       final data = doc.data();
       return _NotificationItem(
+        docId: doc.id,
         title: _safeText(data['title'], fallback: 'Notification FinHub'),
         body: _safeText(data['body'], fallback: 'Aucun contenu disponible.'),
         topic: _safeText(data['topic'], fallback: 'general'),
@@ -126,6 +334,8 @@ class NotificationCenterPage extends StatelessWidget {
       final data = doc.data();
       final type = _safeText(data['type'], fallback: 'inbox');
       return _NotificationItem(
+        docId: doc.id,
+        isInboxItem: true,
         title: _safeText(data['title'], fallback: _titleForInboxType(type)),
         body: _safeText(
           data['body'],
@@ -138,6 +348,9 @@ class NotificationCenterPage extends StatelessWidget {
         type: type,
         createdAt: _dateFromAny(data['createdAt']),
         sourceLabel: 'Perso',
+        requestId: (data['requestId'] as String?)?.trim(),
+        duelId: (data['duelId'] as String?)?.trim(),
+        actorUid: (data['actorUid'] as String?)?.trim(),
       );
     }).toList();
   }
@@ -155,8 +368,16 @@ class NotificationCenterPage extends StatelessWidget {
 
   String _titleForInboxType(String type) {
     switch (type) {
+      case 'friend_request':
+        return 'Nouvelle demande d’ami';
+      case 'friend_request_accepted':
+        return 'Demande acceptée';
+      case 'friend_request_declined':
+        return 'Demande refusée';
       case 'duel_invite':
         return 'Invitation duel';
+      case 'duel_cancelled':
+        return 'Défi annulé';
       case 'duel_started':
         return 'Duel lancé';
       case 'duel_refused':
@@ -172,9 +393,21 @@ class NotificationCenterPage extends StatelessWidget {
 }
 
 class _NotificationCard extends StatelessWidget {
-  const _NotificationCard({required this.item});
+  const _NotificationCard({
+    required this.item,
+    required this.currentUserId,
+    required this.onAcceptFriendRequest,
+    required this.onDeclineFriendRequest,
+    required this.onAcceptDuelInvite,
+    required this.onDeclineDuelInvite,
+  });
 
   final _NotificationItem item;
+  final String? currentUserId;
+  final Future<void> Function() onAcceptFriendRequest;
+  final Future<void> Function() onDeclineFriendRequest;
+  final Future<void> Function() onAcceptDuelInvite;
+  final Future<void> Function() onDeclineDuelInvite;
 
   String _formatDate(DateTime value) {
     final now = DateTime.now();
@@ -191,8 +424,16 @@ class _NotificationCard extends StatelessWidget {
         return Icons.workspace_premium_rounded;
       case 'manual':
         return Icons.campaign_rounded;
+      case 'friend_request':
+        return Icons.person_add_alt_1_rounded;
+      case 'friend_request_accepted':
+        return Icons.favorite_rounded;
+      case 'friend_request_declined':
+        return Icons.person_off_rounded;
       case 'duel_invite':
         return Icons.sports_kabaddi_rounded;
+      case 'duel_cancelled':
+        return Icons.person_remove_alt_1_rounded;
       case 'duel_started':
         return Icons.flash_on_rounded;
       case 'duel_refused':
@@ -211,8 +452,15 @@ class _NotificationCard extends StatelessWidget {
         return 'Métaux';
       case 'manual':
         return 'Annonce';
+      case 'friend_request':
+        return 'Amitié';
+      case 'friend_request_accepted':
+      case 'friend_request_declined':
+        return 'Réseau';
       case 'duel_invite':
         return 'Invitation';
+      case 'duel_cancelled':
+        return 'Annulation';
       case 'duel_started':
         return 'Duel';
       case 'duel_refused':
@@ -285,6 +533,104 @@ class _NotificationCard extends StatelessWidget {
             item.body,
             style: const TextStyle(color: Colors.black87, height: 1.45),
           ),
+          if (item.type == 'friend_request' && item.requestId != null) ...[
+            const SizedBox(height: 14),
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('friend_requests')
+                      .doc(item.requestId)
+                      .snapshots(),
+              builder: (context, snapshot) {
+                final data = snapshot.data?.data();
+                final status = (data?['status'] as String?) ?? '';
+                final isPending =
+                    status == 'pending' &&
+                    (data?['toUid'] as String?) == currentUserId;
+                if (!isPending) {
+                  return _ResolutionBanner(
+                    label:
+                        status == 'accepted'
+                            ? 'Demande déjà acceptée'
+                            : status == 'declined'
+                            ? 'Demande refusée'
+                            : 'Demande déjà traitée',
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onDeclineFriendRequest,
+                        child: const Text('Refuser'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: onAcceptFriendRequest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Accepter'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+          if (item.type == 'duel_invite' && item.requestId != null) ...[
+            const SizedBox(height: 14),
+            StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream:
+                  FirebaseFirestore.instance
+                      .collection('duel_requests')
+                      .doc(item.requestId)
+                      .snapshots(),
+              builder: (context, snapshot) {
+                final data = snapshot.data?.data();
+                final status = (data?['status'] as String?) ?? '';
+                final isPending =
+                    status == 'pending_response' &&
+                    (data?['targetUid'] as String?) == currentUserId;
+                if (!isPending) {
+                  return _ResolutionBanner(
+                    label:
+                        status == 'converted'
+                            ? 'Duel déjà lancé'
+                            : status == 'refused'
+                            ? 'Invitation déjà refusée'
+                            : status == 'cancelled'
+                            ? 'Invitation annulée par l’initiateur'
+                            : 'Invitation déjà traitée',
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: onDeclineDuelInvite,
+                        child: const Text('Refuser'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: onAcceptDuelInvite,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('Accepter'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
           const SizedBox(height: 14),
           Wrap(
             spacing: 8,
@@ -296,6 +642,31 @@ class _NotificationCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ResolutionBanner extends StatelessWidget {
+  const _ResolutionBanner({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: detailsColor2.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: detailsColor2,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -393,6 +764,11 @@ class _NotificationItem {
     required this.type,
     required this.createdAt,
     required this.sourceLabel,
+    this.docId,
+    this.requestId,
+    this.duelId,
+    this.actorUid,
+    this.isInboxItem = false,
   });
 
   final String title;
@@ -401,4 +777,14 @@ class _NotificationItem {
   final String type;
   final DateTime createdAt;
   final String sourceLabel;
+  final String? docId;
+  final String? requestId;
+  final String? duelId;
+  final String? actorUid;
+  final bool isInboxItem;
+}
+
+String _friendshipId(String uidA, String uidB) {
+  final ids = <String>[uidA, uidB]..sort();
+  return '${ids[0]}_${ids[1]}';
 }

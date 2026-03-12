@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fintech/core/constants.dart';
 import 'package:fintech/features/notifications/metals_notification_service.dart';
+import 'package:fintech/pages/login_page.dart';
 
 class AppSettingsSheet extends StatefulWidget {
   const AppSettingsSheet({
@@ -34,6 +35,10 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
   bool _broadcastEnabled = true;
   bool _profilePublic = true;
   AuthorizationStatus _authorizationStatus = AuthorizationStatus.notDetermined;
+
+  void _log(String message) {
+    debugPrint('[Settings] $message');
+  }
 
   @override
   void initState() {
@@ -243,6 +248,61 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
         return 'Refusées';
       case AuthorizationStatus.notDetermined:
         return 'À confirmer';
+    }
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('Se déconnecter'),
+          content: const Text(
+            'Tu pourras ensuite te reconnecter avec un autre compte sur cet appareil.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Déconnexion'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    _log('Déconnexion demandée');
+
+    try {
+      await MetalsNotificationService.detachCurrentDeviceForLogout();
+      await FirebaseAuth.instance.signOut();
+      _log('Déconnexion réussie');
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+        (route) => false,
+      );
+    } catch (error, stackTrace) {
+      _log('Erreur déconnexion: $error\n$stackTrace');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Impossible de se déconnecter pour le moment.'),
+        ),
+      );
     }
   }
 
@@ -458,6 +518,22 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 14),
+                      _SectionCard(
+                        title: 'Compte',
+                        child: Column(
+                          children: [
+                            _ActionTile(
+                              icon: Icons.logout_rounded,
+                              title: 'Se déconnecter',
+                              subtitle:
+                                  'Quitter ce compte pour en utiliser un autre sur cet appareil.',
+                              onTap: _logout,
+                              destructive: true,
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
         ),
@@ -513,15 +589,21 @@ class _ActionTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.destructive = false,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
+    final gradientColors =
+        destructive
+            ? const [Color(0xFFE85B5B), Color(0xFF8F1D2C)]
+            : const [detailsColor1, detailsColor2];
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
@@ -539,8 +621,8 @@ class _ActionTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [detailsColor1, detailsColor2],
+                gradient: LinearGradient(
+                  colors: gradientColors,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

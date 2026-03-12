@@ -21,10 +21,11 @@ service cloud.firestore {
       return state in ['idle', 'pending_sent', 'pending_received', 'active_duel'];
     }
 
-    function isDuelInboxType(type) {
+    function isPeerInboxType(type) {
       return type in [
         'duel_invite', 'duel_started', 'duel_refused',
-        'duel_expired', 'duel_finished'
+        'duel_expired', 'duel_finished', 'duel_cancelled',
+        'friend_request', 'friend_request_accepted', 'friend_request_declined'
       ];
     }
 
@@ -145,6 +146,17 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/duel_requests/$(request.resource.data.currentRequestId)).data.targetUid == profileUid
       )
       || (
+        resource.data.state == 'pending_received'
+        && resource.data.currentRequestId is string
+        && request.resource.data.state == 'idle'
+        && request.resource.data.currentRequestId == null
+        && request.resource.data.currentDuelId == null
+        && existsAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId))
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.status == 'cancelled'
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.initiatorUid == uid()
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.targetUid == profileUid
+      )
+      || (
         resource.data.state == 'pending_sent'
         && resource.data.currentRequestId is string
         && request.resource.data.state == 'active_duel'
@@ -165,7 +177,7 @@ service cloud.firestore {
         && request.resource.data.currentRequestId == null
         && request.resource.data.currentDuelId == null
         && existsAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId))
-        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.status == 'refused'
+        && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.status in ['refused', 'cancelled']
         && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.initiatorUid == profileUid
         && getAfter(/databases/$(database)/documents/duel_requests/$(resource.data.currentRequestId)).data.targetUid == uid()
       );
@@ -196,7 +208,7 @@ service cloud.firestore {
         && (
           uid() == userId
           || (
-            isDuelInboxType(request.resource.data.type)
+            isPeerInboxType(request.resource.data.type)
             && request.resource.data.actorUid == uid()
           )
         );
@@ -269,7 +281,7 @@ service cloud.firestore {
           'initiatorUid', 'targetUid', 'status', 'createdAt',
           'responseDeadline', 'matchScore', 'initiatorSnapshot',
           'targetSnapshot', 'invitePushSentAt', 'resolutionNotifiedAt',
-          'acceptedAt', 'refusedAt', 'duelId'
+          'acceptedAt', 'refusedAt', 'cancelledAt', 'duelId'
         ])
         && request.resource.data.initiatorUid == resource.data.initiatorUid
         && request.resource.data.targetUid == resource.data.targetUid
@@ -282,6 +294,12 @@ service cloud.firestore {
         && request.resource.data.resolutionNotifiedAt == resource.data.resolutionNotifiedAt
         && (
           (
+            uid() == resource.data.initiatorUid
+            && resource.data.status == 'pending_response'
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.cancelledAt is timestamp
+          )
+          || (
             uid() == resource.data.targetUid
             && resource.data.status == 'pending_response'
             && request.time < resource.data.responseDeadline

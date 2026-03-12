@@ -381,7 +381,7 @@ class _CurrentRequestSection extends StatelessWidget {
   }
 }
 
-class _OutgoingRequestCard extends StatelessWidget {
+class _OutgoingRequestCard extends StatefulWidget {
   const _OutgoingRequestCard({
     required this.request,
     required this.onRefreshProfile,
@@ -391,8 +391,16 @@ class _OutgoingRequestCard extends StatelessWidget {
   final Future<void> Function() onRefreshProfile;
 
   @override
+  State<_OutgoingRequestCard> createState() => _OutgoingRequestCardState();
+}
+
+class _OutgoingRequestCardState extends State<_OutgoingRequestCard> {
+  bool _cancelling = false;
+  String? _feedback;
+
+  @override
   Widget build(BuildContext context) {
-    final target = request.targetSnapshot;
+    final target = widget.request.targetSnapshot;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -426,15 +434,76 @@ class _OutgoingRequestCard extends StatelessWidget {
           const SizedBox(height: 14),
           _OpponentPreview(snapshot: target),
           const SizedBox(height: 14),
-          _DeadlinePill(deadline: request.responseDeadline),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: onRefreshProfile,
-            style: FilledButton.styleFrom(
-              backgroundColor: detailsColor2.withValues(alpha: 0.10),
-              foregroundColor: detailsColor2,
+          _DeadlinePill(deadline: widget.request.responseDeadline),
+          if (_feedback != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _feedback!,
+              style: const TextStyle(
+                color: detailsColor2,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            child: const Text('Actualiser le statut'),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.tonal(
+                  onPressed: _cancelling ? null : widget.onRefreshProfile,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: detailsColor2.withValues(alpha: 0.10),
+                    foregroundColor: detailsColor2,
+                  ),
+                  child: const Text('Actualiser le statut'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed:
+                      _cancelling
+                          ? null
+                          : () async {
+                            setState(() {
+                              _cancelling = true;
+                              _feedback = null;
+                            });
+                            try {
+                              await DuelService.cancelPendingRequest(
+                                widget.request.id,
+                              );
+                              await widget.onRefreshProfile();
+                              if (!mounted) return;
+                              setState(() {
+                                _feedback =
+                                    'Matchmaking annulé. Tu peux relancer une recherche quand tu veux.';
+                              });
+                            } catch (error) {
+                              if (!mounted) return;
+                              setState(() {
+                                _feedback = error.toString().replaceFirst(
+                                  'Exception: ',
+                                  '',
+                                );
+                              });
+                            } finally {
+                              if (mounted) {
+                                setState(() => _cancelling = false);
+                              }
+                            }
+                          },
+                  child:
+                      _cancelling
+                          ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
+                          )
+                          : const Text('Annuler'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -602,6 +671,7 @@ class _ResolvedRequestCard extends StatelessWidget {
     final label = switch (request.status) {
       'refused' => 'Invitation refusée',
       'expired' => 'Invitation expirée',
+      'cancelled' => 'Invitation annulée',
       'converted' => 'Duel lancé',
       _ => 'Statut mis à jour',
     };
@@ -611,6 +681,8 @@ class _ResolvedRequestCard extends StatelessWidget {
         'Le duel a été refusé. Tu peux relancer un matchmaking quand tu veux.',
       'expired' =>
         'Le délai de 48h est dépassé. Tu peux relancer un matchmaking.',
+      'cancelled' =>
+        'L’initiateur a annulé ce matchmaking avant le départ du duel. Tu peux relancer une recherche.',
       'converted' => 'La demande est devenue un duel actif.',
       _ => 'Rafraîchis pour récupérer le dernier état.',
     };

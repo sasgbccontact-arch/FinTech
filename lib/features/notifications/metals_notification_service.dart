@@ -17,6 +17,7 @@ class MetalsNotificationService {
 
   static StreamSubscription<User?>? _authSubscription;
   static bool _initialized = false;
+  static String? _lastSyncedUid;
 
   // ── Init ────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,12 @@ class MetalsNotificationService {
       _authSubscription ??= FirebaseAuth.instance.authStateChanges().listen((
         user,
       ) async {
-        if (user == null) return;
+        if (user == null) {
+          debugPrint('[MetalsNotif] Auth state: signed-out');
+          _lastSyncedUid = null;
+          return;
+        }
+        debugPrint('[MetalsNotif] Auth state: signed-in uid=${user.uid}');
         await _syncDeviceToken();
       });
 
@@ -171,8 +177,33 @@ class MetalsNotificationService {
                 settings.authorizationStatus == AuthorizationStatus.authorized,
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
+      _lastSyncedUid = user.uid;
+      debugPrint('[MetalsNotif] Device token sync uid=${user.uid}');
     } catch (error, stackTrace) {
       debugPrint('[MetalsNotif] Erreur sync device token: $error\n$stackTrace');
+    }
+  }
+
+  static Future<void> detachCurrentDeviceForLogout() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final targetUid = user?.uid ?? _lastSyncedUid;
+    if (targetUid == null) {
+      debugPrint('[MetalsNotif] Aucun compte a detacher avant logout');
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(targetUid)
+          .collection('devices')
+          .doc('ios_primary')
+          .delete();
+      debugPrint('[MetalsNotif] Device detache pour logout uid=$targetUid');
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[MetalsNotif] Erreur detach device avant logout: $error\n$stackTrace',
+      );
     }
   }
 

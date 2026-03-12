@@ -56,6 +56,10 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
   _LeaderboardScope _scope = _LeaderboardScope.global;
   _LeaderboardMetric _metric = _LeaderboardMetric.level;
 
+  void _log(String message) {
+    debugPrint('[SocialFriends] $message');
+  }
+
   Stream<DocumentSnapshot<Map<String, dynamic>>> _currentUserStream() {
     return FirebaseFirestore.instance
         .collection('users')
@@ -106,6 +110,7 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
   }
 
   Future<void> _sendFriendRequest(_SocialUserEntry target) async {
+    _log('Tentative envoi demande ami vers ${target.uid} (${target.name})');
     final requestId = '${widget.currentUserId}_${target.uid}';
     final reverseId = '${target.uid}_${widget.currentUserId}';
     final requests = FirebaseFirestore.instance.collection('friend_requests');
@@ -115,6 +120,7 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
 
     final existingFriendship = await friendships.doc(friendshipId).get();
     if (existingFriendship.exists) {
+      _log('Blocage: deja amis avec ${target.uid}');
       _snack('Vous êtes déjà amis.');
       return;
     }
@@ -122,10 +128,12 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
     final existingOutgoing = await requests.doc(requestId).get();
     outgoingStatus = existingOutgoing.data()?['status']?.toString();
     if (outgoingStatus == 'pending') {
+      _log('Blocage: demande deja en attente vers ${target.uid}');
       _snack('Une demande est déjà en attente.');
       return;
     }
     if (outgoingStatus == 'accepted') {
+      _log('Blocage: demande deja acceptee avec ${target.uid}');
       _snack('Vous êtes déjà amis.');
       return;
     }
@@ -133,24 +141,60 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
     final reverseRequest = await requests.doc(reverseId).get();
     final reverseStatus = reverseRequest.data()?['status']?.toString();
     if (reverseStatus == 'pending') {
+      _log('Blocage: demande inverse deja recue depuis ${target.uid}');
       _snack('Cette personne t’a déjà envoyé une demande.');
       return;
     }
     if (reverseStatus == 'accepted') {
+      _log('Blocage: relation deja acceptee via demande inverse ${target.uid}');
       _snack('Vous êtes déjà amis.');
       return;
     }
+
+    final now = Timestamp.now();
+    final senderDoc =
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.currentUserId)
+            .get();
+    final senderName = _displayName(
+      senderDoc.data() ?? const <String, dynamic>{},
+    );
 
     final payload = <String, dynamic>{
       'fromUid': widget.currentUserId,
       'toUid': target.uid,
       'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': now,
     };
 
     try {
-      await requests.doc(requestId).set(payload);
+      final batch = FirebaseFirestore.instance.batch();
+      batch.set(requests.doc(requestId), payload);
+      batch.set(
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(target.uid)
+            .collection('inbox')
+            .doc('friend_$requestId'),
+        {
+          'type': 'friend_request',
+          'title': '$senderName veut etre ton ami',
+          'body':
+              'Traite cette demande dans le centre de notifications ou dans Amis & demandes.',
+          'createdAt': now,
+          'requestId': requestId,
+          'duelId': null,
+          'actorUid': widget.currentUserId,
+          'isRead': false,
+        },
+      );
+      await batch.commit();
+      _log('Succes envoi demande ami requestId=$requestId');
     } on FirebaseException catch (error) {
+      _log(
+        'Erreur Firebase envoi demande ami requestId=$requestId code=${error.code} message=${error.message}',
+      );
       if (error.code == 'permission-denied' &&
           (outgoingStatus == 'declined' || outgoingStatus == 'cancelled')) {
         _snack(
@@ -166,43 +210,81 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
   }
 
   Future<void> _acceptRequest(_FriendRequestEntry request) async {
+    _log('Acceptation demande amie requestId=${request.id}');
     final requests = FirebaseFirestore.instance.collection('friend_requests');
     final friendships = FirebaseFirestore.instance.collection('friendships');
     final friendshipId = _friendshipId(request.fromUid, request.toUid);
+    final now = Timestamp.now();
 
     final batch = FirebaseFirestore.instance.batch();
     batch.set(friendships.doc(friendshipId), {
       'participants': <String>[request.fromUid, request.toUid]..sort(),
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': now,
       'createdBy': request.toUid,
     }, SetOptions(merge: true));
     batch.update(requests.doc(request.id), {
       'status': 'accepted',
-      'acceptedAt': FieldValue.serverTimestamp(),
+      'acceptedAt': now,
     });
+    batch.set(
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(request.fromUid)
+          .collection('inbox')
+          .doc('friend_accept_${request.id}'),
+      {
+        'type': 'friend_request_accepted',
+        'title': 'Ta demande d’ami a été acceptée',
+        'body': 'Ton cercle social vient de s’agrandir dans FinHub.',
+        'createdAt': now,
+        'requestId': request.id,
+        'duelId': null,
+        'actorUid': request.toUid,
+        'isRead': false,
+      },
+    );
     await batch.commit();
+    _log('Succes acceptation demande amie requestId=${request.id}');
     _snack('Demande acceptée.');
   }
 
   Future<void> _declineRequest(_FriendRequestEntry request) async {
-    await FirebaseFirestore.instance
-        .collection('friend_requests')
-        .doc(request.id)
-        .update({
-          'status': 'declined',
-          'declinedAt': FieldValue.serverTimestamp(),
-        });
+    _log('Refus demande amie requestId=${request.id}');
+    final now = Timestamp.now();
+    final batch = FirebaseFirestore.instance.batch();
+    batch.update(
+      FirebaseFirestore.instance.collection('friend_requests').doc(request.id),
+      {'status': 'declined', 'declinedAt': now},
+    );
+    batch.set(
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(request.fromUid)
+          .collection('inbox')
+          .doc('friend_decline_${request.id}'),
+      {
+        'type': 'friend_request_declined',
+        'title': 'Ta demande d’ami a été refusée',
+        'body': 'Tu peux rechercher un autre joueur quand tu veux.',
+        'createdAt': now,
+        'requestId': request.id,
+        'duelId': null,
+        'actorUid': request.toUid,
+        'isRead': false,
+      },
+    );
+    await batch.commit();
+    _log('Succes refus demande amie requestId=${request.id}');
     _snack('Demande refusée.');
   }
 
   Future<void> _cancelRequest(_FriendRequestEntry request) async {
+    _log('Annulation demande amie requestId=${request.id}');
     await FirebaseFirestore.instance
         .collection('friend_requests')
         .doc(request.id)
-        .update({
-          'status': 'cancelled',
-          'cancelledAt': FieldValue.serverTimestamp(),
-        });
+        .update({'status': 'cancelled', 'cancelledAt': Timestamp.now()});
+    _log('Succes annulation demande amie requestId=${request.id}');
     _snack('Invitation annulée.');
   }
 
@@ -480,7 +562,7 @@ class _FriendsLeaderboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ids = friendIds.take(30).toList();
-    if (ids.isEmpty) {
+    if (ids.length <= 1) {
       return const _EmptyLeaderboard(
         message: 'Ajoute des amis pour débloquer ce classement.',
       );
@@ -499,7 +581,6 @@ class _FriendsLeaderboard extends StatelessWidget {
                       _SocialUserEntry.fromUserDoc(doc, fallbackUid: doc.id),
                 )
                 .whereType<_SocialUserEntry>()
-                .where((entry) => entry.profilePublic)
                 .toList();
         return _LeaderboardList(
           entries: _sortEntries(entries, metric),
@@ -1244,6 +1325,7 @@ class _SocialConnectionsSheetState extends State<_SocialConnectionsSheet> {
   late Future<List<_SocialUserEntry>> _searchFuture;
   String _query = '';
   String _debouncedQuery = '';
+  final Set<String> _busyUserIds = <String>{};
 
   @override
   void initState() {
@@ -1320,9 +1402,14 @@ class _SocialConnectionsSheetState extends State<_SocialConnectionsSheet> {
 
   Future<void> _handleSendRequest(_SocialUserEntry entry) async {
     FocusScope.of(context).unfocus();
+    debugPrint('[SocialFriends] UI Ajouter: clic sur ${entry.uid}');
+    setState(() => _busyUserIds.add(entry.uid));
     try {
       await widget.onSendRequest(entry);
     } on FirebaseException catch (error) {
+      debugPrint(
+        '[SocialFriends] UI Ajouter: erreur Firebase sur ${entry.uid} code=${error.code}',
+      );
       final message =
           error.code == 'permission-denied'
               ? 'Firestore refuse cette demande. Mets à jour les règles puis réessaie.'
@@ -1332,13 +1419,43 @@ class _SocialConnectionsSheetState extends State<_SocialConnectionsSheet> {
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
+      debugPrint(
+        '[SocialFriends] UI Ajouter: erreur inattendue sur ${entry.uid}',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Impossible d’envoyer la demande pour le moment.'),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _busyUserIds.remove(entry.uid));
+      }
     }
+  }
+
+  Future<void> _handleRequestAction(
+    String uid,
+    Future<void> Function() action,
+  ) async {
+    debugPrint('[SocialFriends] UI Demandes: action sur $uid');
+    setState(() => _busyUserIds.add(uid));
+    try {
+      await action();
+      debugPrint('[SocialFriends] UI Demandes: action terminee sur $uid');
+    } finally {
+      if (mounted) {
+        setState(() => _busyUserIds.remove(uid));
+      }
+    }
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> _friendshipsStream() {
+    return FirebaseFirestore.instance
+        .collection('friendships')
+        .where('participants', arrayContains: widget.currentUserId)
+        .snapshots();
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _incomingRequestsStream() {
@@ -1509,6 +1626,10 @@ class _SocialConnectionsSheetState extends State<_SocialConnectionsSheet> {
                                 controller: _controller,
                                 autofocus: true,
                                 onChanged: _onSearchChanged,
+                                onTapOutside:
+                                    (_) =>
+                                        FocusManager.instance.primaryFocus
+                                            ?.unfocus(),
                                 decoration: const InputDecoration(
                                   border: InputBorder.none,
                                   hintText: 'Rechercher un pseudo...',
@@ -1518,125 +1639,231 @@ class _SocialConnectionsSheetState extends State<_SocialConnectionsSheet> {
                             ),
                           ),
                           Expanded(
-                            child: FutureBuilder<List<_SocialUserEntry>>(
-                              future: _searchFuture,
-                              builder: (context, snapshot) {
-                                final entries =
-                                    snapshot.data ?? const <_SocialUserEntry>[];
-                                final trimmedQuery = _query.trim();
-                                final isSearching =
-                                    _debouncedQuery != trimmedQuery;
-                                if (snapshot.connectionState ==
-                                        ConnectionState.waiting &&
-                                    entries.isEmpty) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-                                if (entries.isEmpty) {
-                                  return Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Text(
-                                        trimmedQuery.isEmpty
-                                            ? 'Les profils les plus actifs apparaissent ici.'
-                                            : 'Aucun profil proche de "$trimmedQuery".',
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: textColor,
-                                          height: 1.35,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }
-                                return ListView.separated(
-                                  key: ValueKey(_debouncedQuery),
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    16,
-                                    16,
-                                    24,
-                                  ),
-                                  itemCount: entries.length + 1,
-                                  separatorBuilder:
-                                      (_, __) => const SizedBox(height: 10),
-                                  itemBuilder: (context, index) {
-                                    if (index == 0) {
-                                      return _SearchSuggestionsHeader(
-                                        query: trimmedQuery,
-                                        isSearching: isSearching,
-                                      );
-                                    }
-                                    final entry = entries[index - 1];
-                                    return Container(
-                                      padding: const EdgeInsets.all(14),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(18),
-                                        border: Border.all(
-                                          color: const Color(0xFFE6E8EB),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          _AvatarBadge(
-                                            avatarId: entry.avatarId,
-                                            rank: null,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  entry.name,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: const TextStyle(
-                                                    color: textColor,
-                                                    fontWeight: FontWeight.w900,
+                            child: StreamBuilder<
+                              QuerySnapshot<Map<String, dynamic>>
+                            >(
+                              stream: _friendshipsStream(),
+                              builder: (context, friendshipSnapshot) {
+                                final friendIds =
+                                    (friendshipSnapshot.data?.docs ?? const [])
+                                        .expand(
+                                          (doc) =>
+                                              (doc.data()['participants']
+                                                      as List<dynamic>? ??
+                                                  const <dynamic>[]),
+                                        )
+                                        .map((value) => value.toString())
+                                        .where((value) => value.isNotEmpty)
+                                        .toSet()
+                                      ..remove(widget.currentUserId);
+                                return StreamBuilder<
+                                  QuerySnapshot<Map<String, dynamic>>
+                                >(
+                                  stream: _incomingRequestsStream(),
+                                  builder: (context, incomingSnapshot) {
+                                    final incomingByUser =
+                                        <String, _FriendRequestEntry>{
+                                          for (final request
+                                              in (incomingSnapshot.data?.docs ??
+                                                      const [])
+                                                  .map(
+                                                    _FriendRequestEntry.fromDoc,
+                                                  ))
+                                            request.fromUid: request,
+                                        };
+                                    return StreamBuilder<
+                                      QuerySnapshot<Map<String, dynamic>>
+                                    >(
+                                      stream: _outgoingRequestsStream(),
+                                      builder: (context, outgoingSnapshot) {
+                                        final outgoingByUser = <
+                                          String,
+                                          _FriendRequestEntry
+                                        >{
+                                          for (final request
+                                              in (outgoingSnapshot.data?.docs ??
+                                                      const [])
+                                                  .map(
+                                                    _FriendRequestEntry.fromDoc,
+                                                  ))
+                                            request.toUid: request,
+                                        };
+                                        return FutureBuilder<
+                                          List<_SocialUserEntry>
+                                        >(
+                                          future: _searchFuture,
+                                          builder: (context, snapshot) {
+                                            final entries =
+                                                snapshot.data ??
+                                                const <_SocialUserEntry>[];
+                                            final trimmedQuery = _query.trim();
+                                            final isSearching =
+                                                _debouncedQuery != trimmedQuery;
+                                            if (snapshot.connectionState ==
+                                                    ConnectionState.waiting &&
+                                                entries.isEmpty) {
+                                              return const Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              );
+                                            }
+                                            if (entries.isEmpty) {
+                                              return Center(
+                                                child: Padding(
+                                                  padding: const EdgeInsets.all(
+                                                    24,
+                                                  ),
+                                                  child: Text(
+                                                    trimmedQuery.isEmpty
+                                                        ? 'Les profils les plus actifs apparaissent ici.'
+                                                        : 'Aucun profil proche de "$trimmedQuery".',
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                      color: textColor,
+                                                      height: 1.35,
+                                                    ),
                                                   ),
                                                 ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Niveau ${entry.level} · ${entry.streak} jours · ${entry.coins} coins',
-                                                  style: const TextStyle(
-                                                    color: Colors.black54,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          FilledButton.tonalIcon(
-                                            onPressed:
-                                                () => _handleSendRequest(entry),
-                                            style: FilledButton.styleFrom(
-                                              backgroundColor: detailsColor1
-                                                  .withValues(alpha: 0.14),
-                                              foregroundColor: detailsColor2,
+                                              );
+                                            }
+                                            return ListView.separated(
+                                              key: ValueKey(_debouncedQuery),
                                               padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 10,
+                                                  const EdgeInsets.fromLTRB(
+                                                    16,
+                                                    16,
+                                                    16,
+                                                    24,
                                                   ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                              ),
-                                            ),
-                                            icon: const Icon(
-                                              Icons.person_add_alt_1_rounded,
-                                              size: 18,
-                                            ),
-                                            label: const Text('Ajouter'),
-                                          ),
-                                        ],
-                                      ),
+                                              itemCount: entries.length + 1,
+                                              separatorBuilder:
+                                                  (_, __) => const SizedBox(
+                                                    height: 10,
+                                                  ),
+                                              itemBuilder: (context, index) {
+                                                if (index == 0) {
+                                                  return _SearchSuggestionsHeader(
+                                                    query: trimmedQuery,
+                                                    isSearching: isSearching,
+                                                  );
+                                                }
+                                                final entry =
+                                                    entries[index - 1];
+                                                final isBusy = _busyUserIds
+                                                    .contains(entry.uid);
+                                                final isFriend = friendIds
+                                                    .contains(entry.uid);
+                                                final outgoingRequest =
+                                                    outgoingByUser[entry.uid];
+                                                final incomingRequest =
+                                                    incomingByUser[entry.uid];
+                                                return Container(
+                                                  padding: const EdgeInsets.all(
+                                                    14,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          18,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: const Color(
+                                                        0xFFE6E8EB,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      _AvatarBadge(
+                                                        avatarId:
+                                                            entry.avatarId,
+                                                        rank: null,
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Text(
+                                                              entry.name,
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: const TextStyle(
+                                                                color:
+                                                                    textColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w900,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              height: 4,
+                                                            ),
+                                                            Text(
+                                                              'Niveau ${entry.level} · ${entry.streak} jours · ${entry.coins} coins',
+                                                              style: const TextStyle(
+                                                                color:
+                                                                    Colors
+                                                                        .black54,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      _ConnectionActionArea(
+                                                        isBusy: isBusy,
+                                                        isFriend: isFriend,
+                                                        hasOutgoingRequest:
+                                                            outgoingRequest !=
+                                                            null,
+                                                        hasIncomingRequest:
+                                                            incomingRequest !=
+                                                            null,
+                                                        onAdd:
+                                                            () =>
+                                                                _handleSendRequest(
+                                                                  entry,
+                                                                ),
+                                                        onAccept:
+                                                            incomingRequest ==
+                                                                    null
+                                                                ? null
+                                                                : () => _handleRequestAction(
+                                                                  entry.uid,
+                                                                  () => widget
+                                                                      .onAcceptRequest(
+                                                                        incomingRequest,
+                                                                      ),
+                                                                ),
+                                                        onDecline:
+                                                            incomingRequest ==
+                                                                    null
+                                                                ? null
+                                                                : () => _handleRequestAction(
+                                                                  entry.uid,
+                                                                  () => widget
+                                                                      .onDeclineRequest(
+                                                                        incomingRequest,
+                                                                      ),
+                                                                ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            );
+                                          },
+                                        );
+                                      },
                                     );
                                   },
                                 );
@@ -1648,6 +1875,114 @@ class _SocialConnectionsSheetState extends State<_SocialConnectionsSheet> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ConnectionActionArea extends StatelessWidget {
+  const _ConnectionActionArea({
+    required this.isBusy,
+    required this.isFriend,
+    required this.hasOutgoingRequest,
+    required this.hasIncomingRequest,
+    required this.onAdd,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final bool isBusy;
+  final bool isFriend;
+  final bool hasOutgoingRequest;
+  final bool hasIncomingRequest;
+  final VoidCallback onAdd;
+  final VoidCallback? onAccept;
+  final VoidCallback? onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isBusy) {
+      return const SizedBox(
+        width: 26,
+        height: 26,
+        child: CircularProgressIndicator(strokeWidth: 2.2),
+      );
+    }
+    if (isFriend) {
+      return const _ConnectionStatePill(
+        label: 'Ami',
+        icon: Icons.verified_rounded,
+      );
+    }
+    if (hasOutgoingRequest) {
+      return const _ConnectionStatePill(
+        label: 'En attente',
+        icon: Icons.schedule_rounded,
+      );
+    }
+    if (hasIncomingRequest) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FilledButton.tonalIcon(
+            onPressed: onAccept,
+            style: FilledButton.styleFrom(
+              backgroundColor: detailsColor1.withValues(alpha: 0.14),
+              foregroundColor: detailsColor2,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.check_rounded, size: 18),
+            label: const Text('Accepter'),
+          ),
+          const SizedBox(height: 6),
+          TextButton(onPressed: onDecline, child: const Text('Refuser')),
+        ],
+      );
+    }
+    return FilledButton.tonalIcon(
+      onPressed: onAdd,
+      style: FilledButton.styleFrom(
+        backgroundColor: detailsColor1.withValues(alpha: 0.14),
+        foregroundColor: detailsColor2,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+      label: const Text('Ajouter'),
+    );
+  }
+}
+
+class _ConnectionStatePill extends StatelessWidget {
+  const _ConnectionStatePill({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: detailsColor2.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: detailsColor2),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: detailsColor2,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
