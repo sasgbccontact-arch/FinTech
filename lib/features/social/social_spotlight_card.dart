@@ -84,29 +84,8 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
         .snapshots();
   }
 
-  Query<Map<String, dynamic>> _globalQuery() {
-    switch (_metric) {
-      case _LeaderboardMetric.level:
-        return FirebaseFirestore.instance
-            .collection('users')
-            .orderBy('xp', descending: true)
-            .limit(10);
-      case _LeaderboardMetric.streak:
-        return FirebaseFirestore.instance
-            .collection('users')
-            .orderBy('current_streak', descending: true)
-            .limit(10);
-      case _LeaderboardMetric.coins:
-        return FirebaseFirestore.instance
-            .collection('users')
-            .orderBy('coins', descending: true)
-            .limit(10);
-      case _LeaderboardMetric.gems:
-        return FirebaseFirestore.instance
-            .collection('users')
-            .orderBy('gems', descending: true)
-            .limit(10);
-    }
+  Stream<QuerySnapshot<Map<String, dynamic>>> _globalUsersStream() {
+    return FirebaseFirestore.instance.collection('users').snapshots();
   }
 
   Future<void> _sendFriendRequest(_SocialUserEntry target) async {
@@ -441,7 +420,7 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
                   _LeaderboardSection(
                     scope: _scope,
                     metric: _metric,
-                    globalQuery: _globalQuery(),
+                    globalStream: _globalUsersStream(),
                     currentUserId: widget.currentUserId,
                     friendIds: friendIds,
                     onOpenProfile: _openProfile,
@@ -478,7 +457,7 @@ class _LeaderboardSection extends StatelessWidget {
   const _LeaderboardSection({
     required this.scope,
     required this.metric,
-    required this.globalQuery,
+    required this.globalStream,
     required this.currentUserId,
     required this.friendIds,
     required this.onOpenProfile,
@@ -486,7 +465,7 @@ class _LeaderboardSection extends StatelessWidget {
 
   final _LeaderboardScope scope;
   final _LeaderboardMetric metric;
-  final Query<Map<String, dynamic>> globalQuery;
+  final Stream<QuerySnapshot<Map<String, dynamic>>> globalStream;
   final String currentUserId;
   final List<String> friendIds;
   final ValueChanged<_SocialUserEntry> onOpenProfile;
@@ -517,8 +496,14 @@ class _LeaderboardSection extends StatelessWidget {
         const SizedBox(height: 12),
         if (scope == _LeaderboardScope.global)
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: globalQuery.snapshots(),
+            stream: globalStream,
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const _EmptyLeaderboard(
+                  message:
+                      'Impossible de charger le classement global pour le moment.',
+                );
+              }
               final entries =
                   (snapshot.data?.docs ?? const [])
                       .map(
@@ -528,7 +513,6 @@ class _LeaderboardSection extends StatelessWidget {
                         ),
                       )
                       .whereType<_SocialUserEntry>()
-                      .where((entry) => entry.profilePublic)
                       .toList();
               return _LeaderboardList(
                 entries: _sortEntries(entries, metric),
@@ -574,6 +558,12 @@ class _FriendsLeaderboard extends StatelessWidget {
               .where(FieldPath.documentId, whereIn: ids)
               .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const _EmptyLeaderboard(
+            message:
+                'Impossible de charger le classement entre amis pour le moment.',
+          );
+        }
         final entries =
             (snapshot.data?.docs ?? const [])
                 .map(
@@ -607,7 +597,7 @@ class _LeaderboardList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
       return const _EmptyLeaderboard(
-        message: 'Aucun profil public disponible pour ce filtre.',
+        message: 'Aucun joueur disponible pour ce filtre pour le moment.',
       );
     }
     return Column(
