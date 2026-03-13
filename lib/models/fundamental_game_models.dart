@@ -255,6 +255,7 @@ class FundamentalGameData {
     required this.revenueHistory,
     required this.epsHistory,
     required this.dividendPerYear,
+    this.quoteTrailingPe,
   });
 
   final String symbol;
@@ -266,10 +267,11 @@ class FundamentalGameData {
   final List<YearlyMetricValue> revenueHistory;
   final List<YearlyMetricValue> epsHistory;
   final Map<int, double> dividendPerYear;
+  final double? quoteTrailingPe;
 
   bool get isEquity => (quoteType ?? '').toUpperCase() == 'EQUITY';
 
-  double? get trailingPe => snapshot.trailingPe;
+  double? get trailingPe => snapshot.trailingPe ?? quoteTrailingPe;
   double? get enterpriseToEbitda => snapshot.enterpriseToEbitda;
   double? get returnOnEquity => snapshot.returnOnEquity;
   double? get ebit => snapshot.ebit;
@@ -300,10 +302,56 @@ class FundamentalGameData {
     required String symbol,
     required Map<String, dynamic> summary,
     required Map<int, double> dividendPerYear,
+    double? fallbackTrailingPe,
   }) {
     final price = _asMap(summary['price']);
+    final financialData = _asMap(summary['financialData']);
+    final defaultKeyStatistics = _asMap(summary['defaultKeyStatistics']);
     final incomeStatementHistory = _asMap(summary['incomeStatementHistory']);
+    final incomeStatementHistoryQuarterly = _asMap(
+      summary['incomeStatementHistoryQuarterly'],
+    );
     final snapshot = FinancialSnapshot.fromQuoteSummary(summary);
+    final sharesOutstanding =
+        _readDouble(defaultKeyStatistics?['sharesOutstanding']) ??
+        _readDouble(defaultKeyStatistics?['shares']) ??
+        _readDouble(financialData?['sharesOutstanding']) ??
+        _readDouble(price?['sharesOutstanding']);
+    final revenueHistory = _extractAnnualSeries(
+      history: incomeStatementHistory,
+      key: 'incomeStatementHistory',
+      valueExtractor: (statement) => _readDouble(statement['totalRevenue']),
+    );
+    final quarterlyRevenueHistory =
+        revenueHistory.isEmpty
+            ? _extractQuarterlyAggregatedSeries(
+              history: incomeStatementHistoryQuarterly,
+              key: 'incomeStatementHistory',
+              valueExtractor:
+                  (statement) => _readDouble(statement['totalRevenue']),
+            )
+            : const <YearlyMetricValue>[];
+    final epsHistory = _extractAnnualSeries(
+      history: incomeStatementHistory,
+      key: 'incomeStatementHistory',
+      valueExtractor:
+          (statement) => _extractEpsFromStatement(
+            statement,
+            fallbackSharesOutstanding: sharesOutstanding,
+          ),
+    );
+    final quarterlyEpsHistory =
+        epsHistory.isEmpty
+            ? _extractQuarterlyAggregatedSeries(
+              history: incomeStatementHistoryQuarterly,
+              key: 'incomeStatementHistory',
+              valueExtractor:
+                  (statement) => _extractEpsFromStatement(
+                    statement,
+                    fallbackSharesOutstanding: sharesOutstanding,
+                  ),
+            )
+            : const <YearlyMetricValue>[];
 
     return FundamentalGameData(
       symbol: symbol,
@@ -320,17 +368,11 @@ class FundamentalGameData {
           _readString(price?['financialCurrency']),
       quoteType: _readString(price?['quoteType']),
       snapshot: snapshot,
-      revenueHistory: _extractAnnualSeries(
-        history: incomeStatementHistory,
-        key: 'incomeStatementHistory',
-        valueExtractor: (statement) => _readDouble(statement['totalRevenue']),
-      ),
-      epsHistory: _extractAnnualSeries(
-        history: incomeStatementHistory,
-        key: 'incomeStatementHistory',
-        valueExtractor: _extractEpsFromStatement,
-      ),
+      revenueHistory:
+          revenueHistory.isNotEmpty ? revenueHistory : quarterlyRevenueHistory,
+      epsHistory: epsHistory.isNotEmpty ? epsHistory : quarterlyEpsHistory,
       dividendPerYear: Map.unmodifiable(Map<int, double>.from(dividendPerYear)),
+      quoteTrailingPe: fallbackTrailingPe,
     );
   }
 
@@ -363,7 +405,42 @@ class FundamentalGameData {
     return List.unmodifiable(results);
   }
 
-  static double? _extractEpsFromStatement(Map<String, dynamic> statement) {
+  static List<YearlyMetricValue> _extractQuarterlyAggregatedSeries({
+    required Map<String, dynamic>? history,
+    required String key,
+    required double? Function(Map<String, dynamic>) valueExtractor,
+  }) {
+    if (history == null) return const <YearlyMetricValue>[];
+    final statements = _asList(history[key]);
+    final totals = <int, double>{};
+    final counts = <int, int>{};
+
+    for (final entry in statements) {
+      final statement = _asMap(entry);
+      if (statement == null) continue;
+      final endDate = _readDate(statement['endDate']);
+      final year = endDate?.year;
+      final value = valueExtractor(statement);
+      if (year == null || value == null) continue;
+      totals.update(year, (current) => current + value, ifAbsent: () => value);
+      counts.update(year, (current) => current + 1, ifAbsent: () => 1);
+    }
+
+    final results =
+        totals.entries
+            .where((entry) => (counts[entry.key] ?? 0) >= 3)
+            .map(
+              (entry) => YearlyMetricValue(year: entry.key, value: entry.value),
+            )
+            .toList()
+          ..sort((a, b) => a.year.compareTo(b.year));
+    return List.unmodifiable(results);
+  }
+
+  static double? _extractEpsFromStatement(
+    Map<String, dynamic> statement, {
+    double? fallbackSharesOutstanding,
+  }) {
     final directKeys = [
       'dilutedEPS',
       'basicEPS',
@@ -383,7 +460,8 @@ class FundamentalGameData {
         _readDouble(statement['dilutedAverageShares']) ??
         _readDouble(statement['basicAverageShares']) ??
         _readDouble(statement['weightedAverageShsOutDil']) ??
-        _readDouble(statement['weightedAverageShsOut']);
+        _readDouble(statement['weightedAverageShsOut']) ??
+        fallbackSharesOutstanding;
 
     if (netIncome == null || shareCount == null || shareCount.abs() < 1e-9) {
       return null;

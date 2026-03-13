@@ -28,7 +28,8 @@ class WorldMapWidget extends StatefulWidget {
   final String? selectedIso2;
   final String? sessionId;
   final Future<void> Function(CountryInfo country)? onCountryPrefetch;
-  final Future<NewsArticle?> Function(CountryInfo country)? countryArticleLoader;
+  final Future<NewsArticle?> Function(CountryInfo country)?
+  countryArticleLoader;
   final Future<void> Function()? onQuizCompleted;
 
   const WorldMapWidget({
@@ -74,12 +75,15 @@ class _WorldMapWidgetState extends State<WorldMapWidget>
 
     final result = <String, List<CountryInfo>>{};
     for (final entry in kCountriesByRegion.entries) {
-      final matches = entry.value
-          .where((c) =>
-              c.nameFr.toLowerCase().contains(q) ||
-              c.nameEn.toLowerCase().contains(q) ||
-              c.iso2.toLowerCase() == q)
-          .toList();
+      final matches =
+          entry.value
+              .where(
+                (c) =>
+                    c.nameFr.toLowerCase().contains(q) ||
+                    c.nameEn.toLowerCase().contains(q) ||
+                    c.iso2.toLowerCase() == q,
+              )
+              .toList();
       if (matches.isNotEmpty) result[entry.key] = matches;
     }
     return result;
@@ -172,7 +176,8 @@ class _WorldMapWidgetState extends State<WorldMapWidget>
       builder: (context, constraints) {
         final mq = MediaQuery.of(context);
         final size = mq.size;
-        final isLandscapeByConstraints = constraints.maxWidth > constraints.maxHeight;
+        final isLandscapeByConstraints =
+            constraints.maxWidth > constraints.maxHeight;
         final isLandscapeBySize = size.width > size.height;
         final isLandscape = isLandscapeByConstraints || isLandscapeBySize;
 
@@ -217,25 +222,29 @@ class _WorldMapWidgetState extends State<WorldMapWidget>
                 style: const TextStyle(fontSize: 14, color: textColor),
                 decoration: InputDecoration(
                   hintText: 'Chercher un pays…',
-                  hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
+                  hintStyle: const TextStyle(
+                    color: Colors.black38,
+                    fontSize: 14,
+                  ),
                   prefixIcon: const Icon(
                     Icons.search_rounded,
                     color: Colors.black38,
                     size: 20,
                   ),
-                  suffixIcon: _query.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            size: 18,
-                            color: Colors.black38,
-                          ),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          },
-                        )
-                      : null,
+                  suffixIcon:
+                      _query.isNotEmpty
+                          ? IconButton(
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: Colors.black38,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _query = '');
+                            },
+                          )
+                          : null,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -245,13 +254,14 @@ class _WorldMapWidgetState extends State<WorldMapWidget>
             if (filtered.isEmpty)
               _buildEmpty()
             else
-              ...filtered.entries.map((entry) => _buildRegion(entry.key, entry.value)),
+              ...filtered.entries.map(
+                (entry) => _buildRegion(entry.key, entry.value),
+              ),
           ],
         );
       },
     );
   }
-
 
   Widget _buildRegion(String region, List<CountryInfo> countries) {
     return Column(
@@ -272,21 +282,23 @@ class _WorldMapWidgetState extends State<WorldMapWidget>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: countries
-              .map(
-                (c) => _CountryChip(
-                  country: c,
-                  selected: c.iso2.toUpperCase() ==
-                      (widget.selectedIso2?.toUpperCase() ?? ''),
-                  onTap: () {
-                    widget.onCountryTap(c);
-                    if (widget.onCountryPrefetch != null) {
-                      widget.onCountryPrefetch!(c);
-                    }
-                  },
-                ),
-              )
-              .toList(),
+          children:
+              countries
+                  .map(
+                    (c) => _CountryChip(
+                      country: c,
+                      selected:
+                          c.iso2.toUpperCase() ==
+                          (widget.selectedIso2?.toUpperCase() ?? ''),
+                      onTap: () {
+                        widget.onCountryTap(c);
+                        if (widget.onCountryPrefetch != null) {
+                          widget.onCountryPrefetch!(c);
+                        }
+                      },
+                    ),
+                  )
+                  .toList(),
         ),
         const SizedBox(height: 20),
       ],
@@ -397,34 +409,37 @@ class _CountryChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: selected
-            ? BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [detailsColor1, detailsColor2],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        decoration:
+            selected
+                ? BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [detailsColor1, detailsColor2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: detailsColor2.withValues(alpha: 0.30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                )
+                : BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.10),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: detailsColor2.withValues(alpha: 0.30),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              )
-            : BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.10)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -444,7 +459,6 @@ class _CountryChip extends StatelessWidget {
     );
   }
 }
-
 
 class CountryArticlePage extends StatefulWidget {
   final CountryInfo country;
@@ -524,7 +538,10 @@ class _CountryArticlePageState extends State<CountryArticlePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.spaceBetween,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -546,7 +563,6 @@ class _CountryArticlePageState extends State<CountryArticlePage> {
                         ),
                       ),
                     ),
-                    const Spacer(),
                     Text(
                       _relativeDate(article.publishedAt),
                       style: const TextStyle(
@@ -618,19 +634,25 @@ class _CountryArticlePageState extends State<CountryArticlePage> {
                 ),
                 elevation: 0,
               ),
-              child: _quizLoading
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              child:
+                  _quizLoading
+                      ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                      : const Text(
+                        'Passer au quiz →',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      'Passer au quiz →',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                    ),
             ),
           ),
         ],
@@ -668,10 +690,11 @@ class _CountryArticlePageState extends State<CountryArticlePage> {
 
       final result = await Navigator.of(context).push<QuizPageResult>(
         MaterialPageRoute(
-          builder: (_) => QuizPage(
-            questions: questions,
-            title: 'Quiz ${widget.country.nameFr}',
-          ),
+          builder:
+              (_) => QuizPage(
+                questions: questions,
+                title: 'Quiz ${widget.country.nameFr}',
+              ),
         ),
       );
 
@@ -692,14 +715,14 @@ class _CountryArticlePageState extends State<CountryArticlePage> {
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Landscape map panel for in-place landscape mode (not a separate page)
 // ─────────────────────────────────────────────────────────────────────────────
 class _LandscapeWorldMapPanel extends StatefulWidget {
   final String? sessionId;
   final Future<void> Function(CountryInfo country)? onCountryPrefetch;
-  final Future<NewsArticle?> Function(CountryInfo country)? countryArticleLoader;
+  final Future<NewsArticle?> Function(CountryInfo country)?
+  countryArticleLoader;
   final Future<void> Function()? onQuizCompleted;
 
   const _LandscapeWorldMapPanel({
@@ -710,10 +733,12 @@ class _LandscapeWorldMapPanel extends StatefulWidget {
   });
 
   @override
-  State<_LandscapeWorldMapPanel> createState() => _LandscapeWorldMapPanelState();
+  State<_LandscapeWorldMapPanel> createState() =>
+      _LandscapeWorldMapPanelState();
 }
 
-class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with SingleTickerProviderStateMixin {
+class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel>
+    with SingleTickerProviderStateMixin {
   String? _selectedIso2;
   String? _selectedMapId;
   CountryInfo? _selectedCountry;
@@ -729,7 +754,10 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..repeat(reverse: true);
-    _pulseColor = ColorTween(begin: detailsColor1, end: detailsColor2).animate(_pulseCtl);
+    _pulseColor = ColorTween(
+      begin: detailsColor1,
+      end: detailsColor2,
+    ).animate(_pulseCtl);
   }
 
   @override
@@ -765,7 +793,8 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
     final country = _selectedCountry;
     if (country == null) return;
 
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (ctx) {
             return AlertDialog(
@@ -840,18 +869,21 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
     }
 
     // On force portrait juste avant d'afficher l'article
-    await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
 
     if (!mounted) return;
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => CountryArticlePage(
-          country: country,
-          article: article!,
-          sessionId: widget.sessionId,
-          onQuizCompleted: widget.onQuizCompleted,
-        ),
+        builder:
+            (_) => CountryArticlePage(
+              country: country,
+              article: article!,
+              sessionId: widget.sessionId,
+              onQuizCompleted: widget.onQuizCompleted,
+            ),
       ),
     );
 
@@ -887,7 +919,9 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
       animation: _pulseCtl,
       builder: (context, _) {
         final colors = _buildMapColors();
-        debugPrint('[WorldMap] build landscape panel: selectedMapId=$_selectedMapId selectedIso2=$_selectedIso2 colorsKeys=${colors.keys.toList()}');
+        debugPrint(
+          '[WorldMap] build landscape panel: selectedMapId=$_selectedMapId selectedIso2=$_selectedIso2 colorsKeys=${colors.keys.toList()}',
+        );
         return Stack(
           children: [
             Column(
@@ -895,8 +929,10 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
                 if (_selectedCountry != null)
                   Container(
                     width: double.infinity,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [detailsColor1, detailsColor2],
@@ -904,43 +940,93 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
                         end: Alignment.bottomRight,
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${_selectedCountry!.flag}  ${_selectedCountry!.nameFr}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final compact = constraints.maxWidth < 520;
+                        if (compact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_selectedCountry!.flag}  ${_selectedCountry!.nameFr}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _loading ? null : _confirmAndLoad,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 10,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Charger un article',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${_selectedCountry!.flag}  ${_selectedCountry!.nameFr}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        ElevatedButton(
-                          onPressed: _loading ? null : _confirmAndLoad,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.black,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                            const SizedBox(width: 12),
+                            ElevatedButton(
+                              onPressed: _loading ? null : _confirmAndLoad,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                'Charger un article',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
                             ),
-                          ),
-                          child: const Text(
-                            'Charger un article',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                   )
                 else
                   Container(
                     width: double.infinity,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     color: Colors.black.withValues(alpha: 0.03),
                     child: const Text(
                       'Touche un pays pour le sélectionner.',
@@ -964,15 +1050,21 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
                             width: MediaQuery.of(context).size.width * 0.98,
                             child: SimpleMap(
                               instructions: SMapWorld.instructions,
-                              defaultColor: Colors.black.withValues(alpha: 0.10),
+                              defaultColor: Colors.black.withValues(
+                                alpha: 0.10,
+                              ),
                               colors: colors,
                               callback: (id, name, tapDetails) {
                                 if (_loading) return;
-                                debugPrint('[WorldMap] tap rawId=$id name=$name');
+                                debugPrint(
+                                  '[WorldMap] tap rawId=$id name=$name',
+                                );
                                 final mapId = id;
                                 final iso2 = _normalizeMapIdToIso2(id);
                                 final country = _findCountry(iso2);
-                                debugPrint('[WorldMap] normalized iso2=$iso2 mapId=$mapId foundCountry=${country?.nameEn}');
+                                debugPrint(
+                                  '[WorldMap] normalized iso2=$iso2 mapId=$mapId foundCountry=${country?.nameEn}',
+                                );
                                 if (country == null) return;
                                 setState(() {
                                   _selectedMapId = mapId;
@@ -982,7 +1074,9 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
                                 if (widget.onCountryPrefetch != null) {
                                   widget.onCountryPrefetch!(country);
                                 }
-                                debugPrint('[WorldMap] setState selectedMapId=$_selectedMapId (will color it)');
+                                debugPrint(
+                                  '[WorldMap] setState selectedMapId=$_selectedMapId (will color it)',
+                                );
                               },
                             ),
                           ),
@@ -1022,8 +1116,9 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(20)),
+                          borderRadius: BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
                         ),
                         child: const Text(
                           "Chargement de l'article…",
@@ -1054,7 +1149,6 @@ class _LandscapeWorldMapPanelState extends State<_LandscapeWorldMapPanel> with S
   }
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Fallback Quiz Page ("OUI/NON" quiz)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1062,7 +1156,8 @@ class CountryFallbackQuizPage extends StatefulWidget {
   const CountryFallbackQuizPage({super.key});
 
   @override
-  State<CountryFallbackQuizPage> createState() => _CountryFallbackQuizPageState();
+  State<CountryFallbackQuizPage> createState() =>
+      _CountryFallbackQuizPageState();
 }
 
 class _CountryFallbackQuizPageState extends State<CountryFallbackQuizPage> {
@@ -1181,7 +1276,10 @@ class _CountryFallbackQuizPageState extends State<CountryFallbackQuizPage> {
                       ),
                       child: const Text(
                         'Terminer',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),

@@ -107,6 +107,7 @@ class FinancialSnapshot {
         value is List<dynamic> ? value : null;
 
     final financialData = asMap(summary['financialData']);
+    final price = asMap(summary['price']);
     final summaryDetail = asMap(summary['summaryDetail']);
     final defaultKeyStatistics = asMap(summary['defaultKeyStatistics']);
     final summaryProfile = asMap(summary['summaryProfile']);
@@ -118,6 +119,10 @@ class FinancialSnapshot {
     final incomeStatementHistory = asMap(summary['incomeStatementHistory']);
     final incomeStatementHistoryQuarterly = asMap(
       summary['incomeStatementHistoryQuarterly'],
+    );
+    final cashflowStatementHistory = asMap(summary['cashflowStatementHistory']);
+    final cashflowStatementHistoryQuarterly = asMap(
+      summary['cashflowStatementHistoryQuarterly'],
     );
 
     Map<String, dynamic>? firstFromHistory(
@@ -154,11 +159,92 @@ class FinancialSnapshot {
       );
     }
 
+    Map<String, dynamic>? _latestCashflowStatement() {
+      final yearly = firstFromHistory(
+        cashflowStatementHistory,
+        'cashflowStatements',
+      );
+      if (yearly != null) return yearly;
+      return firstFromHistory(
+        cashflowStatementHistoryQuarterly,
+        'cashflowStatements',
+      );
+    }
+
+    List<Map<String, dynamic>> historyEntries(
+      Map<String, dynamic>? history,
+      String key,
+    ) {
+      if (history == null) return const <Map<String, dynamic>>[];
+      final list = asList(history[key]);
+      if (list == null || list.isEmpty) return const <Map<String, dynamic>>[];
+      return list.whereType<Map<String, dynamic>>().toList();
+    }
+
+    DateTime? readDate(dynamic value) {
+      if (value == null) return null;
+      if (value is num) {
+        return DateTime.fromMillisecondsSinceEpoch(
+          value.toInt() * 1000,
+          isUtc: true,
+        );
+      }
+      if (value is String) return DateTime.tryParse(value);
+      if (value is Map<String, dynamic>) {
+        final raw = value['raw'];
+        if (raw is num) {
+          return DateTime.fromMillisecondsSinceEpoch(
+            raw.toInt() * 1000,
+            isUtc: true,
+          );
+        }
+      }
+      return null;
+    }
+
+    double? computeGrowthFromHistory(
+      List<Map<String, dynamic>> statements,
+      double? Function(Map<String, dynamic>) extractor,
+    ) {
+      if (statements.length < 2) return null;
+      final sorted = List<Map<String, dynamic>>.from(statements)..sort((a, b) {
+        final aDate = readDate(a['endDate']);
+        final bDate = readDate(b['endDate']);
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return 1;
+        if (bDate == null) return -1;
+        return bDate.compareTo(aDate);
+      });
+      final values = <double>[];
+      for (final statement in sorted) {
+        final value = extractor(statement);
+        if (value == null) continue;
+        values.add(value);
+        if (values.length == 2) break;
+      }
+      if (values.length < 2) return null;
+      final latest = values[0];
+      final previous = values[1];
+      if (previous.abs() < 1e-9) return null;
+      return (latest - previous) / previous.abs();
+    }
+
+    double? computeFreeCashflow(double? operatingCashflow, double? capex) {
+      if (operatingCashflow == null || capex == null) return null;
+      return capex < 0 ? operatingCashflow + capex : operatingCashflow - capex;
+    }
+
     final latestBalanceSheet = _latestBalanceSheet();
     final latestIncomeStatement = _latestIncomeStatement();
+    final latestCashflowStatement = _latestCashflowStatement();
+    final yearlyIncomeStatements = historyEntries(
+      incomeStatementHistory,
+      'incomeStatementHistory',
+    );
 
     double? readFinancialData(String key) =>
         financialData == null ? null : readNum(financialData[key]);
+    double? readPrice(String key) => price == null ? null : readNum(price[key]);
     double? readSummaryDetail(String key) =>
         summaryDetail == null ? null : readNum(summaryDetail[key]);
     double? readKeyStatistic(String key) =>
@@ -171,6 +257,10 @@ class FinancialSnapshot {
         latestIncomeStatement == null
             ? null
             : readNum(latestIncomeStatement[key]);
+    double? readCashflowStatement(String key) =>
+        latestCashflowStatement == null
+            ? null
+            : readNum(latestCashflowStatement[key]);
     String? readFundCategory() {
       final value = fundProfile?["category"] ?? summaryProfile?["category"];
       if (value == null) return null;
@@ -206,9 +296,59 @@ class FinancialSnapshot {
     final sharesOutstanding =
         readKeyStatistic('sharesOutstanding') ??
         readKeyStatistic('shares') ??
-        readFinancialData('sharesOutstanding');
+        readFinancialData('sharesOutstanding') ??
+        readPrice('sharesOutstanding');
     final marketCap =
-        readKeyStatistic('marketCap') ?? readFinancialData('marketCap');
+        readKeyStatistic('marketCap') ??
+        readFinancialData('marketCap') ??
+        readPrice('marketCap');
+    final operatingCashflow =
+        readFinancialData('operatingCashflow') ??
+        readCashflowStatement('operatingCashflow') ??
+        readCashflowStatement('totalCashFromOperatingActivities');
+    final capitalExpenditures =
+        readFinancialData('capitalExpenditures') ??
+        readCashflowStatement('capitalExpenditures') ??
+        readCashflowStatement('capitalExpenditure');
+    final freeCashflow =
+        readFinancialData('freeCashflow') ??
+        computeFreeCashflow(operatingCashflow, capitalExpenditures);
+    final revenueGrowth =
+        readFinancialData('revenueGrowth') ??
+        computeGrowthFromHistory(
+          yearlyIncomeStatements,
+          (statement) => readNum(statement['totalRevenue']),
+        );
+    final earningsGrowth =
+        readFinancialData('earningsGrowth') ??
+        computeGrowthFromHistory(yearlyIncomeStatements, (statement) {
+          final directKeys = <String>[
+            'dilutedEPS',
+            'basicEPS',
+            'reportedEPS',
+            'epsActual',
+            'normalizedDilutedEPS',
+          ];
+          for (final key in directKeys) {
+            final value = readNum(statement[key]);
+            if (value != null) return value;
+          }
+          final netIncome =
+              readNum(statement['netIncomeApplicableToCommonShares']) ??
+              readNum(statement['netIncome']);
+          final shareCount =
+              readNum(statement['dilutedAverageShares']) ??
+              readNum(statement['basicAverageShares']) ??
+              readNum(statement['weightedAverageShsOutDil']) ??
+              readNum(statement['weightedAverageShsOut']) ??
+              sharesOutstanding;
+          if (netIncome == null ||
+              shareCount == null ||
+              shareCount.abs() < 1e-9) {
+            return null;
+          }
+          return netIncome / shareCount;
+        });
 
     double? computeBookValue(double? bvps) {
       if (bvps != null && sharesOutstanding != null) {
@@ -242,22 +382,31 @@ class FinancialSnapshot {
           readKeyStatistic('pegRatio') ??
           readFinancialData('pegRatio') ??
           readSummaryDetail('pegRatio'),
-      enterpriseValue: readFinancialData('enterpriseValue'),
-      enterpriseToEbitda: readFinancialData('enterpriseToEbitda'),
-      enterpriseToRevenue: readFinancialData('enterpriseToRevenue'),
-      revenueGrowth: readFinancialData('revenueGrowth'),
-      earningsGrowth: readFinancialData('earningsGrowth'),
-      operatingCashflow: readFinancialData('operatingCashflow'),
-      capitalExpenditures: readFinancialData('capitalExpenditures'),
-      freeCashflow: readFinancialData('freeCashflow'),
+      enterpriseValue:
+          readFinancialData('enterpriseValue') ??
+          readKeyStatistic('enterpriseValue') ??
+          readSummaryDetail('enterpriseValue'),
+      enterpriseToEbitda:
+          readFinancialData('enterpriseToEbitda') ??
+          readKeyStatistic('enterpriseToEbitda') ??
+          readSummaryDetail('enterpriseToEbitda'),
+      enterpriseToRevenue:
+          readFinancialData('enterpriseToRevenue') ??
+          readKeyStatistic('enterpriseToRevenue') ??
+          readSummaryDetail('enterpriseToRevenue'),
+      revenueGrowth: revenueGrowth,
+      earningsGrowth: earningsGrowth,
+      operatingCashflow: operatingCashflow,
+      capitalExpenditures: capitalExpenditures,
+      freeCashflow: freeCashflow,
       capexToRevenue: _computeCapexToRevenue(
         revenue:
             readFinancialData('totalRevenue') ??
             readIncomeStatement('totalRevenue'),
-        capex: readFinancialData('capitalExpenditures'),
+        capex: capitalExpenditures,
       ),
       freeCashflowYield: _computeFcfYield(
-        freeCashflow: readFinancialData('freeCashflow'),
+        freeCashflow: freeCashflow,
         marketCap: marketCap,
       ),
       marketCap: marketCap,
@@ -270,15 +419,30 @@ class FinancialSnapshot {
       equity: stockholderEquity,
       returnOnAssets: readFinancialData('returnOnAssets'),
       returnOnEquity: readFinancialData('returnOnEquity'),
-      totalCash: readFinancialData('totalCash'),
-      totalDebt: readFinancialData('totalDebt'),
+      totalCash:
+          readFinancialData('totalCash') ??
+          readBalanceSheet('cash') ??
+          readBalanceSheet('cashAndCashEquivalents'),
+      totalDebt:
+          readFinancialData('totalDebt') ??
+          readBalanceSheet('totalDebt') ??
+          readBalanceSheet('longTermDebt'),
       debtToEbitda: _computeDebtToEbitda(
-        totalDebt: readFinancialData('totalDebt'),
-        ebitda: readFinancialData('ebitda'),
+        totalDebt:
+            readFinancialData('totalDebt') ??
+            readBalanceSheet('totalDebt') ??
+            readBalanceSheet('longTermDebt'),
+        ebitda:
+            readFinancialData('ebitda') ??
+            readIncomeStatement('ebitda') ??
+            readIncomeStatement('operatingIncome'),
       ),
       floatShares: readKeyStatistic('floatShares'),
       trailingPe:
-          readKeyStatistic('trailingPE') ?? readFinancialData('trailingPE'),
+          readKeyStatistic('trailingPE') ??
+          readFinancialData('trailingPE') ??
+          readSummaryDetail('trailingPE') ??
+          readPrice('trailingPE'),
       trailingAnnualDividendRate: readSummaryDetail(
         'trailingAnnualDividendRate',
       ),

@@ -33,20 +33,20 @@ class AppStructure extends StatefulWidget {
 class _AppStructureState extends State<AppStructure> {
   int _selectedIndex = 0;
   PageController? _pageController;
-
-  List<Widget> get _pages => <Widget>[
-    TodayPage(onNavigateToTab: _onTabTap),
-    const PortfolioDashboardPage(),
-    const LearnPage(),
-    const MarketSimulationPage(),
-    const ForumPage(),
-  ];
+  late final List<Widget> _pages;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex.clamp(0, 4);
     _pageController = PageController(initialPage: _selectedIndex);
+    _pages = <Widget>[
+      TodayPage(onNavigateToTab: _onTabTap),
+      const PortfolioDashboardPage(),
+      const LearnPage(),
+      const MarketSimulationPage(),
+      const ForumPage(),
+    ];
   }
 
   @override
@@ -85,6 +85,7 @@ class _AppStructureState extends State<AppStructure> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         fit: StackFit.expand,
         children: [

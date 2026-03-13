@@ -64,11 +64,30 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  bool get _tooltipsEnabled {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+      case TargetPlatform.linux:
+        return true;
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.fuchsia:
+        return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return TooltipVisibility(
+          visible: _tooltipsEnabled,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: const LogoSplashScreen(),
       routes: {
         '/home': (_) => const AppStructure(initialIndex: 0),

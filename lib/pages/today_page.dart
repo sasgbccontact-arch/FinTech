@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import 'package:fintech/core/constants.dart';
@@ -20,7 +21,6 @@ import 'package:fintech/pages/goal_page.dart';
 import 'package:fintech/pages/info_page.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:fintech/utils/search_suggestion_ranker.dart';
-import 'package:fintech/widgets/wallet_balances.dart';
 
 class TodayPage extends StatefulWidget {
   const TodayPage({super.key, required this.onNavigateToTab});
@@ -225,6 +225,8 @@ class _TodayPageState extends State<TodayPage> {
                     .where((value) => value.isNotEmpty)
                     .take(3)
                     .toList();
+            final coins = (userData['coins'] as num?)?.toInt() ?? 0;
+            final gems = (userData['gems'] as num?)?.toInt() ?? 0;
 
             return ListView(
               padding: EdgeInsets.fromLTRB(16, 12, 16, bottomScrollInset),
@@ -280,11 +282,11 @@ class _TodayPageState extends State<TodayPage> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                WalletBalances(auth: FirebaseAuth.instance, compact: true),
-                const SizedBox(height: 18),
                 _HeroTodayCard(
                   starterPath: starterPath,
                   interests: interests,
+                  coins: coins,
+                  gems: gems,
                   onPrimaryTap: () => _openPrimaryPath(starterPath),
                 ),
                 _TodayDuelHighlight(
@@ -292,28 +294,15 @@ class _TodayPageState extends State<TodayPage> {
                   onOpenCommunity: _openCommunity,
                 ),
                 const SizedBox(height: 16),
-                _TodayMissionCard(
+                _TodayHomeHubCard(
                   userId: user.uid,
                   onOpenLearn: () => widget.onNavigateToTab(2),
                   onOpenGoals: _openGoalsPage,
                   onOpenNews: _openQuiz,
-                ),
-                const SizedBox(height: 18),
-                _SectionHeader(
-                  title: 'Agenda & signaux',
-                  subtitle:
-                      'Un résumé rapide pour savoir quoi surveiller aujourd’hui.',
-                ),
-                const SizedBox(height: 10),
-                _AgendaCard(
-                  userId: user.uid,
                   onOpenNotifications: _openNotificationCenter,
                   onOpenDividendCalendar: _openDividendCalendar,
                   onOpenCommunity: _openCommunity,
-                  onOpenGoals: _openGoalsPage,
                 ),
-                const SizedBox(height: 18),
-                _StarterPortfolioCard(onTap: () => widget.onNavigateToTab(1)),
               ],
             );
           },
@@ -432,11 +421,15 @@ class _HeroTodayCard extends StatefulWidget {
   const _HeroTodayCard({
     required this.starterPath,
     required this.interests,
+    required this.coins,
+    required this.gems,
     required this.onPrimaryTap,
   });
 
   final String starterPath;
   final List<String> interests;
+  final int coins;
+  final int gems;
   final VoidCallback onPrimaryTap;
 
   @override
@@ -792,13 +785,20 @@ class _HeroTodayCardState extends State<_HeroTodayCard> {
                   ),
                 ),
               ),
+              Positioned(
+                top: 18,
+                right: 14,
+                child: IgnorePointer(
+                  child: _TodayHeroIllustration(expanded: _searchExpanded),
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Aujourd’hui',
+                      'Accueil',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 29,
@@ -813,6 +813,23 @@ class _HeroTodayCardState extends State<_HeroTodayCard> {
                         color: Colors.white.withValues(alpha: 0.92),
                         height: 1.45,
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        _TodayHeroWalletChip(
+                          icon: Icons.monetization_on_rounded,
+                          label: 'Coins',
+                          value: widget.coins.toString(),
+                        ),
+                        _TodayHeroWalletChip(
+                          icon: Icons.diamond_rounded,
+                          label: 'Gemmes',
+                          value: widget.gems.toString(),
+                        ),
+                      ],
                     ),
                     if (widget.interests.isNotEmpty) ...[
                       const SizedBox(height: 14),
@@ -1135,7 +1152,7 @@ class _TodayHeroSearchField extends StatelessWidget {
                         ),
                         IconButton(
                           onPressed: onCollapse,
-                          tooltip: 'Revenir à Aujourd’hui',
+                          tooltip: 'Revenir à Accueil',
                           icon: const Icon(
                             Icons.close_rounded,
                             color: Colors.white,
@@ -1216,6 +1233,100 @@ class _TodayHeroHintPill extends StatelessWidget {
           color: Colors.white,
           fontWeight: FontWeight.w800,
           fontSize: 11.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayHeroWalletChip extends StatelessWidget {
+  const _TodayHeroWalletChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayHeroIllustration extends StatelessWidget {
+  const _TodayHeroIllustration({required this.expanded});
+
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeOutCubic,
+      offset: expanded ? const Offset(0.02, -0.02) : Offset.zero,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutBack,
+        scale: expanded ? 1.04 : 1,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 240),
+          opacity: expanded ? 0.9 : 0.78,
+          child: SizedBox(
+            width: 80,
+            height: 80,
+            child: SvgPicture.string(_todayHeroSvg),
+          ),
         ),
       ),
     );
@@ -1509,22 +1620,108 @@ class _TodayHeroSearchLoading extends StatelessWidget {
   }
 }
 
-class _TodayMissionCard extends StatelessWidget {
-  const _TodayMissionCard({
+class _TodayHomeHubCard extends StatefulWidget {
+  const _TodayHomeHubCard({
     required this.userId,
     required this.onOpenLearn,
     required this.onOpenGoals,
     required this.onOpenNews,
+    required this.onOpenNotifications,
+    required this.onOpenDividendCalendar,
+    required this.onOpenCommunity,
   });
 
   final String userId;
   final VoidCallback onOpenLearn;
   final VoidCallback onOpenGoals;
   final VoidCallback onOpenNews;
+  final VoidCallback onOpenNotifications;
+  final VoidCallback onOpenDividendCalendar;
+  final VoidCallback onOpenCommunity;
 
-  String _todayKey() {
-    final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+  @override
+  State<_TodayHomeHubCard> createState() => _TodayHomeHubCardState();
+}
+
+class _TodayHomeHubCardState extends State<_TodayHomeHubCard> {
+  late final PageController _pageController;
+  int _pageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  num? _readNum(Map<String, dynamic>? data, String key) {
+    final raw = data?[key];
+    return raw is num ? raw : null;
+  }
+
+  Map<String, dynamic>? _latestBroadcast(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {
+    String? type,
+    bool requireMetalsPayload = false,
+  }) {
+    if (docs.isEmpty) return null;
+    final sorted = [...docs]..sort((left, right) {
+      final leftDate = left.data()['createdAt'];
+      final rightDate = right.data()['createdAt'];
+      final leftTime =
+          leftDate is Timestamp
+              ? leftDate.toDate()
+              : DateTime.fromMillisecondsSinceEpoch(0);
+      final rightTime =
+          rightDate is Timestamp
+              ? rightDate.toDate()
+              : DateTime.fromMillisecondsSinceEpoch(0);
+      return rightTime.compareTo(leftTime);
+    });
+    for (final doc in sorted) {
+      final data = doc.data();
+      if (type != null && data['type'] != type) continue;
+      if (requireMetalsPayload &&
+          _readNum(data, 'gold') == null &&
+          _readNum(data, 'oil') == null) {
+        continue;
+      }
+      return data;
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _latestMetalsHistory(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    if (docs.isEmpty) return null;
+    final sorted = [...docs]
+      ..sort((left, right) => right.id.compareTo(left.id));
+    for (final doc in sorted) {
+      final data = doc.data();
+      if (_readNum(data, 'gold') != null || _readNum(data, 'oil') != null) {
+        return data;
+      }
+    }
+    return null;
+  }
+
+  String _formatPrice(num? value, {int decimals = 2}) {
+    if (value == null) return '--';
+    return value.toStringAsFixed(decimals);
+  }
+
+  void _jumpToPage(int index) {
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
@@ -1532,200 +1729,614 @@ class _TodayMissionCard extends StatelessWidget {
     final progressStream =
         FirebaseFirestore.instance
             .collection('users')
-            .doc(userId)
+            .doc(widget.userId)
             .collection('games')
             .doc('progress')
             .snapshots();
     final questStream =
         FirebaseFirestore.instance
             .collection('users')
-            .doc(userId)
+            .doc(widget.userId)
             .collection('quests')
             .doc('daily')
             .snapshots();
     final freeStream =
         FirebaseFirestore.instance
             .collection('users')
-            .doc(userId)
+            .doc(widget.userId)
             .collection('dailyBenefits')
             .doc('news_${_todayKey()}')
             .snapshots();
+    final metalsTodayStream =
+        FirebaseFirestore.instance
+            .collection('metalsPrices')
+            .doc(_todayKey())
+            .snapshots();
+    final metalsHistoryStream =
+        FirebaseFirestore.instance.collection('metalsPrices').snapshots();
+    final broadcastStream =
+        FirebaseFirestore.instance.collection('broadcasts').snapshots();
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE6E8EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: progressStream,
-        builder: (context, progressSnapshot) {
-          final progressData =
-              progressSnapshot.data?.data() ?? <String, dynamic>{};
-          final streak = (progressData['current_streak'] as num?)?.toInt() ?? 0;
-
-          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-            stream: questStream,
-            builder: (context, questSnapshot) {
-              final questData =
-                  questSnapshot.data?.data() ?? <String, dynamic>{};
-              final now = DateTime.now();
-              final todayLabel = '${now.year}-${now.month}-${now.day}';
-              final isToday = questData['date'] == todayLabel;
-              final quizzesDone =
-                  isToday
-                      ? (questData['quizzes_done'] as num?)?.toInt() ?? 0
-                      : 0;
-              final lessonsDone =
-                  isToday
-                      ? (questData['lessons_done'] as num?)?.toInt() ?? 0
-                      : 0;
-              final tradesDone =
-                  isToday
-                      ? (questData['trades_done'] as num?)?.toInt() ?? 0
-                      : 0;
-              final pendingRewards =
-                  ((quizzesDone >= 1 &&
-                          (questData['claimed_quizzes'] as bool?) != true)
-                      ? 1
-                      : 0) +
-                  ((lessonsDone >= 1 &&
-                          (questData['claimed_lessons'] as bool?) != true)
-                      ? 1
-                      : 0) +
-                  ((tradesDone >= 1 &&
-                          (questData['claimed_trades'] as bool?) != true)
-                      ? 1
-                      : 0);
-
-              return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                stream: freeStream,
-                builder: (context, freeSnapshot) {
-                  final freeData =
-                      freeSnapshot.data?.data() ?? <String, dynamic>{};
-                  final actusFreeAvailable =
-                      (freeData['free_actus_used'] as bool?) != true;
-                  final mondeFreeAvailable =
-                      (freeData['free_monde_used'] as bool?) != true;
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Mission du jour',
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Tout ce qui compte aujourd’hui au même endroit.',
-                        style: TextStyle(color: Colors.black54, height: 1.4),
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          _StatPill(
-                            icon: Icons.local_fire_department_rounded,
-                            label: '$streak jours de streak',
-                          ),
-                          _StatPill(
-                            icon: Icons.task_alt_rounded,
-                            label: '$pendingRewards récompense(s) à récupérer',
-                          ),
-                          _StatPill(
-                            icon: Icons.newspaper_rounded,
-                            label:
-                                actusFreeAvailable
-                                    ? 'Actu & Quiz gratuite dispo'
-                                    : 'Actu du jour déjà utilisée',
-                          ),
-                          _StatPill(
-                            icon: Icons.public_rounded,
-                            label:
-                                mondeFreeAvailable
-                                    ? 'MapMonde gratuite dispo'
-                                    : 'MapMonde déjà utilisée',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _MiniActionButton(
-                              label: 'Leçons',
-                              icon: Icons.school_rounded,
-                              onTap: onOpenLearn,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _MiniActionButton(
-                              label: 'Quêtes',
-                              icon: Icons.flag_rounded,
-                              onTap: onOpenGoals,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _MiniActionButton(
-                              label: 'Quiz',
-                              icon: Icons.quiz_rounded,
-                              onTap: onOpenNews,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            color: textColor,
-            fontWeight: FontWeight.w800,
-            fontSize: 20,
-          ),
+    return SizedBox(
+      height: 560,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.055),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: const TextStyle(color: Colors.black54, height: 1.4),
+        child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream: progressStream,
+          builder: (context, progressSnapshot) {
+            final progressData =
+                progressSnapshot.data?.data() ?? const <String, dynamic>{};
+            final streak =
+                (progressData['current_streak'] as num?)?.toInt() ?? 0;
+
+            return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+              stream: questStream,
+              builder: (context, questSnapshot) {
+                final questData =
+                    questSnapshot.data?.data() ?? const <String, dynamic>{};
+                final now = DateTime.now();
+                final todayLabel = '${now.year}-${now.month}-${now.day}';
+                final isToday = questData['date'] == todayLabel;
+                final quizzesDone =
+                    isToday
+                        ? (questData['quizzes_done'] as num?)?.toInt() ?? 0
+                        : 0;
+                final lessonsDone =
+                    isToday
+                        ? (questData['lessons_done'] as num?)?.toInt() ?? 0
+                        : 0;
+                final tradesDone =
+                    isToday
+                        ? (questData['trades_done'] as num?)?.toInt() ?? 0
+                        : 0;
+                final pendingRewards =
+                    ((quizzesDone >= 1 &&
+                            (questData['claimed_quizzes'] as bool?) != true)
+                        ? 1
+                        : 0) +
+                    ((lessonsDone >= 1 &&
+                            (questData['claimed_lessons'] as bool?) != true)
+                        ? 1
+                        : 0) +
+                    ((tradesDone >= 1 &&
+                            (questData['claimed_trades'] as bool?) != true)
+                        ? 1
+                        : 0);
+
+                return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: freeStream,
+                  builder: (context, freeSnapshot) {
+                    final freeData =
+                        freeSnapshot.data?.data() ?? const <String, dynamic>{};
+                    final actusFreeAvailable =
+                        (freeData['free_actus_used'] as bool?) != true;
+                    final mondeFreeAvailable =
+                        (freeData['free_monde_used'] as bool?) != true;
+
+                    return StreamBuilder<
+                      DocumentSnapshot<Map<String, dynamic>>
+                    >(
+                      stream: metalsTodayStream,
+                      builder: (context, metalsTodaySnapshot) {
+                        final metalsToday = metalsTodaySnapshot.data?.data();
+
+                        return StreamBuilder<
+                          QuerySnapshot<Map<String, dynamic>>
+                        >(
+                          stream: metalsHistoryStream,
+                          builder: (context, metalsHistorySnapshot) {
+                            final latestMetalsDoc = _latestMetalsHistory(
+                              metalsHistorySnapshot.data?.docs ?? const [],
+                            );
+
+                            return StreamBuilder<
+                              QuerySnapshot<Map<String, dynamic>>
+                            >(
+                              stream: broadcastStream,
+                              builder: (context, broadcastSnapshot) {
+                                final latestBroadcast = _latestBroadcast(
+                                  broadcastSnapshot.data?.docs ?? const [],
+                                );
+                                final latestMetalsBroadcast = _latestBroadcast(
+                                  broadcastSnapshot.data?.docs ?? const [],
+                                  type: 'daily_metals',
+                                  requireMetalsPayload: true,
+                                );
+                                final gold =
+                                    _readNum(metalsToday, 'gold') ??
+                                    _readNum(latestMetalsDoc, 'gold') ??
+                                    _readNum(latestMetalsBroadcast, 'gold');
+                                final oil =
+                                    _readNum(metalsToday, 'oil') ??
+                                    _readNum(latestMetalsDoc, 'oil') ??
+                                    _readNum(latestMetalsBroadcast, 'oil');
+                                final latestTitle =
+                                    (latestBroadcast?['title'] as String?) ??
+                                    'Aucune annonce récente';
+                                const hubSubtitle =
+                                    'Priorités, signaux et accès rapides dans un seul bloc.';
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Hub du jour',
+                                                style: TextStyle(
+                                                  color: textColor,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 19,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 36,
+                                                child: Text(
+                                                  hubSubtitle,
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color: Colors.black54,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: detailsColor1.withValues(
+                                              alpha: 0.12,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                            border: Border.all(
+                                              color: detailsColor2.withValues(
+                                                alpha: 0.10,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${_pageIndex + 1}/3',
+                                            style: const TextStyle(
+                                              color: detailsColor2,
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 11.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Expanded(
+                                      child: PageView(
+                                        controller: _pageController,
+                                        onPageChanged:
+                                            (value) => setState(
+                                              () => _pageIndex = value,
+                                            ),
+                                        children: [
+                                          _TodayHubSlideFrame(
+                                            title: 'Cap du jour',
+                                            subtitle:
+                                                'Ton rythme, tes quêtes et les accès gratuits.',
+                                            svg: _todayOverviewSvg,
+                                            child: Column(
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: _TodayHubMetricTile(
+                                                        label: 'Streak',
+                                                        value: '$streak jours',
+                                                        icon:
+                                                            Icons
+                                                                .local_fire_department_rounded,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: _TodayHubMetricTile(
+                                                        label: 'Récompenses',
+                                                        value:
+                                                            pendingRewards > 0
+                                                                ? '$pendingRewards à récupérer'
+                                                                : 'Rien en attente',
+                                                        icon:
+                                                            Icons
+                                                                .task_alt_rounded,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const Spacer(),
+                                                const SizedBox(height: 10),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: _TodayHubMetricTile(
+                                                        label: 'Actu & Quiz',
+                                                        value:
+                                                            actusFreeAvailable
+                                                                ? 'Session gratuite'
+                                                                : 'Déjà utilisée',
+                                                        icon:
+                                                            Icons
+                                                                .newspaper_rounded,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: _TodayHubMetricTile(
+                                                        label: 'MapMonde',
+                                                        value:
+                                                            mondeFreeAvailable
+                                                                ? 'Session gratuite'
+                                                                : 'Déjà utilisée',
+                                                        icon:
+                                                            Icons
+                                                                .public_rounded,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const Spacer(),
+                                                const SizedBox(height: 10),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: _MiniActionButton(
+                                                        label: 'Leçons',
+                                                        icon:
+                                                            Icons
+                                                                .school_rounded,
+                                                        onTap:
+                                                            widget.onOpenLearn,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: _MiniActionButton(
+                                                        label: 'Quêtes',
+                                                        icon:
+                                                            Icons.flag_rounded,
+                                                        onTap:
+                                                            widget.onOpenGoals,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: _MiniActionButton(
+                                                        label: 'Quiz',
+                                                        icon:
+                                                            Icons.quiz_rounded,
+                                                        onTap:
+                                                            widget.onOpenNews,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          _TodayHubSlideFrame(
+                                            title: 'Agenda marché',
+                                            subtitle:
+                                                'Un aperçu compact des signaux à surveiller.',
+                                            svg: _todaySignalsSvg,
+                                            child: Column(
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: _TodayHubMetricTile(
+                                                        label: 'Or',
+                                                        value:
+                                                            '${_formatPrice(gold)} \$/oz',
+                                                        icon:
+                                                            Icons
+                                                                .brightness_high_rounded,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: _TodayHubMetricTile(
+                                                        label: 'Pétrole',
+                                                        value:
+                                                            '${_formatPrice(oil)} \$/baril',
+                                                        icon:
+                                                            Icons
+                                                                .oil_barrel_rounded,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 10),
+                                                Container(
+                                                  width: double.infinity,
+                                                  padding: const EdgeInsets.all(
+                                                    14,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(
+                                                      0xFFF7F8FA,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          18,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: const Color(
+                                                        0xFFE6E8EB,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets.all(
+                                                              10,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          color: detailsColor2
+                                                              .withValues(
+                                                                alpha: 0.10,
+                                                              ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                14,
+                                                              ),
+                                                        ),
+                                                        child: const Icon(
+                                                          Icons
+                                                              .campaign_rounded,
+                                                          color: detailsColor2,
+                                                          size: 18,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            const Text(
+                                                              'Dernière annonce',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    textColor,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w800,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              height: 4,
+                                                            ),
+                                                            Text(
+                                                              latestTitle,
+                                                              maxLines: 2,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                              style: const TextStyle(
+                                                                color:
+                                                                    Colors
+                                                                        .black54,
+                                                                height: 1.35,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const Spacer(),
+                                                const SizedBox(height: 10),
+                                                Wrap(
+                                                  spacing: 10,
+                                                  runSpacing: 10,
+                                                  children: [
+                                                    _StatPill(
+                                                      icon:
+                                                          Icons
+                                                              .workspace_premium_rounded,
+                                                      label:
+                                                          pendingRewards > 0
+                                                              ? '$pendingRewards récompense(s)'
+                                                              : 'Aucune récompense en attente',
+                                                    ),
+                                                    _StatPill(
+                                                      icon:
+                                                          Icons
+                                                              .newspaper_rounded,
+                                                      label:
+                                                          actusFreeAvailable
+                                                              ? 'Quiz gratuit disponible'
+                                                              : 'Quiz déjà utilisé',
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          _TodayHubSlideFrame(
+                                            title: 'Actions utiles',
+                                            subtitle: 'Raccourcis',
+                                            svg: _todayActionsSvg,
+                                            child: Column(
+                                              children: [
+                                                Expanded(
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: _TodayHubActionCard(
+                                                          icon:
+                                                              Icons
+                                                                  .event_available_rounded,
+                                                          title: 'Dividendes',
+                                                          subtitle:
+                                                              'Dates clés',
+                                                          onTap:
+                                                              widget
+                                                                  .onOpenDividendCalendar,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 10),
+                                                      Expanded(
+                                                        child: _TodayHubActionCard(
+                                                          icon:
+                                                              Icons
+                                                                  .notifications_rounded,
+                                                          title: 'Alertes',
+                                                          subtitle: 'Voir tout',
+                                                          onTap:
+                                                              widget
+                                                                  .onOpenNotifications,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 10),
+                                                Expanded(
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: _TodayHubActionCard(
+                                                          icon:
+                                                              Icons
+                                                                  .groups_rounded,
+                                                          title: 'Communauté',
+                                                          subtitle:
+                                                              'Spotlight & duel',
+                                                          onTap:
+                                                              widget
+                                                                  .onOpenCommunity,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 10),
+                                                      Expanded(
+                                                        child: _TodayHubActionCard(
+                                                          icon:
+                                                              Icons
+                                                                  .flag_rounded,
+                                                          title: 'Objectifs',
+                                                          subtitle:
+                                                              'Rester régulier',
+                                                          onTap:
+                                                              widget
+                                                                  .onOpenGoals,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Row(
+                                      children: [
+                                        Row(
+                                          children: List.generate(
+                                            3,
+                                            (index) => GestureDetector(
+                                              onTap: () => _jumpToPage(index),
+                                              child: AnimatedContainer(
+                                                duration: const Duration(
+                                                  milliseconds: 220,
+                                                ),
+                                                margin: const EdgeInsets.only(
+                                                  right: 8,
+                                                ),
+                                                width:
+                                                    _pageIndex == index
+                                                        ? 22
+                                                        : 8,
+                                                height: 8,
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      _pageIndex == index
+                                                          ? detailsColor2
+                                                          : detailsColor1
+                                                              .withValues(
+                                                                alpha: 0.28,
+                                                              ),
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        999,
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          'Glisse pour naviguer',
+                                          style: TextStyle(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.46,
+                                            ),
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            );
+          },
         ),
-      ],
+      ),
     );
   }
 }
@@ -1806,11 +2417,11 @@ class _TodayDuelHighlight extends StatelessWidget {
 
                   return InkWell(
                     onTap: onOpenCommunity,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(22),
                     child: Container(
-                      padding: const EdgeInsets.all(18),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(22),
                         gradient: const LinearGradient(
                           colors: [detailsColor2, detailsColor1],
                           begin: Alignment.topLeft,
@@ -1835,7 +2446,7 @@ class _TodayDuelHighlight extends StatelessWidget {
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 18,
+                                    fontSize: 17,
                                   ),
                                 ),
                               ),
@@ -1861,7 +2472,7 @@ class _TodayDuelHighlight extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           Row(
                             children: [
                               Expanded(
@@ -1889,12 +2500,12 @@ class _TodayDuelHighlight extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(999),
                             child: LinearProgressIndicator(
                               value: progress,
-                              minHeight: 8,
+                              minHeight: 7,
                               backgroundColor: Colors.white.withValues(
                                 alpha: 0.16,
                               ),
@@ -1906,19 +2517,19 @@ class _TodayDuelHighlight extends StatelessWidget {
                           const SizedBox(height: 10),
                           Text(
                             lastSync == null
-                                ? 'Le duel est actif. Ouvre le dashboard pour charger les lignes, le radar adverse et les variations depuis le départ.'
-                                : 'Dernière synchro: ${_formatCompactDateTime(lastSync)} · ouvre le dashboard pour suivre les variations détaillées et le radar adverse.',
+                                ? 'Le duel est actif. Ouvre le dashboard pour suivre l’écart et le radar adverse.'
+                                : 'Synchro ${_formatCompactDateTime(lastSync)} · ouvre le dashboard duel pour suivre les variations clés.',
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.92),
-                              height: 1.35,
+                              height: 1.3,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 10,
+                              vertical: 9,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.12),
@@ -1966,413 +2577,239 @@ class _TodayDuelHighlight extends StatelessWidget {
   }
 }
 
-class _AgendaCard extends StatelessWidget {
-  const _AgendaCard({
-    required this.userId,
-    required this.onOpenNotifications,
-    required this.onOpenDividendCalendar,
-    required this.onOpenCommunity,
-    required this.onOpenGoals,
+class _TodayHubSlideFrame extends StatelessWidget {
+  const _TodayHubSlideFrame({
+    required this.title,
+    required this.subtitle,
+    required this.svg,
+    required this.child,
   });
 
-  final String userId;
-  final VoidCallback onOpenNotifications;
-  final VoidCallback onOpenDividendCalendar;
-  final VoidCallback onOpenCommunity;
-  final VoidCallback onOpenGoals;
-
-  num? _readNum(Map<String, dynamic>? data, String key) {
-    final raw = data?[key];
-    return raw is num ? raw : null;
-  }
-
-  Map<String, dynamic>? _latestBroadcast(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {
-    String? type,
-    bool requireMetalsPayload = false,
-  }) {
-    if (docs.isEmpty) return null;
-    final sorted = [...docs]..sort((left, right) {
-      final leftDate = left.data()['createdAt'];
-      final rightDate = right.data()['createdAt'];
-      final leftTime =
-          leftDate is Timestamp
-              ? leftDate.toDate()
-              : DateTime.fromMillisecondsSinceEpoch(0);
-      final rightTime =
-          rightDate is Timestamp
-              ? rightDate.toDate()
-              : DateTime.fromMillisecondsSinceEpoch(0);
-      return rightTime.compareTo(leftTime);
-    });
-    for (final doc in sorted) {
-      final data = doc.data();
-      if (type != null && data['type'] != type) continue;
-      if (requireMetalsPayload &&
-          _readNum(data, 'gold') == null &&
-          _readNum(data, 'oil') == null) {
-        continue;
-      }
-      return data;
-    }
-    return null;
-  }
-
-  Map<String, dynamic>? _latestMetalsHistory(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) {
-    if (docs.isEmpty) return null;
-    final sorted = [...docs]
-      ..sort((left, right) => right.id.compareTo(left.id));
-    for (final doc in sorted) {
-      final data = doc.data();
-      if (_readNum(data, 'gold') != null || _readNum(data, 'oil') != null) {
-        return data;
-      }
-    }
-    return null;
-  }
-
-  String _formatPrice(num? value, {int decimals = 2}) {
-    if (value == null) return '--';
-    return value.toStringAsFixed(decimals);
-  }
+  final String title;
+  final String subtitle;
+  final String svg;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final metalsTodayStream =
-        FirebaseFirestore.instance
-            .collection('metalsPrices')
-            .doc(_todayKey())
-            .snapshots();
-    final metalsHistoryStream =
-        FirebaseFirestore.instance.collection('metalsPrices').snapshots();
-    final broadcastStream =
-        FirebaseFirestore.instance.collection('broadcasts').snapshots();
-    final duelProfileStream =
-        FirebaseFirestore.instance
-            .collection('duel_profiles')
-            .doc(userId)
-            .snapshots();
-    final questStream =
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('quests')
-            .doc('daily')
-            .snapshots();
-    final freeStream =
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .collection('dailyBenefits')
-            .doc('news_${_todayKey()}')
-            .snapshots();
-
     return Container(
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.symmetric(horizontal: 1),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE6E8EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        gradient: LinearGradient(
+          colors: [
+            detailsColor1.withValues(alpha: 0.16),
+            Colors.white,
+            detailsColor2.withValues(alpha: 0.06),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: const Color(0xFFE8E2D2)),
       ),
-      child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-        stream: metalsTodayStream,
-        builder: (context, metalsTodaySnapshot) {
-          if (metalsTodaySnapshot.hasError) {
-            debugPrint(
-              '[TodayAgenda] Erreur metalsToday: ${metalsTodaySnapshot.error}',
-            );
-          }
-
-          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: metalsHistoryStream,
-            builder: (context, metalsHistorySnapshot) {
-              if (metalsHistorySnapshot.hasError) {
-                debugPrint(
-                  '[TodayAgenda] Erreur metalsHistory: ${metalsHistorySnapshot.error}',
-                );
-              }
-
-              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: broadcastStream,
-                builder: (context, broadcastSnapshot) {
-                  if (broadcastSnapshot.hasError) {
-                    debugPrint(
-                      '[TodayAgenda] Erreur broadcasts: ${broadcastSnapshot.error}',
-                    );
-                  }
-
-                  final metalsToday = metalsTodaySnapshot.data?.data();
-                  final latestMetalsDoc = _latestMetalsHistory(
-                    metalsHistorySnapshot.data?.docs ?? const [],
-                  );
-                  final latestBroadcast = _latestBroadcast(
-                    broadcastSnapshot.data?.docs ?? const [],
-                  );
-                  final latestMetalsBroadcast = _latestBroadcast(
-                    broadcastSnapshot.data?.docs ?? const [],
-                    type: 'daily_metals',
-                    requireMetalsPayload: true,
-                  );
-                  final gold =
-                      _readNum(metalsToday, 'gold') ??
-                      _readNum(latestMetalsDoc, 'gold') ??
-                      _readNum(latestMetalsBroadcast, 'gold');
-                  final oil =
-                      _readNum(metalsToday, 'oil') ??
-                      _readNum(latestMetalsDoc, 'oil') ??
-                      _readNum(latestMetalsBroadcast, 'oil');
-                  final latestTitle =
-                      (latestBroadcast?['title'] as String?) ??
-                      'Aucune annonce récente';
-
-                  return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    stream: questStream,
-                    builder: (context, questSnapshot) {
-                      final questData =
-                          questSnapshot.data?.data() ??
-                          const <String, dynamic>{};
-                      final now = DateTime.now();
-                      final todayLabel = '${now.year}-${now.month}-${now.day}';
-                      final isToday = questData['date'] == todayLabel;
-                      final pendingRewards =
-                          ((isToday &&
-                                  (questData['quizzes_done'] as num?) != null &&
-                                  ((questData['quizzes_done'] as num?) ?? 0) >=
-                                      1 &&
-                                  (questData['claimed_quizzes'] as bool?) !=
-                                      true)
-                              ? 1
-                              : 0) +
-                          ((isToday &&
-                                  (questData['lessons_done'] as num?) != null &&
-                                  ((questData['lessons_done'] as num?) ?? 0) >=
-                                      1 &&
-                                  (questData['claimed_lessons'] as bool?) !=
-                                      true)
-                              ? 1
-                              : 0) +
-                          ((isToday &&
-                                  (questData['trades_done'] as num?) != null &&
-                                  ((questData['trades_done'] as num?) ?? 0) >=
-                                      1 &&
-                                  (questData['claimed_trades'] as bool?) !=
-                                      true)
-                              ? 1
-                              : 0);
-
-                      return StreamBuilder<
-                        DocumentSnapshot<Map<String, dynamic>>
-                      >(
-                        stream: freeStream,
-                        builder: (context, freeSnapshot) {
-                          final freeData =
-                              freeSnapshot.data?.data() ??
-                              const <String, dynamic>{};
-                          final quizAvailable =
-                              (freeData['free_actus_used'] as bool?) != true;
-
-                          return StreamBuilder<
-                            DocumentSnapshot<Map<String, dynamic>>
-                          >(
-                            stream: duelProfileStream,
-                            builder: (context, duelSnapshot) {
-                              final duelProfile = DuelProfile.fromDoc(
-                                duelSnapshot.data,
-                                fallbackUid: userId,
-                              );
-                              final duelSubtitle = switch (duelProfile.state) {
-                                'pending_received' =>
-                                  'Une invitation t’attend. Réponds sous 48h.',
-                                'pending_sent' =>
-                                  'Un adversaire a été trouvé. Attends sa réponse.',
-                                'active_duel' =>
-                                  'Ton duel hebdo est actif. Ouvre le dashboard.',
-                                _ =>
-                                  duelProfile.eligible
-                                      ? 'Ton portefeuille est prêt pour un matchmaking.'
-                                      : 'Atteins 10k coins de valeur et garde au moins 1 ligne.',
-                              };
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Expanded(
-                                        child: Text(
-                                          'Agenda marché',
-                                          style: TextStyle(
-                                            color: textColor,
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                      ),
-                                      TextButton(
-                                        onPressed: onOpenNotifications,
-                                        child: const Text('Voir tout'),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _AgendaTile(
-                                          title: 'Or',
-                                          value: '${_formatPrice(gold)} \$/oz',
-                                          icon: '🥇',
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _AgendaTile(
-                                          title: 'Pétrole',
-                                          value:
-                                              '${_formatPrice(oil)} \$/baril',
-                                          icon: '🛢️',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _AgendaTile(
-                                          title: 'Quiz du jour',
-                                          value:
-                                              quizAvailable
-                                                  ? 'Session gratuite'
-                                                  : 'Déjà lancée',
-                                          icon: '📰',
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: _AgendaTile(
-                                          title: 'Récompenses',
-                                          value:
-                                              pendingRewards > 0
-                                                  ? '$pendingRewards à récupérer'
-                                                  : 'Rien en attente',
-                                          icon: '🎯',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _AgendaActionRow(
-                                    icon: Icons.event_available_rounded,
-                                    title: 'Calendrier dividendes',
-                                    subtitle:
-                                        'Vérifie les prochaines dates importantes de ton suivi.',
-                                    onTap: onOpenDividendCalendar,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _AgendaActionRow(
-                                    icon: Icons.sports_kabaddi_rounded,
-                                    title: 'Duel hebdo',
-                                    subtitle: duelSubtitle,
-                                    onTap: onOpenCommunity,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _AgendaActionRow(
-                                    icon: Icons.flag_rounded,
-                                    title: 'Objectifs & quêtes',
-                                    subtitle:
-                                        pendingRewards > 0
-                                            ? 'Des récompenses t’attendent dans les objectifs.'
-                                            : 'Passe voir les quêtes pour maintenir ton rythme.',
-                                    onTap: onOpenGoals,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(14),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(18),
-                                      color: const Color(0xFFF7F8FA),
-                                      border: Border.all(
-                                        color: const Color(0xFFE6E8EB),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: detailsColor2.withValues(
-                                              alpha: 0.08,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.campaign_rounded,
-                                            color: detailsColor2,
-                                            size: 18,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'Dernière annonce',
-                                                style: TextStyle(
-                                                  color: textColor,
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                latestTitle,
-                                                style: const TextStyle(
-                                                  color: Colors.black54,
-                                                  height: 1.35,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 17,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              _TodayHubSvgBadge(svg: svg),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Expanded(child: child),
+        ],
       ),
     );
   }
+}
 
-  String _todayKey() {
-    final now = DateTime.now();
-    return '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+class _TodayHubSvgBadge extends StatelessWidget {
+  const _TodayHubSvgBadge({required this.svg});
+
+  final String svg;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.94, end: 1),
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Transform.scale(scale: value, child: child);
+      },
+      child: Container(
+        width: 72,
+        height: 72,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: Colors.white.withValues(alpha: 0.84),
+          border: Border.all(color: Colors.white),
+          boxShadow: [
+            BoxShadow(
+              color: detailsColor2.withValues(alpha: 0.10),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: SvgPicture.string(svg),
+      ),
+    );
+  }
+}
+
+class _TodayHubMetricTile extends StatelessWidget {
+  const _TodayHubMetricTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: detailsColor1.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: detailsColor2, size: 17),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w700,
+              fontSize: 11.5,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+              height: 1.25,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayHubActionCard extends StatelessWidget {
+  const _TodayHubActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: title,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE6E8EB)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: detailsColor1.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: detailsColor2, size: 16),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2385,10 +2822,10 @@ class _TodayDuelStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: Column(
@@ -2399,16 +2836,16 @@ class _TodayDuelStat extends StatelessWidget {
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.82),
               fontWeight: FontWeight.w700,
-              fontSize: 12,
+              fontSize: 11.5,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w900,
-              fontSize: 14,
+              fontSize: 13.5,
             ),
           ),
         ],
@@ -2428,6 +2865,11 @@ String _formatCompactRemaining(Duration remaining) {
   }
   final minutes = remaining.inMinutes.remainder(60);
   return '${hours}h ${minutes}m';
+}
+
+String _todayKey() {
+  final now = DateTime.now();
+  return '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
 }
 
 String _formatSigned(double value) {
@@ -2465,233 +2907,55 @@ String _formatCompactDateTime(DateTime value) {
   return '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')} · $hour:$minute';
 }
 
-class _AgendaTile extends StatelessWidget {
-  const _AgendaTile({
-    required this.title,
-    required this.value,
-    required this.icon,
-  });
+const String _todayHeroSvg = '''
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="heroWarm" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF4CC"/>
+      <stop offset="100%" stop-color="#D88A4A"/>
+    </linearGradient>
+  </defs>
+  <circle cx="62" cy="58" r="34" fill="url(#heroWarm)" opacity="0.95"/>
+  <rect x="24" y="68" width="72" height="18" rx="9" fill="#FFFFFF" opacity="0.22"/>
+  <path d="M28 73 C38 66, 48 70, 58 60 S79 54, 92 44" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="92" cy="44" r="6" fill="#FFFFFF"/>
+  <path d="M38 32 L44 22 L50 32" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M70 29 L76 19 L82 29" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.72"/>
+</svg>
+''';
 
-  final String title;
-  final String value;
-  final String icon;
+const String _todayOverviewSvg = '''
+<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+  <rect x="10" y="14" width="52" height="44" rx="16" fill="#FFF2D9"/>
+  <path d="M22 40 C28 32, 35 37, 42 27 S52 23, 57 18" fill="none" stroke="#8D3E20" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="57" cy="18" r="4" fill="#8D3E20"/>
+  <circle cx="26" cy="25" r="5" fill="#D9A441"/>
+  <path d="M24 50 H48" stroke="#D9A441" stroke-width="4" stroke-linecap="round"/>
+</svg>
+''';
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: const Color(0xFFF7F8FA),
-        border: Border.all(color: const Color(0xFFE6E8EB)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(icon, style: const TextStyle(fontSize: 18)),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.black54,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+const String _todaySignalsSvg = '''
+<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+  <rect x="11" y="12" width="50" height="48" rx="16" fill="#F9E7D4"/>
+  <path d="M20 46 H52" stroke="#8D3E20" stroke-width="4" stroke-linecap="round"/>
+  <path d="M24 38 L31 28 L39 34 L48 21" fill="none" stroke="#D88A4A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="48" cy="21" r="4" fill="#D88A4A"/>
+  <circle cx="24" cy="24" r="5" fill="#E0B84B" opacity="0.9"/>
+</svg>
+''';
 
-class _AgendaActionRow extends StatelessWidget {
-  const _AgendaActionRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: title,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            color: const Color(0xFFF7F8FA),
-            border: Border.all(color: const Color(0xFFE6E8EB)),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: detailsColor1.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(icon, color: detailsColor2, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded, color: Colors.black38),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StarterPortfolioCard extends StatelessWidget {
-  const _StarterPortfolioCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE6E8EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Portefeuille pédagogique',
-            style: TextStyle(
-              color: textColor,
-              fontWeight: FontWeight.w800,
-              fontSize: 18,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Un point de départ simple pour passer de la curiosité à la simulation.',
-            style: TextStyle(color: Colors.black54, height: 1.4),
-          ),
-          const SizedBox(height: 14),
-          const _ChecklistItem(text: 'Installer la watchlist de départ FinHub'),
-          const _ChecklistItem(
-            text: 'Comparer 3 styles: ETF, Big Tech, action européenne',
-          ),
-          const _ChecklistItem(
-            text: 'Simuler un premier achat puis relire la diversification',
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: onTap,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: const Text('Ouvrir le dashboard'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChecklistItem extends StatelessWidget {
-  const _ChecklistItem({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              gradient: const LinearGradient(
-                colors: [detailsColor1, detailsColor2],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: const Icon(
-              Icons.check_rounded,
-              color: Colors.white,
-              size: 14,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w600,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+const String _todayActionsSvg = '''
+<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+  <rect x="12" y="12" width="20" height="20" rx="8" fill="#FFF1D0"/>
+  <rect x="40" y="12" width="20" height="20" rx="8" fill="#F6E0D5"/>
+  <rect x="12" y="40" width="20" height="20" rx="8" fill="#F6E0D5"/>
+  <rect x="40" y="40" width="20" height="20" rx="8" fill="#FFF1D0"/>
+  <path d="M24 22 h-4 v-4" fill="none" stroke="#8D3E20" stroke-width="3" stroke-linecap="round"/>
+  <path d="M48 18 l4 4 l-4 4" fill="none" stroke="#D88A4A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="22" cy="50" r="4" fill="#8D3E20"/>
+  <path d="M45 50 h10" stroke="#D88A4A" stroke-width="4" stroke-linecap="round"/>
+</svg>
+''';
 
 class _TodayLoadingSkeleton extends StatelessWidget {
   const _TodayLoadingSkeleton();
@@ -2739,7 +3003,7 @@ class _TodayLoadingSkeleton extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        for (final height in const [80.0, 180.0, 150.0, 180.0])
+        for (final height in const [236.0, 142.0, 560.0])
           Container(
             height: height,
             margin: const EdgeInsets.only(bottom: 16),
@@ -2805,7 +3069,7 @@ class _MiniActionButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: const Color(0xFFF7F8FA),
           borderRadius: BorderRadius.circular(16),
@@ -2813,14 +3077,14 @@ class _MiniActionButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, color: detailsColor2, size: 18),
-            const SizedBox(height: 6),
+            Icon(icon, color: detailsColor2, size: 17),
+            const SizedBox(height: 4),
             Text(
               label,
               style: const TextStyle(
                 color: textColor,
                 fontWeight: FontWeight.w700,
-                fontSize: 12.5,
+                fontSize: 12,
               ),
             ),
           ],

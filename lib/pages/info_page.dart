@@ -2822,10 +2822,15 @@ class _InfoPageState extends State<InfoPage> {
           _formatLargeNumber(quote.averageDailyVolume3Month),
           _formatInteger(quote.averageDailyVolume3Month),
         ),
-      if (!isEtf && quote.trailingPE != null)
+      if (!isEtf &&
+          (quote.trailingPE != null ||
+              _fundamentalGameData?.trailingPe != null))
         _MetricEntry(
           'PER (TTM)',
-          _formatNumber(quote.trailingPE, fractionDigits: 2),
+          _formatNumber(
+            quote.trailingPE ?? _fundamentalGameData?.trailingPe,
+            fractionDigits: 2,
+          ),
         ),
       if (!isEtf && quote.forwardPE != null)
         _MetricEntry(

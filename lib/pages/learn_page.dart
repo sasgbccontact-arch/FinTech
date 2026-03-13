@@ -2747,26 +2747,15 @@ class _LatexRenderer extends StatelessWidget {
     bool isBoxed = false;
 
     // Check for \boxed{...}
-    if (content.startsWith(r'\boxed{')) {
-      int balance = 0;
-      int endIndex = -1;
-      for (int i = 6; i < content.length; i++) {
-        if (content[i] == '{') balance++;
-        if (content[i] == '}') {
-          if (balance == 0) {
-            endIndex = i;
-            break;
-          }
-          balance--;
-        }
-      }
-      if (endIndex == content.length - 1) {
+    if (content.startsWith(r'\boxed')) {
+      final arg = _parseArg(content, r'\boxed'.length);
+      if (arg.content.isNotEmpty && arg.endIndex == content.length) {
         isBoxed = true;
-        content = content.substring(7, content.length - 1);
+        content = arg.content;
       }
     }
 
-    Widget child = _parseExpression(content);
+    Widget child = _parseExpression(_normalizeLatex(content));
 
     if (isBoxed) {
       return Container(
@@ -2790,6 +2779,15 @@ class _LatexRenderer extends StatelessWidget {
       );
     }
     return child;
+  }
+
+  String _normalizeLatex(String text) {
+    return text
+        .replaceAll(r'\_', '_')
+        .replaceAll(r'\,', r'\ ')
+        .replaceAll(r'\qquad', r'\quad\quad')
+        .replaceAll('<->', '↔')
+        .replaceAll('->', '→');
   }
 
   Widget _parseExpression(String text) {
@@ -2821,32 +2819,35 @@ class _LatexRenderer extends StatelessWidget {
           i = arg.endIndex;
         } else if (cmd == r'\left' || cmd == r'\right') {
           i = cmdEnd; // Skip, let next char be parsed
+        } else if (cmd == r'\ln') {
+          children.add(_buildMathText('ln'));
+          i = cmdEnd;
         } else if (cmd == r'\times') {
-          children.add(const Text(' × ', style: TextStyle(fontSize: 16)));
+          children.add(_buildSymbolText(' × '));
           i = cmdEnd;
         } else if (cmd == r'\approx') {
-          children.add(const Text(' ≈ ', style: TextStyle(fontSize: 16)));
+          children.add(_buildSymbolText(' ≈ '));
           i = cmdEnd;
         } else if (cmd == r'\pi') {
-          children.add(const Text('π', style: TextStyle(fontSize: 18)));
+          children.add(_buildMathText('π'));
           i = cmdEnd;
         } else if (cmd == r'\alpha') {
-          children.add(const Text('α', style: TextStyle(fontSize: 18)));
+          children.add(_buildMathText('α'));
           i = cmdEnd;
         } else if (cmd == r'\beta') {
-          children.add(const Text('β', style: TextStyle(fontSize: 18)));
+          children.add(_buildMathText('β'));
           i = cmdEnd;
         } else if (cmd == r'\varepsilon') {
-          children.add(const Text('ε', style: TextStyle(fontSize: 18)));
+          children.add(_buildMathText('ε'));
           i = cmdEnd;
         } else if (cmd == r'\quad') {
           children.add(const SizedBox(width: 20));
           i = cmdEnd;
         } else if (cmd == r'\Rightarrow') {
-          children.add(const Text(' ⇒ ', style: TextStyle(fontSize: 16)));
+          children.add(_buildSymbolText(' ⇒ '));
           i = cmdEnd;
         } else if (cmd == r'\dots') {
-          children.add(const Text('...', style: TextStyle(fontSize: 16)));
+          children.add(_buildSymbolText('...'));
           i = cmdEnd;
         } else if (cmd == r'\;' || cmd == r'\ ') {
           children.add(const SizedBox(width: 6));
@@ -2910,18 +2911,7 @@ class _LatexRenderer extends StatelessWidget {
             text[i] != '}') {
           i++;
         }
-        children.add(
-          Text(
-            text.substring(start, i),
-            style: const TextStyle(
-              fontSize: 18,
-              fontFamily: 'Serif',
-              fontStyle: FontStyle.italic,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-        );
+        children.add(Text(text.substring(start, i), style: _mathTextStyle));
       }
     }
 
@@ -2931,6 +2921,25 @@ class _LatexRenderer extends StatelessWidget {
       children: children,
     );
   }
+
+  Widget _buildMathText(String value) {
+    return Text(value, style: _mathTextStyle);
+  }
+
+  Widget _buildSymbolText(String value) {
+    return Text(
+      value,
+      style: _mathTextStyle.copyWith(fontStyle: FontStyle.normal),
+    );
+  }
+
+  static const TextStyle _mathTextStyle = TextStyle(
+    fontSize: 18,
+    fontFamily: 'Serif',
+    fontStyle: FontStyle.italic,
+    fontWeight: FontWeight.w500,
+    color: Colors.black87,
+  );
 
   Widget _buildFraction(String num, String den) {
     return Padding(

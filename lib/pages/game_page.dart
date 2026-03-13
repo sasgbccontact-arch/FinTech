@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import '../features/notifications/metals_notification_service.dart';
@@ -17,6 +18,7 @@ import 'shop_page.dart';
 import 'compte_terme.dart';
 import 'package:fintech/core/constants.dart';
 import 'package:fintech/services/activity_tracking_service.dart';
+import 'package:fintech/services/scenario_game_engine.dart';
 
 const LinearGradient _accentGradient = LinearGradient(
   colors: [detailsColor1, detailsColor2],
@@ -26,11 +28,141 @@ const LinearGradient _accentGradient = LinearGradient(
 
 final List<BoxShadow> _softShadow = [
   BoxShadow(
-    color: Colors.black.withOpacity(0.06),
+    color: Colors.black.withValues(alpha: 0.06),
     blurRadius: 14,
     offset: const Offset(0, 6),
   ),
 ];
+
+const String _dailyRewardCardSvg = '''
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="giftGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="34" width="60" height="40" rx="12" fill="#FFF7DE" stroke="#F5D76E" stroke-width="4"/>
+  <rect x="44" y="24" width="8" height="50" rx="4" fill="#2A0F45"/>
+  <rect x="18" y="48" width="60" height="8" rx="4" fill="#2A0F45"/>
+  <path d="M48 33 C34 19, 24 18, 24 29 C24 39, 36 41, 48 33 Z" fill="url(#giftGold)"/>
+  <path d="M48 33 C62 19, 72 18, 72 29 C72 39, 60 41, 48 33 Z" fill="#2A0F45" opacity="0.92"/>
+</svg>
+''';
+
+const String _dailyRewardLoaderOrbitSvg = '''
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rewardOrbit" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#2A0F45"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="42" fill="none" stroke="#F3E7B9" stroke-width="8"/>
+  <path d="M60 18 A42 42 0 0 1 102 60" fill="none" stroke="url(#rewardOrbit)" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="60" cy="18" r="6" fill="#2A0F45"/>
+  <circle cx="102" cy="60" r="7" fill="#D4AF37"/>
+  <circle cx="29" cy="89" r="5" fill="#F5D76E" opacity="0.9"/>
+</svg>
+''';
+
+const String _questCardSvg = '''
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="questGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="16" width="46" height="64" rx="12" fill="#FFF8E6" stroke="#E9D8A0" stroke-width="4"/>
+  <rect x="28" y="10" width="26" height="12" rx="6" fill="#2A0F45"/>
+  <path d="M29 36 L38 45 L56 28" fill="none" stroke="url(#questGold)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M29 58 L38 67 L56 50" fill="none" stroke="#2A0F45" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="74" cy="68" r="14" fill="url(#questGold)"/>
+  <path d="M74 56 L77 64 L86 64 L79 69 L82 78 L74 73 L66 78 L69 69 L62 64 L71 64 Z" fill="#2A0F45"/>
+</svg>
+''';
+
+const String _shopCardSvg = '''
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="shopGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 30 H72 L68 76 H28 Z" fill="#FFF8E7" stroke="#E9D8A0" stroke-width="4"/>
+  <path d="M34 30 C34 21, 40 15, 48 15 C56 15, 62 21, 62 30" fill="none" stroke="#2A0F45" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="40" cy="54" r="9" fill="url(#shopGold)"/>
+  <circle cx="58" cy="58" r="9" fill="#2A0F45" opacity="0.92"/>
+  <path d="M40 49 V59 M35 54 H45" stroke="#2A0F45" stroke-width="3" stroke-linecap="round"/>
+  <path d="M58 53 V63 M53 58 H63" stroke="#F5D76E" stroke-width="3" stroke-linecap="round"/>
+</svg>
+''';
+
+const String _simulationCardSvg = '''
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="simGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <rect x="14" y="18" width="68" height="60" rx="16" fill="#FFF8E6" stroke="#E9D8A0" stroke-width="4"/>
+  <path d="M24 61 L38 48 L48 54 L62 34 L72 40" fill="none" stroke="#2A0F45" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="38" cy="48" r="5" fill="url(#simGold)"/>
+  <circle cx="62" cy="34" r="5" fill="url(#simGold)"/>
+  <path d="M24 70 H72" stroke="url(#simGold)" stroke-width="5" stroke-linecap="round"/>
+</svg>
+''';
+
+const String _newsCardSvg = '''
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="newsGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="18" width="60" height="60" rx="14" fill="#FFF8E7" stroke="#E9D8A0" stroke-width="4"/>
+  <rect x="28" y="30" width="16" height="16" rx="4" fill="#2A0F45"/>
+  <path d="M50 33 H68 M50 41 H68 M28 54 H68 M28 62 H60" stroke="url(#newsGold)" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="68" cy="68" r="10" fill="#2A0F45"/>
+  <path d="M68 58 V78 M58 68 H78" stroke="#F5D76E" stroke-width="2.5" opacity="0.6"/>
+</svg>
+''';
+
+const String _termDepositCardSvg = '''
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="termGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <rect x="18" y="22" width="42" height="52" rx="12" fill="#FFF8E7" stroke="#E9D8A0" stroke-width="4"/>
+  <path d="M30 36 H48 M30 48 H48 M30 60 H42" stroke="#2A0F45" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="68" cy="48" r="16" fill="url(#termGold)"/>
+  <path d="M68 39 V49 L75 55" fill="none" stroke="#2A0F45" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="68" cy="48" r="3" fill="#2A0F45"/>
+</svg>
+''';
+
+const String _stockAnalystCardSvg = '''
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="analystGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#F5D76E"/>
+    </linearGradient>
+  </defs>
+  <rect x="12" y="20" width="50" height="44" rx="12" fill="#FFF8E7" stroke="#E9D8A0" stroke-width="4"/>
+  <path d="M22 54 L32 44 L42 48 L52 34" fill="none" stroke="#2A0F45" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="58" cy="48" r="18" fill="none" stroke="url(#analystGold)" stroke-width="8"/>
+  <line x1="70" y1="60" x2="84" y2="74" stroke="#2A0F45" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="58" cy="48" r="5" fill="#2A0F45"/>
+</svg>
+''';
 
 class _GameSkeletonCard extends StatelessWidget {
   const _GameSkeletonCard({required this.height});
@@ -66,6 +198,100 @@ class _GameScenarioSkeletonList extends StatelessWidget {
           SizedBox(height: 12),
           _GameSkeletonCard(height: 120),
         ],
+      ),
+    );
+  }
+}
+
+class _FloatingSvgBadge extends StatefulWidget {
+  const _FloatingSvgBadge({
+    required this.svg,
+    this.size = 64,
+    this.opacity = 1,
+  });
+
+  final String svg;
+  final double size;
+  final double opacity;
+
+  @override
+  State<_FloatingSvgBadge> createState() => _FloatingSvgBadgeState();
+}
+
+class _FloatingSvgBadgeState extends State<_FloatingSvgBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _motionCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _motionCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 9),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _motionCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _motionCtrl,
+      builder: (context, child) {
+        final dx = math.sin(_motionCtrl.value * math.pi * 2) * 9;
+        final dy = math.cos(_motionCtrl.value * math.pi * 2) * 7;
+        return Transform.translate(offset: Offset(dx, dy), child: child);
+      },
+      child: Opacity(
+        opacity: widget.opacity,
+        child: SvgPicture.string(
+          widget.svg,
+          width: widget.size,
+          height: widget.size,
+        ),
+      ),
+    );
+  }
+}
+
+class _GameBadgeShell extends StatelessWidget {
+  const _GameBadgeShell({
+    required this.svg,
+    this.active = true,
+    this.size = 62,
+  });
+
+  final String svg;
+  final bool active;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        gradient: active ? _accentGradient : null,
+        color: active ? null : Colors.black.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow:
+            active
+                ? [
+                  BoxShadow(
+                    color: detailsColor1.withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+                : null,
+      ),
+      child: _FloatingSvgBadge(
+        svg: svg,
+        size: size,
+        opacity: active ? 1 : 0.65,
       ),
     );
   }
@@ -199,79 +425,82 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
             (userSnapshot.data?.data() as Map<String, dynamic>?)?['isAdmin'] ??
             false;
 
-        return Scaffold(
-          backgroundColor: backgroundColor,
-          appBar: AppBar(
-            leading: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream:
-                  FirebaseAuth.instance.currentUser != null
-                      ? FirebaseFirestore.instance
-                          .collection('users')
-                          .doc(FirebaseAuth.instance.currentUser!.uid)
-                          .snapshots()
-                      : null,
-              builder: (context, snapshot) {
-                final avatarId = snapshot.data?.data()?['avatar_id'] as String?;
-                return IconButton(
-                  icon:
-                      avatarId != null
-                          ? Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              image: DecorationImage(
-                                image: AssetImage(_getAvatarAsset(avatarId)),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          )
-                          : const Icon(
-                            Icons.account_circle_rounded,
-                            color: textColor,
-                            size: 28,
-                          ),
-                  onPressed: () => _showUserProfile(context, isAdmin),
-                );
-              },
-            ),
-
-            actions: [
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 300),
-                  child: const _HeaderBalance(),
-                ),
-              ),
-            ],
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
             backgroundColor: backgroundColor,
-            surfaceTintColor: backgroundColor,
-            elevation: 0,
-            centerTitle: false,
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Expanded(child: _ShopAccessCard()),
-                  const SizedBox(width: 12),
-                  const Expanded(child: _QuestAccessCard()),
-                ],
+            appBar: AppBar(
+              leading: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                stream:
+                    FirebaseAuth.instance.currentUser != null
+                        ? FirebaseFirestore.instance
+                            .collection('users')
+                            .doc(FirebaseAuth.instance.currentUser!.uid)
+                            .snapshots()
+                        : null,
+                builder: (context, snapshot) {
+                  final avatarId =
+                      snapshot.data?.data()?['avatar_id'] as String?;
+                  return IconButton(
+                    icon:
+                        avatarId != null
+                            ? Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                image: DecorationImage(
+                                  image: AssetImage(_getAvatarAsset(avatarId)),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            )
+                            : const Icon(
+                              Icons.account_circle_rounded,
+                              color: textColor,
+                              size: 28,
+                            ),
+                    onPressed: () => _showUserProfile(context, isAdmin),
+                  );
+                },
               ),
-              _SimulationHubAccessCard(
-                isAdmin: isAdmin,
-                scenarioCount: _scenarios.length,
-                completedCount: _completedScenarios.length,
-                loading: _isLoadingScenarios,
-                onTap: () => _openSimulationHub(isAdmin),
-              ),
-              const _NewsGameCard(),
-              _TermDepositAccessCard(isAdmin: isAdmin),
-              const _IncomeStatementGameCard(),
-            ],
+
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 300),
+                    child: const _HeaderBalance(),
+                  ),
+                ),
+              ],
+              backgroundColor: backgroundColor,
+              surfaceTintColor: backgroundColor,
+              elevation: 0,
+              centerTitle: false,
+            ),
+            body: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: _GameHubTabStrip(),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _ProgressionHubList(isAdmin: isAdmin),
+                      _GamesHubList(
+                        isAdmin: isAdmin,
+                        scenarioCount: _scenarios.length,
+                        completedCount: _completedScenarios.length,
+                        loading: _isLoadingScenarios,
+                        onOpenSimulationHub: () => _openSimulationHub(isAdmin),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -337,6 +566,7 @@ class _DailyRewardCard extends StatefulWidget {
 class _DailyRewardCardState extends State<_DailyRewardCard> {
   bool _loading = true;
   bool _canClaim = false;
+  bool _claiming = false;
 
   @override
   void initState() {
@@ -383,11 +613,17 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
         setState(() {
           _canClaim = !claimedToday;
           _loading = false;
+          _claiming = false;
         });
       }
     } catch (e) {
       debugPrint("Error checking daily reward: $e");
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _claiming = false;
+        });
+      }
     }
   }
 
@@ -397,7 +633,10 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
     if (!_canClaim) {
       return;
     }
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _claiming = true;
+    });
 
     final random = math.Random();
     final isCoins = random.nextBool();
@@ -447,6 +686,7 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
         setState(() {
           _canClaim = false;
           _loading = false;
+          _claiming = false;
         });
       }
     } catch (e) {
@@ -458,7 +698,10 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
             backgroundColor: Colors.red,
           ),
         );
-        setState(() => _loading = false);
+        setState(() {
+          _loading = false;
+          _claiming = false;
+        });
       }
     }
   }
@@ -475,67 +718,81 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
 
   @override
   Widget build(BuildContext context) {
-    //if (_loading) return const SizedBox(height: 170, child: Center(child: CircularProgressIndicator()));
-    if (_loading) return const _GameSkeletonCard(height: 150);
+    if (_loading) {
+      return _DailyRewardLoadingCard(claiming: _claiming);
+    }
 
     return GestureDetector(
       onTap: _canClaim ? _claimReward : null,
-
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.black.withOpacity(0.06)),
           boxShadow: _softShadow,
         ),
-        height: 140,
-        child: Column(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                gradient: _canClaim ? _accentGradient : null,
-                color: _canClaim ? null : Colors.black.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                Icons.card_giftcard_rounded,
-                color: _canClaim ? Colors.white : textColor.withOpacity(0.6),
-                size: 28,
-              ),
+            _GameBadgeShell(
+              svg: _dailyRewardCardSvg,
+              active: _canClaim,
+              size: 56,
             ),
-            const SizedBox(height: 8),
             Expanded(
-              child: Center(
-                child: const Text(
-                  "Cadeau",
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                  textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 14, right: 12, top: 2),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "Récompense quotidienne",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: textColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _canClaim
+                          ? 'Claim aléatoire: 100-300 coins ou 2-6 gems.'
+                          : 'Déjà récupérée aujourd’hui, reviens demain.',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            _canClaim
+                                ? detailsColor1.withValues(alpha: 0.12)
+                                : Colors.green.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _canClaim ? 'Disponible maintenant' : 'Reviens demain',
+                        style: TextStyle(
+                          color: _canClaim ? detailsColor2 : Colors.green,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-
-            if (_canClaim)
-              /*ElevatedButton(
-              onPressed: _claimReward,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber.shade600,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                minimumSize: const Size(0, 36),
-              ),
-              child: const Text("Récupérer"),
-            )*/
-              const SizedBox.shrink()
-            else if (widget.isAdmin)
+            if (widget.isAdmin && !_canClaim)
               IconButton(
                 icon: const Icon(Icons.refresh, color: Colors.grey),
                 onPressed: _resetReward,
@@ -544,13 +801,190 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
                 constraints: const BoxConstraints(),
               )
             else
-              const Icon(
-                Icons.check_circle_rounded,
-                color: Colors.green,
-                size: 28,
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: _canClaim ? _accentGradient : null,
+                  color:
+                      _canClaim ? null : Colors.green.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  _canClaim
+                      ? Icons.arrow_forward_rounded
+                      : Icons.check_circle_rounded,
+                  color: _canClaim ? Colors.white : Colors.green,
+                ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DailyRewardLoadingCard extends StatefulWidget {
+  const _DailyRewardLoadingCard({required this.claiming});
+
+  final bool claiming;
+
+  @override
+  State<_DailyRewardLoadingCard> createState() =>
+      _DailyRewardLoadingCardState();
+}
+
+class _DailyRewardLoadingCardState extends State<_DailyRewardLoadingCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _loaderCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loaderCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _loaderCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title =
+        widget.claiming
+            ? 'Distribution du cadeau...'
+            : 'Chargement de la récompense';
+    final subtitle =
+        widget.claiming
+            ? 'Préparation de ton lot du jour, ne ferme pas la page.'
+            : 'Vérification de la disponibilité du cadeau quotidien.';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        boxShadow: _softShadow,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 74,
+            height: 74,
+            child: AnimatedBuilder(
+              animation: _loaderCtrl,
+              builder: (context, child) {
+                final angle = _loaderCtrl.value * math.pi * 2;
+                final pulse = 0.98 + math.sin(angle).abs() * 0.08;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Transform.rotate(
+                      angle: angle,
+                      child: SvgPicture.string(
+                        _dailyRewardLoaderOrbitSvg,
+                        width: 72,
+                        height: 72,
+                      ),
+                    ),
+                    Transform.scale(scale: pulse, child: child),
+                  ],
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: _accentGradient,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: detailsColor1.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: SvgPicture.string(
+                  _dailyRewardCardSvg,
+                  width: 42,
+                  height: 42,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 14, right: 12, top: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: detailsColor1.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'Synchronisation en cours',
+                      style: TextStyle(
+                        color: detailsColor2,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: detailsColor2.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: detailsColor2,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -601,54 +1035,122 @@ class _QuestAccessCard extends StatelessWidget {
             children: [
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.black.withOpacity(0.06)),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.06),
+                  ),
                   boxShadow: _softShadow,
                 ),
-                height: 140,
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 190;
+                    final badgeSize = compact ? 46.0 : 56.0;
+                    final titleStyle = TextStyle(
+                      fontSize: compact ? 14 : 16,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                      height: compact ? 1.15 : null,
+                    );
+                    final subtitleStyle = TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                      fontSize: compact ? 11.5 : 13,
+                    );
+
+                    final trailingAction = Container(
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
-                        gradient: _accentGradient,
-                        borderRadius: BorderRadius.circular(16),
+                        gradient: hasPendingReward ? _accentGradient : null,
+                        color:
+                            hasPendingReward
+                                ? null
+                                : detailsColor2.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(
-                        Icons.checklist_rounded,
-                        color: Colors.white,
-                        size: 28,
+                      alignment: Alignment.center,
+                      child: Icon(
+                        hasPendingReward
+                            ? Icons.redeem_rounded
+                            : Icons.arrow_forward_rounded,
+                        color: hasPendingReward ? Colors.white : detailsColor2,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Expanded(
-                      child: Center(
-                        child: Text(
+                    );
+
+                    final textBlock = Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                           "Quêtes & Succès",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: textColor,
-                          ),
-                          textAlign: TextAlign.center,
+                          maxLines: compact ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: titleStyle,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      hasPendingReward
-                          ? 'Récompense dispo'
-                          : 'Progression du jour',
-                      style: TextStyle(
-                        color: hasPendingReward ? Colors.red : Colors.black54,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                        const SizedBox(height: 4),
+                        Text(
+                          compact
+                              ? "Récompenses du jour et succès."
+                              : "Récupère tes récompenses journalières et surveille tes succès globaux.",
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: subtitleStyle,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          hasPendingReward
+                              ? 'Récompense dispo'
+                              : 'Progression du jour',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color:
+                                hasPendingReward ? Colors.red : Colors.black54,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    );
+
+                    if (compact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _GameBadgeShell(
+                                svg: _questCardSvg,
+                                size: badgeSize,
+                              ),
+                              const Spacer(),
+                              trailingAction,
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          textBlock,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _GameBadgeShell(svg: _questCardSvg, size: badgeSize),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 14, right: 12),
+                            child: textBlock,
+                          ),
+                        ),
+                        trailingAction,
+                      ],
+                    );
+                  },
                 ),
               ),
               if (hasPendingReward)
@@ -676,13 +1178,13 @@ class _GameHubCard extends StatelessWidget {
   const _GameHubCard({
     required this.title,
     required this.subtitle,
-    required this.icon,
+    required this.svg,
     required this.onTap,
   });
 
   final String title;
   final String subtitle;
-  final IconData icon;
+  final String svg;
   final VoidCallback onTap;
 
   @override
@@ -700,14 +1202,8 @@ class _GameHubCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                gradient: _accentGradient,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: Colors.white, size: 24),
-            ),
+            const SizedBox(width: 2),
+            _GameBadgeShell(svg: svg, size: 58),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
@@ -716,27 +1212,135 @@ class _GameHubCard extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
                       color: textColor,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 13, color: Colors.black54),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.black38,
-              size: 22,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: _accentGradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: detailsColor1.withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GameHubTabStrip extends StatelessWidget {
+  const _GameHubTabStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+        boxShadow: _softShadow,
+      ),
+      child: TabBar(
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          gradient: _accentGradient,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        labelColor: Colors.white,
+        unselectedLabelColor: textColor,
+        labelStyle: const TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 13.5,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 13.5,
+        ),
+        tabs: const [Tab(text: 'Progression'), Tab(text: 'Jeux')],
+      ),
+    );
+  }
+}
+
+class _ProgressionHubList extends StatelessWidget {
+  const _ProgressionHubList({required this.isAdmin});
+
+  final bool isAdmin;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        _DailyRewardCard(isAdmin: isAdmin),
+        const _ShopAccessCard(),
+        const _QuestAccessCard(),
+      ],
+    );
+  }
+}
+
+class _GamesHubList extends StatelessWidget {
+  const _GamesHubList({
+    required this.isAdmin,
+    required this.scenarioCount,
+    required this.completedCount,
+    required this.loading,
+    required this.onOpenSimulationHub,
+  });
+
+  final bool isAdmin;
+  final int scenarioCount;
+  final int completedCount;
+  final bool loading;
+  final VoidCallback onOpenSimulationHub;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        _SimulationHubAccessCard(
+          isAdmin: isAdmin,
+          scenarioCount: scenarioCount,
+          completedCount: completedCount,
+          loading: loading,
+          onTap: onOpenSimulationHub,
+        ),
+        const _NewsGameCard(),
+        _TermDepositAccessCard(isAdmin: isAdmin),
+        const _IncomeStatementGameCard(),
+      ],
     );
   }
 }
@@ -767,7 +1371,7 @@ class _SimulationHubAccessCard extends StatelessWidget {
     return _GameHubCard(
       title: 'Scénarios de marché',
       subtitle: subtitle,
-      icon: Icons.show_chart_rounded,
+      svg: _simulationCardSvg,
       onTap: onTap,
     );
   }
@@ -786,7 +1390,7 @@ class _TermDepositAccessCard extends StatelessWidget {
           isAdmin
               ? 'Gère les dépôts et les rendements garantis'
               : 'Place tes pièces ou gemmes avec rendement garanti',
-      icon: Icons.savings_rounded,
+      svg: _termDepositCardSvg,
       onTap:
           () => showCupertinoModalBottomSheet(
             context: context,
@@ -804,8 +1408,8 @@ class _IncomeStatementGameCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _GameHubCard(
       title: 'Stock Analyst',
-      subtitle: 'Score fondamental automatique sur 100',
-      icon: Icons.receipt_long_rounded,
+      subtitle: 'Devine la note fondamentale à partir des métriques brutes',
+      svg: _stockAnalystCardSvg,
       onTap:
           () => showCupertinoModalBottomSheet(
             context: context,
@@ -833,9 +1437,9 @@ class _TermDepositHubSheet extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: ListView(
+        child: Padding(
           padding: const EdgeInsets.all(16),
-          children: const [TermDepositSection()],
+          child: const TermDepositSection(),
         ),
       ),
     );
@@ -912,8 +1516,7 @@ class _SimulationHubSheet extends StatelessWidget {
                 final data =
                     progressSnapshot.data?.data() as Map<String, dynamic>?;
                 final xp = data?['xp'] as int? ?? 0;
-                final level =
-                    (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
+                final level = ScenarioGameEngine.levelFromXp(xp);
                 final completedSet =
                     (data?['completed_scenarios'] as List?)
                         ?.map((e) => e.toString())
@@ -952,55 +1555,256 @@ class _SimulationHubSheet extends StatelessWidget {
                   );
                 }
 
-                final entries = scenarios.asMap().entries.toList();
-                entries.sort((a, b) {
-                  final aCompleted = completedSet.contains(a.value.id);
-                  final bCompleted = completedSet.contains(b.value.id);
-                  if (aCompleted != bCompleted) {
-                    return aCompleted ? 1 : -1;
-                  }
-                  return a.key.compareTo(b.key);
-                });
+                return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream:
+                      user != null
+                          ? FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user.uid)
+                              .collection('games')
+                              .doc('scenario_campaign')
+                              .snapshots()
+                          : null,
+                  builder: (context, campaignSnapshot) {
+                    final campaign = ScenarioCampaignProgress.fromMap(
+                      campaignSnapshot.data?.data(),
+                    );
+                    final totalStars = campaign.chapterStars.values.fold<int>(
+                      0,
+                      (sum, value) => sum + value,
+                    );
+                    final bestGlobalScore =
+                        campaign.scenarioBestScores.values.isEmpty
+                            ? 0
+                            : campaign.scenarioBestScores.values.reduce(
+                              math.max,
+                            );
 
-                return Column(
-                  children:
-                      entries.map<Widget>((entry) {
-                        final index = entry.key;
-                        final scenario = entry.value;
-                        final isCompleted = completedSet.contains(scenario.id);
-                        final requiredLevel = (index / 3).floor() + 1;
-                        final isLocked = !isAdmin && (level < requiredLevel);
-
-                        return Padding(
-                          key: ValueKey(scenario.id),
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: ScenarioCard(
-                            scenario: scenario,
-                            isCompleted: isCompleted,
-                            isLocked: isLocked,
-                            requiredLevel: requiredLevel,
-                            onTap:
-                                isLocked
-                                    ? () => ScaffoldMessenger.of(
-                                      context,
-                                    ).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          "Niveau $requiredLevel requis !",
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: Colors.black.withValues(alpha: 0.06),
+                            ),
+                            boxShadow: _softShadow,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "Nouvelle campagne narrative: thèse initiale, décisions sous incertitude, scoring multi-critères et branches rejouables.",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: textColor,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _InfoChip(
+                                    label: 'Niveau $level',
+                                    icon: Icons.flag_rounded,
+                                  ),
+                                  _InfoChip(
+                                    label: '$totalStars étoiles',
+                                    icon: Icons.star_rounded,
+                                  ),
+                                  _InfoChip(
+                                    label: 'Best $bestGlobalScore',
+                                    icon: Icons.insights_rounded,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        ...kScenarioChapters.map((chapter) {
+                          final chapterScenarios =
+                              scenarios
+                                  .where(
+                                    (scenario) =>
+                                        scenario.chapterId == chapter.id,
+                                  )
+                                  .toList();
+                          if (chapterScenarios.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          final unlocked =
+                              isAdmin ||
+                              ScenarioGameEngine.isChapterUnlocked(
+                                chapter: chapter,
+                                level: level,
+                                campaign: campaign,
+                              );
+                          final chapterStars =
+                              campaign.chapterStars[chapter.id] ?? 0;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            chapter.title,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 18,
+                                              color: textColor,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            chapter.subtitle,
+                                            style: const TextStyle(
+                                              color: Colors.black54,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            unlocked
+                                                ? Colors.white
+                                                : Colors.black.withValues(
+                                                  alpha: 0.05,
+                                                ),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.08,
+                                          ),
                                         ),
                                       ),
-                                    )
-                                    : (isCompleted && !isAdmin)
-                                    ? null
-                                    : () => onOpenScenario(scenario),
-                          ),
-                        );
-                      }).toList(),
+                                      child: Text(
+                                        unlocked
+                                            ? '$chapterStars★'
+                                            : 'Niv. ${chapter.requiredLevel} + ${chapter.requiredStarsFromPrevious}★',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          color:
+                                              unlocked
+                                                  ? detailsColor2
+                                                  : Colors.black45,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...chapterScenarios.map((scenario) {
+                                final isCompleted = completedSet.contains(
+                                  scenario.id,
+                                );
+                                final isLocked =
+                                    !isAdmin &&
+                                    !ScenarioGameEngine.isScenarioUnlocked(
+                                      scenario: scenario,
+                                      level: level,
+                                      campaign: campaign,
+                                    );
+                                final dailyConsumed =
+                                    !ScenarioGameEngine.hasDailySettlementAvailable(
+                                      scenarioId: scenario.id,
+                                      campaign: campaign,
+                                      now: DateTime.now(),
+                                    );
+                                return Padding(
+                                  key: ValueKey(scenario.id),
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: ScenarioCard(
+                                    scenario: scenario,
+                                    isCompleted: isCompleted,
+                                    isLocked: isLocked,
+                                    requiredLevel: scenario.requiredLevel,
+                                    chapterLabel: chapter.title,
+                                    bestMedal:
+                                        campaign.scenarioBestMedals[scenario
+                                            .id],
+                                    bestScore:
+                                        campaign.scenarioBestScores[scenario
+                                            .id],
+                                    dailySettlementConsumed: dailyConsumed,
+                                    onTap:
+                                        isLocked
+                                            ? () => ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  "Chapitre verrouillé: niv. ${scenario.requiredLevel} et progression campagne requis.",
+                                                ),
+                                              ),
+                                            )
+                                            : () => onOpenScenario(scenario),
+                                  ),
+                                );
+                              }),
+                              const SizedBox(height: 8),
+                            ],
+                          );
+                        }),
+                      ],
+                    );
+                  },
                 );
               },
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: detailsColor2),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2094,49 +2898,15 @@ class _ShopAccessCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return _GameHubCard(
+      title: 'Boutique',
+      subtitle: 'Coins, gems, boosts et cosmétiques pour ton profil de jeu.',
       onTap:
           () => showCupertinoModalBottomSheet(
             context: context,
             builder: (context) => const ShopPage(),
           ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.black.withOpacity(0.06)),
-          boxShadow: _softShadow,
-        ),
-        height: 140,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: _accentGradient,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(
-                Icons.storefront_rounded,
-                color: Colors.white,
-                size: 24,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "Boutique",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+      svg: _shopCardSvg,
     );
   }
 }
@@ -2225,8 +2995,8 @@ class _NewsGameCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _GameHubCard(
       title: 'Actu & Quiz',
-      subtitle: "Lis l'actu et teste tes connaissances",
-      icon: Icons.newspaper_rounded,
+      subtitle: "Actus du jour, quiz dynamiques et MapMonde interactive",
+      svg: _newsCardSvg,
       onTap:
           () => showCupertinoModalBottomSheet(
             context: context,
@@ -2259,11 +3029,12 @@ class _MetalsNotifToggleState extends State<_MetalsNotifToggle> {
 
   Future<void> _load() async {
     final v = await MetalsNotificationService.isEnabled();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _enabled = v;
         _loading = false;
       });
+    }
   }
 
   Future<void> _toggle(bool value) async {

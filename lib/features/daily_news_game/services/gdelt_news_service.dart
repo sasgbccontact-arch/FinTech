@@ -136,6 +136,27 @@ class GdeltNewsService {
     'matières premières',
   ];
 
+  static const _badSignals = <String>[
+    'celebrity',
+    'movie',
+    'music',
+    'sport',
+    'sports',
+    'fashion',
+    'recipe',
+    'gaming',
+    'viral',
+  ];
+
+  static const _vagueSignals = <String>[
+    'what to know',
+    'live updates',
+    'morning news',
+    'top stories',
+    'must watch',
+    'breaking news',
+  ];
+
   Future<List<NewsArticle>> fetchRecentArticles({int limit = 3}) async {
     final result = await fetchRecentArticlesFast(limit: limit);
     return result.articles;
@@ -143,12 +164,12 @@ class GdeltNewsService {
 
   Future<DailyNewsFetchResult> fetchRecentArticlesFast({int limit = 3}) async {
     final sw = Stopwatch()..start();
-    final clampedLimit = limit.clamp(1, 3);
+    final clampedLimit = limit.clamp(1, 5);
     final queriesTried = <String>[];
 
     final gdeltPrimary = await _requestGdelt(
       query: _primaryQuery,
-      maxrecords: 5,
+      maxrecords: 8,
       timeout: const Duration(seconds: 8),
       perfLabel: '[NewsPerf][Actus][GDELT][primary]',
     );
@@ -176,12 +197,14 @@ class GdeltNewsService {
     }
 
     final shouldSkipSecondGdelt =
-        gdeltPrimary.rateLimited || gdeltPrimary.timedOut || gdeltPrimary.queryTooLong;
+        gdeltPrimary.rateLimited ||
+        gdeltPrimary.timedOut ||
+        gdeltPrimary.queryTooLong;
 
     if (!shouldSkipSecondGdelt) {
       final gdeltRetry = await _requestGdelt(
         query: _fallbackQuery,
-        maxrecords: 5,
+        maxrecords: 8,
         timeout: const Duration(seconds: 12),
         perfLabel: '[NewsPerf][Actus][GDELT][retry]',
       );
@@ -210,17 +233,13 @@ class GdeltNewsService {
     }
 
     final rss = await _fetchFromGoogleNewsRss(
-      limit: 6,
+      limit: 10,
       timeout: const Duration(seconds: 8),
       perfLabel: '[NewsPerf][Actus][RSS]',
     );
     queriesTried.add('rss_en_8s');
 
-    selected = _selectTopScored(
-      rss,
-      expectedLang: 'en',
-      limit: clampedLimit,
-    );
+    selected = _selectTopScored(rss, expectedLang: 'en', limit: clampedLimit);
 
     sw.stop();
 
@@ -271,9 +290,10 @@ class GdeltNewsService {
     final iso2 = countryIso2.trim().toUpperCase();
     final nameEn = countryNameEn.trim();
     final baseCountry = '($nameEn OR $iso2)';
-    final q = lang == 'fr'
-        ? '$baseCountry $_financeKeywordsShortFr sourcelang:french'
-        : '$baseCountry $_financeKeywordsShortEn sourcelang:english';
+    final q =
+        lang == 'fr'
+            ? '$baseCountry $_financeKeywordsShortFr sourcelang:french'
+            : '$baseCountry $_financeKeywordsShortEn sourcelang:english';
 
     final result = await _requestGdelt(
       query: q,
@@ -341,7 +361,10 @@ class GdeltNewsService {
     }
 
     final fastFallbackNeeded =
-        enResult.rateLimited || enResult.timedOut || enResult.queryTooLong || enResult.nonJson;
+        enResult.rateLimited ||
+        enResult.timedOut ||
+        enResult.queryTooLong ||
+        enResult.nonJson;
 
     if (!fastFallbackNeeded) {
       final queryFr = '$baseCountry $_financeKeywordsShortFr sourcelang:french';
@@ -420,7 +443,8 @@ class GdeltNewsService {
       lang: 'fr-FR',
       gl: 'FR',
       ceid: 'FR:fr',
-      keywords: 'bourse OR marchés OR investissement OR inflation OR banque centrale',
+      keywords:
+          'bourse OR marchés OR investissement OR inflation OR banque centrale',
     );
     final rssFr = await _fetchFromGoogleNewsRss(
       limit: 5,
@@ -476,20 +500,21 @@ class GdeltNewsService {
     final deduped = _dedupeByUrl(candidates);
     if (deduped.isEmpty) return null;
 
-    final scored = deduped
-        .map(
-          (a) => _ScoredArticle(
-            a,
-            _scoreCountry(
-              a,
-              countryNameEn: countryNameEn,
-              countryIso2: countryIso2,
-              expectedLang: expectedLang,
-            ),
-          ),
-        )
-        .toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+    final scored =
+        deduped
+            .map(
+              (a) => _ScoredArticle(
+                a,
+                _scoreCountry(
+                  a,
+                  countryNameEn: countryNameEn,
+                  countryIso2: countryIso2,
+                  expectedLang: expectedLang,
+                ),
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.score.compareTo(a.score));
 
     return scored.first;
   }
@@ -500,11 +525,17 @@ class GdeltNewsService {
     required int limit,
   }) {
     final deduped = _dedupeByUrl(candidates);
-    final scored = deduped
-        .map((a) => _ScoredArticle(a, _scoreGeneral(a, expectedLang: expectedLang)))
-        .where((s) => s.score >= 45)
-        .toList()
-      ..sort((a, b) => b.score.compareTo(a.score));
+    final scored =
+        deduped
+            .map(
+              (a) => _ScoredArticle(
+                a,
+                _scoreGeneral(a, expectedLang: expectedLang),
+              ),
+            )
+            .where((s) => s.score >= 55)
+            .toList()
+          ..sort((a, b) => b.score.compareTo(a.score));
 
     return scored.take(limit).map((s) => s.article).toList();
   }
@@ -518,6 +549,7 @@ class GdeltNewsService {
     final text = _normalizedText(article);
     final hasFinance = _hasFinanceSignal(text);
     if (!hasFinance) return -100;
+    if (_hasBadSignal(text)) return -100;
 
     var score = 0;
 
@@ -537,6 +569,14 @@ class GdeltNewsService {
       score += 10;
     }
 
+    if (_hasCausalAngle(text)) {
+      score += 10;
+    }
+
+    if (_hasVagueSignal(text)) {
+      score -= 16;
+    }
+
     return score;
   }
 
@@ -544,6 +584,7 @@ class GdeltNewsService {
     final text = _normalizedText(article);
     final hasFinance = _hasFinanceSignal(text);
     if (!hasFinance) return -100;
+    if (_hasBadSignal(text)) return -100;
 
     var score = 25;
 
@@ -555,9 +596,26 @@ class GdeltNewsService {
       score += 10;
     }
 
-    final ageHours = DateTime.now().difference(article.publishedAt.toLocal()).inHours;
+    final ageHours =
+        DateTime.now().difference(article.publishedAt.toLocal()).inHours;
     if (ageHours <= 48) {
       score += 20;
+    } else if (ageHours <= 72) {
+      score += 8;
+    } else {
+      score -= 8;
+    }
+
+    if ((article.snippet ?? '').trim().isNotEmpty) {
+      score += 8;
+    }
+
+    if (_hasCausalAngle(text)) {
+      score += 10;
+    }
+
+    if (_hasVagueSignal(text)) {
+      score -= 16;
     }
 
     return score;
@@ -567,6 +625,29 @@ class GdeltNewsService {
     return _financeSignals.any(text.contains);
   }
 
+  bool _hasBadSignal(String text) {
+    return _badSignals.any(text.contains);
+  }
+
+  bool _hasVagueSignal(String text) {
+    return _vagueSignals.any(text.contains);
+  }
+
+  bool _hasCausalAngle(String text) {
+    return <String>[
+      'because',
+      'after',
+      'amid',
+      'following',
+      'due to',
+      'on fears',
+      'on hopes',
+      'après',
+      'en raison',
+      'face à',
+    ].any(text.contains);
+  }
+
   bool _isReliableSource(String source) {
     final s = source.toLowerCase();
     return _reliableSources.any(s.contains);
@@ -574,20 +655,26 @@ class GdeltNewsService {
 
   bool _matchesExpectedLang(String text, {required String expectedLang}) {
     if (expectedLang == 'fr') {
-      return RegExp(r'\b(le|la|les|des|une|avec|pour|sur|banque|marché|économie)\b')
-          .hasMatch(text);
+      return RegExp(
+        r'\b(le|la|les|des|une|avec|pour|sur|banque|marché|économie)\b',
+      ).hasMatch(text);
     }
-    return RegExp(r'\b(the|and|for|with|market|economy|bank|inflation)\b').hasMatch(text);
+    return RegExp(
+      r'\b(the|and|for|with|market|economy|bank|inflation)\b',
+    ).hasMatch(text);
   }
 
   String _normalizedText(NewsArticle article) {
-    return '${article.title} ${article.snippet ?? ''}'.toLowerCase();
+    return '${_sanitizeText(article.title)} ${_sanitizeText(article.snippet ?? '')}'
+        .toLowerCase();
   }
 
   List<NewsArticle> _dedupeByUrl(List<NewsArticle> articles) {
     final map = <String, NewsArticle>{};
     for (final article in articles) {
-      final key = article.url.trim();
+      final cleanTitle = _sanitizeText(article.title).toLowerCase();
+      final key =
+          '${article.url.trim().toLowerCase()}|$cleanTitle|${article.source.toLowerCase()}';
       if (key.isEmpty) continue;
       map.putIfAbsent(key, () => article);
     }
@@ -603,14 +690,16 @@ class GdeltNewsService {
     final sw = Stopwatch()..start();
 
     try {
-      final uri = Uri.parse(_baseUrl).replace(queryParameters: {
-        'query': query,
-        'mode': 'artlist',
-        'maxrecords': maxrecords.toString(),
-        'format': 'json',
-        'timespan': '1w',
-        'sort': 'DateDesc',
-      });
+      final uri = Uri.parse(_baseUrl).replace(
+        queryParameters: {
+          'query': query,
+          'mode': 'artlist',
+          'maxrecords': maxrecords.toString(),
+          'format': 'json',
+          'timespan': '1w',
+          'sort': 'DateDesc',
+        },
+      );
 
       final response = await http.get(uri, headers: _headers).timeout(timeout);
 
@@ -658,7 +747,9 @@ class GdeltNewsService {
     } on Exception catch (e) {
       sw.stop();
       final timedOut = e.toString().toLowerCase().contains('timeout');
-      debugPrint('$perfLabel error="$e" ms=${sw.elapsedMilliseconds} timedOut=$timedOut');
+      debugPrint(
+        '$perfLabel error="$e" ms=${sw.elapsedMilliseconds} timedOut=$timedOut',
+      );
       return _GdeltRequestResult(
         articles: const <NewsArticle>[],
         timedOut: timedOut,
@@ -707,6 +798,19 @@ class GdeltNewsService {
           }
         })
         .whereType<NewsArticle>()
+        .map(
+          (article) => NewsArticle(
+            id: article.id,
+            title: _sanitizeText(article.title),
+            url: article.url,
+            source: article.source,
+            publishedAt: article.publishedAt,
+            snippet:
+                article.snippet == null
+                    ? null
+                    : _sanitizeText(article.snippet!),
+          ),
+        )
         .where((a) => a.title.isNotEmpty && a.url.isNotEmpty)
         .toList();
   }
@@ -750,13 +854,17 @@ class GdeltNewsService {
 
       if (response.statusCode != 200) {
         sw.stop();
-        debugPrint('$perfLabel status=${response.statusCode} ms=${sw.elapsedMilliseconds}');
+        debugPrint(
+          '$perfLabel status=${response.statusCode} ms=${sw.elapsedMilliseconds}',
+        );
         return const [];
       }
 
       final parsed = _parseGoogleNewsRss(response.body);
       sw.stop();
-      debugPrint('$perfLabel status=200 ms=${sw.elapsedMilliseconds} count=${parsed.length}');
+      debugPrint(
+        '$perfLabel status=200 ms=${sw.elapsedMilliseconds} count=${parsed.length}',
+      );
 
       if (parsed.length <= limit) return parsed;
       return parsed.take(limit).toList();
@@ -796,7 +904,8 @@ class GdeltNewsService {
       final pubRaw = (pubDateRegex.firstMatch(chunk)?.group(1) ?? '').trim();
       DateTime publishedAt;
       try {
-        publishedAt = pubRaw.isNotEmpty ? HttpDate.parse(pubRaw) : DateTime.now();
+        publishedAt =
+            pubRaw.isNotEmpty ? HttpDate.parse(pubRaw) : DateTime.now();
       } catch (_) {
         publishedAt = DateTime.now();
       }
@@ -811,7 +920,7 @@ class GdeltNewsService {
       String? snippet = (descRegex.firstMatch(chunk)?.group(1) ?? '').trim();
       if (snippet.isNotEmpty) {
         snippet = snippet.replaceAll(RegExp(r'<[^>]+>'), ' ');
-        snippet = snippet.replaceAll(RegExp(r'\s+'), ' ').trim();
+        snippet = _sanitizeText(snippet);
         if (snippet.isEmpty) snippet = null;
       } else {
         snippet = null;
@@ -819,7 +928,7 @@ class GdeltNewsService {
 
       items.add(
         NewsArticle.fromRss(
-          title: title,
+          title: _sanitizeText(title),
           url: link,
           publishedAt: publishedAt,
           source: source,
@@ -831,5 +940,22 @@ class GdeltNewsService {
     }
 
     return items.where((a) => a.title.isNotEmpty && a.url.isNotEmpty).toList();
+  }
+
+  String _sanitizeText(String raw) {
+    return raw
+        .replaceAll(RegExp(r'https?://\S+', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'ftp://\S+', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'www\.\S+', caseSensitive: false), ' ')
+        .replaceAll(
+          RegExp(
+            r'\b[a-z0-9.-]+\.(com|net|org|io|co|fr|uk)\b',
+            caseSensitive: false,
+          ),
+          ' ',
+        )
+        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
   }
 }

@@ -905,6 +905,7 @@ class YahooFinanceService {
     Uri _buildUri() {
       final symbolPath = Uri.encodeComponent(symbol);
       final modules = [
+        'price',
         'financialData',
         'defaultKeyStatistics',
         'summaryDetail',
@@ -913,6 +914,7 @@ class YahooFinanceService {
         'incomeStatementHistory',
         'incomeStatementHistoryQuarterly',
         'cashflowStatementHistory',
+        'cashflowStatementHistoryQuarterly',
         'summaryProfile',
         'fundProfile',
         'fundPerformance',
@@ -1036,6 +1038,7 @@ class YahooFinanceService {
         'incomeStatementHistory',
         'incomeStatementHistoryQuarterly',
         'cashflowStatementHistory',
+        'cashflowStatementHistoryQuarterly',
         'summaryProfile',
         'fundProfile',
       ],
@@ -1044,11 +1047,19 @@ class YahooFinanceService {
       unavailableMessage: 'Données fondamentales indisponibles.',
       invalidMessage: 'Réponse Yahoo invalide pour le jeu fondamental.',
     );
+    double? trailingPeFallback;
+    try {
+      final quote = await fetchQuote(symbol);
+      trailingPeFallback = quote.trailingPE;
+    } catch (_) {
+      trailingPeFallback = null;
+    }
     final dividendHistory = await _fetchDividendHistoryByYear(symbol);
     return FundamentalGameData.fromYahoo(
       symbol: symbol,
       summary: summary,
       dividendPerYear: dividendHistory,
+      fallbackTrailingPe: trailingPeFallback,
     );
   }
 

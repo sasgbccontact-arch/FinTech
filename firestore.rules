@@ -908,6 +908,26 @@ service cloud.firestore {
       }
     }
 
+    match /newsQuizWeekly/{weekKey} {
+      allow read: if true;
+      allow write: if false;
+
+      match /players/{playerId} {
+        allow read: if true;
+        allow write: if isSignedIn() && uid() == playerId;
+      }
+    }
+
+    match /termDepositSeasons/{seasonKey} {
+      allow read: if true;
+      allow write: if false;
+
+      match /players/{playerId} {
+        allow read: if true;
+        allow write: if isSignedIn() && uid() == playerId;
+      }
+    }
+
     // Verrouillage du reste
     match /{document=**} {
       allow read, write: if false;

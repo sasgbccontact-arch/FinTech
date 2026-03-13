@@ -11,7 +11,6 @@ import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import '../models/chart_models.dart';
 import '../services/yahoo_finance_service.dart';
 import 'info_page.dart';
-import 'search_page.dart';
 import 'simulation_game.dart';
 
 class GamePortfolioDashboardSheet extends StatefulWidget {
@@ -112,14 +111,6 @@ class _GamePortfolioDashboardSheetState
     }, SetOptions(merge: true));
   }
 
-  Future<void> _openSearch() async {
-    await showCupertinoModalBottomSheet(
-      context: context,
-      expand: true,
-      builder: (_) => const SearchPage(),
-    );
-  }
-
   Future<void> _openInfo(_GamePositionAnalytics position) async {
     await showCupertinoModalBottomSheet(
       context: context,
@@ -213,7 +204,6 @@ class _GamePortfolioDashboardSheetState
                         return _DashboardBody(
                           analytics: analytics,
                           motion: _motionController,
-                          onOpenSearch: _openSearch,
                           onOpenInfo: _openInfo,
                         );
                       },
@@ -292,52 +282,76 @@ class _DashboardBody extends StatelessWidget {
   const _DashboardBody({
     required this.analytics,
     required this.motion,
-    required this.onOpenSearch,
     required this.onOpenInfo,
   });
 
   final _GamePortfolioAnalytics analytics;
   final Animation<double> motion;
-  final Future<void> Function() onOpenSearch;
   final Future<void> Function(_GamePositionAnalytics position) onOpenInfo;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _HeroCard(
-            analytics: analytics,
-            motion: motion,
-            onOpenSearch: onOpenSearch,
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _HeroCard(analytics: analytics, motion: motion),
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-          child: _GameTabStrip(),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: TabBarView(
-            children: [
-              _OverviewTab(analytics: analytics, onOpenSearch: onOpenSearch),
-              _PerformanceTab(analytics: analytics),
-              _AllocationTab(analytics: analytics),
-              _PilotageTab(
-                analytics: analytics,
-                onOpenSearch: onOpenSearch,
-                onOpenInfo: onOpenInfo,
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _TabStripHeaderDelegate(
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
+                child: _GameTabStrip(),
               ),
-            ],
+            ),
           ),
-        ),
-      ],
+        ];
+      },
+      body: TabBarView(
+        children: [
+          _OverviewTab(analytics: analytics),
+          _PerformanceTab(analytics: analytics),
+          _AllocationTab(analytics: analytics),
+          _PilotageTab(analytics: analytics, onOpenInfo: onOpenInfo),
+        ],
+      ),
     );
   }
 }
 
+class _TabStripHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _TabStripHeaderDelegate({required this.child});
+
+  final Widget child;
+
+  @override
+  double get minExtent => 82;
+
+  @override
+  double get maxExtent => 82;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return ColoredBox(color: backgroundColor, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _TabStripHeaderDelegate oldDelegate) {
+    return oldDelegate.child != child;
+  }
+}
+
 class _GameTabStrip extends StatelessWidget {
+  const _GameTabStrip();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -380,15 +394,10 @@ class _GameTabStrip extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  const _HeroCard({
-    required this.analytics,
-    required this.motion,
-    required this.onOpenSearch,
-  });
+  const _HeroCard({required this.analytics, required this.motion});
 
   final _GamePortfolioAnalytics analytics;
   final Animation<double> motion;
-  final Future<void> Function() onOpenSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -608,52 +617,27 @@ class _HeroCard extends StatelessWidget {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: onOpenSearch,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: detailsColor2,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          icon: const Icon(Icons.add_rounded),
-                          label: Text(
-                            analytics.positions.isEmpty
-                                ? 'Ajouter une ligne'
-                                : 'Renforcer le portefeuille',
-                            style: const TextStyle(fontWeight: FontWeight.w800),
-                          ),
+                  if (analytics.positions.isNotEmpty)
+                    OutlinedButton.icon(
+                      onPressed: () => tabController.animateTo(3),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: textColor,
+                        minimumSize: const Size.fromHeight(52),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(
+                          color: detailsColor2.withOpacity(0.18),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => tabController.animateTo(3),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: textColor,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(
-                              color: detailsColor2.withOpacity(0.18),
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                            backgroundColor: Colors.white.withOpacity(0.72),
-                          ),
-                          icon: const Icon(Icons.tune_rounded),
-                          label: const Text(
-                            'Piloter mes lignes',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
                         ),
+                        backgroundColor: Colors.white.withOpacity(0.72),
                       ),
-                    ],
-                  ),
+                      icon: const Icon(Icons.tune_rounded),
+                      label: const Text(
+                        'Piloter mes lignes',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -665,10 +649,9 @@ class _HeroCard extends StatelessWidget {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.analytics, required this.onOpenSearch});
+  const _OverviewTab({required this.analytics});
 
   final _GamePortfolioAnalytics analytics;
-  final Future<void> Function() onOpenSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -785,18 +768,6 @@ class _OverviewTab extends StatelessWidget {
                     icon: Icons.emoji_events_outlined,
                   ),
                 ],
-              ),
-              const SizedBox(height: 14),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: onOpenSearch,
-                  icon: const Icon(Icons.add_chart_rounded),
-                  label: const Text(
-                    'Ajouter ou renforcer une position',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
               ),
             ],
           ),
@@ -1108,14 +1079,9 @@ class _AllocationTab extends StatelessWidget {
 }
 
 class _PilotageTab extends StatelessWidget {
-  const _PilotageTab({
-    required this.analytics,
-    required this.onOpenSearch,
-    required this.onOpenInfo,
-  });
+  const _PilotageTab({required this.analytics, required this.onOpenInfo});
 
   final _GamePortfolioAnalytics analytics;
-  final Future<void> Function() onOpenSearch;
   final Future<void> Function(_GamePositionAnalytics position) onOpenInfo;
 
   @override
@@ -1126,8 +1092,6 @@ class _PilotageTab extends StatelessWidget {
         title: 'Portefeuille prêt à être lancé',
         message:
             'Ajoute une première ligne pour débloquer le pilotage détaillé du portefeuille de jeu.',
-        actionLabel: 'Ajouter une ligne',
-        onAction: onOpenSearch,
       );
     }
 
@@ -1149,26 +1113,6 @@ class _PilotageTab extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: textColor,
                         height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: onOpenSearch,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: detailsColor2,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text(
-                        'Ajouter une ligne',
-                        style: TextStyle(fontWeight: FontWeight.w800),
                       ),
                     ),
                   ],
@@ -1964,15 +1908,11 @@ class _TabEmptyState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
-    this.actionLabel,
-    this.onAction,
   });
 
   final IconData icon;
   final String title;
   final String message;
-  final String? actionLabel;
-  final Future<void> Function()? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -2011,25 +1951,6 @@ class _TabEmptyState extends StatelessWidget {
                   height: 1.45,
                 ),
               ),
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: onAction,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: detailsColor2,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                  ),
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(
-                    actionLabel!,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
             ],
           ),
         ),

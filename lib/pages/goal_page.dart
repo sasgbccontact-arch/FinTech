@@ -316,6 +316,28 @@ class _GoalPageState extends State<GoalPage> {
                       isUnlocked: achievementsClaimed.contains('investor_50k'),
                       imageAsset: 'assets/avatars/avatar_rich.png',
                     ),
+                    _buildAchievementItem(
+                      title: 'Oracle fondamental',
+                      reward: 'Débloquer après 20 guesses parfaits',
+                      isUnlocked: achievementsClaimed.contains(
+                        'stock_analyst_oracle',
+                      ),
+                      leading: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(18),
+                          gradient: const LinearGradient(
+                            colors: [_gold, _wine],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.insights_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -560,7 +582,8 @@ class _GoalPageState extends State<GoalPage> {
     required String title,
     required String reward,
     required bool isUnlocked,
-    required String imageAsset,
+    String? imageAsset,
+    Widget? leading,
   }) {
     final Color accent = isUnlocked ? _wine : Colors.black54;
 
@@ -594,18 +617,35 @@ class _GoalPageState extends State<GoalPage> {
                   border: Border.all(
                     color: isUnlocked ? _wine.withValues(alpha: 0.25) : _line,
                   ),
-                  image: DecorationImage(
-                    image: AssetImage(imageAsset),
-                    fit: BoxFit.cover,
-                    colorFilter:
-                        isUnlocked
-                            ? null
-                            : const ColorFilter.mode(
-                              Colors.grey,
-                              BlendMode.saturation,
-                            ),
-                  ),
                 ),
+                child:
+                    leading != null
+                        ? Opacity(
+                          opacity: isUnlocked ? 1 : 0.55,
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: leading,
+                          ),
+                        )
+                        : DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            image:
+                                imageAsset == null
+                                    ? null
+                                    : DecorationImage(
+                                      image: AssetImage(imageAsset),
+                                      fit: BoxFit.cover,
+                                      colorFilter:
+                                          isUnlocked
+                                              ? null
+                                              : const ColorFilter.mode(
+                                                Colors.grey,
+                                                BlendMode.saturation,
+                                              ),
+                                    ),
+                          ),
+                        ),
               ),
               const SizedBox(width: 14),
               Expanded(

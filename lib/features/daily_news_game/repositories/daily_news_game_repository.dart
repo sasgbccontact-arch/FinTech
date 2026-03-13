@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import 'package:fintech/services/activity_tracking_service.dart';
 
 import '../models/news_article.dart';
+import '../models/news_game_models.dart';
 import '../services/gdelt_news_service.dart';
+import '../services/news_game_engine.dart';
 
 enum DailyNewsGameMode { actus, monde }
 
@@ -71,6 +74,18 @@ class SessionStartResult {
     );
   }
 }
+
+class NewsEntryStatus {
+  const NewsEntryStatus({
+    required this.actusFreeToday,
+    required this.mondeFreeToday,
+  });
+
+  final bool actusFreeToday;
+  final bool mondeFreeToday;
+}
+
+int newsSessionXpReward(int finalScore) => math.max(10, finalScore ~/ 2);
 
 class DailyArticlesResult {
   final List<NewsArticle> articles;
@@ -142,6 +157,19 @@ class DailyNewsGameRepository {
     return '${n.year}${n.month.toString().padLeft(2, '0')}${n.day.toString().padLeft(2, '0')}';
   }
 
+  String _dailyQuestDateLabel([DateTime? now]) {
+    final value = now ?? DateTime.now();
+    return '${value.year}-${value.month}-${value.day}';
+  }
+
+  String _weekKey([DateTime? now]) {
+    final value = now ?? DateTime.now();
+    final startOfYear = DateTime(value.year, 1, 1);
+    final dayIndex = value.difference(startOfYear).inDays;
+    final week = ((dayIndex + startOfYear.weekday - 1) / 7).floor() + 1;
+    return '${value.year}W${week.toString().padLeft(2, '0')}';
+  }
+
   String _dailyCacheId() => 'daily_${_dayKey()}';
 
   String _countryCacheId(String iso2) =>
@@ -163,6 +191,32 @@ class DailyNewsGameRepository {
         .doc(benefitId);
   }
 
+  DocumentReference<Map<String, dynamic>> _newsProfileRef() {
+    return _db
+        .collection('users')
+        .doc(_uid)
+        .collection('games')
+        .doc('news_quiz');
+  }
+
+  DocumentReference<Map<String, dynamic>> _gamesProgressRef() {
+    return _db
+        .collection('users')
+        .doc(_uid)
+        .collection('games')
+        .doc('progress');
+  }
+
+  DocumentReference<Map<String, dynamic>> _weeklyLeaderboardRef(
+    String weekKey,
+  ) {
+    return _db
+        .collection('newsQuizWeekly')
+        .doc(weekKey)
+        .collection('players')
+        .doc(_uid);
+  }
+
   DocumentReference<Map<String, dynamic>> sessionRef({
     required DailyNewsGameMode mode,
     required String sessionId,
@@ -172,6 +226,20 @@ class DailyNewsGameRepository {
         .doc(_uid)
         .collection(mode.sessionCollection)
         .doc(sessionId);
+  }
+
+  Future<NewsEntryStatus> loadEntryStatus() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return const NewsEntryStatus(actusFreeToday: true, mondeFreeToday: true);
+    }
+
+    final benefitSnap = await _dailyBenefitRef('news_${_dayKey()}').get();
+    final data = benefitSnap.data() ?? const <String, dynamic>{};
+    return NewsEntryStatus(
+      actusFreeToday: !((data['free_actus_used'] as bool?) ?? false),
+      mondeFreeToday: !((data['free_monde_used'] as bool?) ?? false),
+    );
   }
 
   Future<SessionStartResult> startPaidSession(DailyNewsGameMode mode) async {
@@ -370,9 +438,10 @@ class DailyNewsGameRepository {
       return cached;
     }
 
-    final fetched = await _gdelt.fetchRecentArticlesFast(limit: 3);
+    final fetched = await _gdelt.fetchRecentArticlesFast(limit: 5);
 
-    if (fetched.articles.isNotEmpty && fetched.bestScore >= 45) {
+    if (fetched.articles.isNotEmpty &&
+        fetched.bestScore >= kNewsGameMinQualityScore) {
       await _writeDailyCache(cacheId, fetched);
     }
 
@@ -609,5 +678,393 @@ class DailyNewsGameRepository {
     debugPrint(
       '[DailyNewsGameRepo] Articles session enregistrés: mode=${mode.modeKey}, sessionId=$sessionId, nb=${articles.length}',
     );
+  }
+
+  Future<NewsGameDeckResult> buildDailyDeck() async {
+    final result = await fetchDailyArticles();
+    final deck = NewsGameEngine.buildDailyDeck(result.articles);
+    final averageQuality =
+        deck.isEmpty
+            ? 0
+            : (deck.fold<int>(0, (total, item) => total + item.qualityScore) /
+                    deck.length)
+                .round();
+    return NewsGameDeckResult(
+      deck: deck,
+      fetchFailed: result.fetchFailed && deck.isEmpty,
+      sprintAvailable: deck.length >= 3,
+      sourceType: result.sourceType,
+      qualitySummary:
+          deck.isEmpty
+              ? 'Deck trop faible pour un vrai run.'
+              : '${deck.length} carte(s) jouables · qualité moyenne $averageQuality/100',
+      queriesTried: result.queriesTried,
+    );
+  }
+
+  Future<NewsWorldRoute?> buildWorldRoute({
+    required String countryIso2,
+    required String countryNameEn,
+    required String countryNameFr,
+  }) async {
+    final result = await fetchCountryArticle(
+      countryIso2: countryIso2,
+      countryNameEn: countryNameEn,
+    );
+    final article = result.article;
+    if (article == null) return null;
+    return NewsGameEngine.buildWorldRoute(
+      sourceCountryIso2: countryIso2,
+      sourceCountryNameFr: countryNameFr,
+      article: article,
+    );
+  }
+
+  Future<void> saveSessionDeck({
+    required DailyNewsGameMode mode,
+    required String sessionId,
+    required NewsGameSubMode subMode,
+    required List<NewsGameDeckItem> deck,
+    List<NewsWorldRouteNode> routeNodes = const <NewsWorldRouteNode>[],
+    String? sourceCountryIso2,
+    String? sourceCountryNameFr,
+  }) async {
+    await sessionRef(mode: mode, sessionId: sessionId).set({
+      'subMode': subMode.key,
+      'deck': deck.map((item) => item.toMap()).toList(),
+      'macroTagsSeen':
+          deck.map((item) => item.macroCategory.key).toSet().toList(),
+      'regionsSeen': deck.map((item) => item.region).toSet().toList(),
+      'routeNodes': routeNodes.map((item) => item.toMap()).toList(),
+      'updatedAt': FieldValue.serverTimestamp(),
+      if (sourceCountryIso2 != null)
+        'sourceCountryIso2': sourceCountryIso2.toUpperCase(),
+      if (sourceCountryNameFr != null)
+        'sourceCountryNameFr': sourceCountryNameFr,
+    }, SetOptions(merge: true));
+  }
+
+  Stream<NewsSessionProfile> watchNewsProfile() {
+    return _newsProfileRef().snapshots().map(
+      (snap) => NewsSessionProfile.fromMap(snap.data()),
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> fetchWeeklyLeaderboard({
+    int limit = 12,
+  }) async {
+    final snap =
+        await _db
+            .collection('newsQuizWeekly')
+            .doc(_weekKey())
+            .collection('players')
+            .orderBy('averageAccuracy', descending: true)
+            .limit(limit)
+            .get();
+    final rows =
+        snap.docs
+            .map((doc) => <String, dynamic>{'uid': doc.id, ...doc.data()})
+            .toList()
+          ..sort((a, b) {
+            final accCompare = ((b['averageAccuracy'] as num?)?.toDouble() ?? 0)
+                .compareTo(((a['averageAccuracy'] as num?)?.toDouble() ?? 0));
+            if (accCompare != 0) return accCompare;
+            final combinedCompare =
+                ((b['averageCombined'] as num?)?.toDouble() ?? 0).compareTo(
+                  ((a['averageCombined'] as num?)?.toDouble() ?? 0),
+                );
+            if (combinedCompare != 0) return combinedCompare;
+            return ((b['sessionCount'] as num?)?.toInt() ?? 0).compareTo(
+              ((a['sessionCount'] as num?)?.toInt() ?? 0),
+            );
+          });
+    return rows;
+  }
+
+  Future<void> completeGameRun({
+    required DailyNewsGameMode mode,
+    required String sessionId,
+    required NewsGameSubMode subMode,
+    required List<NewsGameDeckItem> deck,
+    required List<NewsRoundResult> rounds,
+    required NewsSessionScoreBreakdown breakdown,
+    List<NewsWorldRouteNode> routeNodes = const <NewsWorldRouteNode>[],
+    String? sourceCountryIso2,
+    String? sourceCountryNameFr,
+    Duration elapsed = Duration.zero,
+  }) async {
+    final userRef = _db.collection('users').doc(_uid);
+    final profileRef = _newsProfileRef();
+    final questRef = userRef.collection('quests').doc('daily');
+    final leaderboardRef = _weeklyLeaderboardRef(_weekKey());
+    final sessionDocRef = sessionRef(mode: mode, sessionId: sessionId);
+
+    final themeScoreMap = _themeContributionMap(rounds);
+    final countryScoreMap = _countryContributionMap(
+      deck: deck,
+      routeNodes: routeNodes,
+      sourceCountryNameFr: sourceCountryNameFr,
+      breakdown: breakdown,
+    );
+    final assetScoreMap = _assetContributionMap(
+      deck: deck,
+      routeNodes: routeNodes,
+      rounds: rounds,
+    );
+
+    await _db.runTransaction((tx) async {
+      final userSnap = await tx.get(userRef);
+      final profileSnap = await tx.get(profileRef);
+      final questSnap = await tx.get(questRef);
+      final leaderboardSnap = await tx.get(leaderboardRef);
+
+      final currentProfile = profileSnap.data() ?? const <String, dynamic>{};
+      final sessionsCount =
+          (currentProfile['sessionsCount'] as num?)?.toInt() ?? 0;
+      final currentStreak =
+          (currentProfile['currentStreak'] as num?)?.toInt() ?? 0;
+      final previousBestCombo =
+          (currentProfile['bestCombo'] as num?)?.toInt() ?? 0;
+      final previousWeekKey = currentProfile['leaderboardWeekKey'] as String?;
+      final currentWeekKey = _weekKey();
+      final weeklySessionCount =
+          previousWeekKey == currentWeekKey
+              ? (currentProfile['weeklySessionCount'] as num?)?.toInt() ?? 0
+              : 0;
+      final updatedThemeStats = _mergeAverageMap(
+        existing: _readDoubleMap(currentProfile['themeStats']),
+        incoming: themeScoreMap,
+      );
+      final updatedCountryStats = _mergeAverageMap(
+        existing: _readDoubleMap(currentProfile['countryStats']),
+        incoming: countryScoreMap,
+      );
+      final updatedAssetStats = _mergeAverageMap(
+        existing: _readDoubleMap(currentProfile['assetStats']),
+        incoming: assetScoreMap,
+      );
+      final updatedWeeklyAccuracy = _mergeAverage(
+        previousAverage:
+            previousWeekKey == currentWeekKey
+                ? (currentProfile['weeklyAverageAccuracy'] as num?)
+                        ?.toDouble() ??
+                    0
+                : 0,
+        previousCount: weeklySessionCount,
+        incomingValue: breakdown.accuracy * 100,
+      );
+      final updatedWeeklyCombined = _mergeAverage(
+        previousAverage:
+            previousWeekKey == currentWeekKey
+                ? (currentProfile['weeklyAverageCombined'] as num?)
+                        ?.toDouble() ??
+                    0
+                : 0,
+        previousCount: weeklySessionCount,
+        incomingValue: breakdown.finalScore.toDouble(),
+      );
+
+      tx.set(sessionDocRef, {
+        'subMode': subMode.key,
+        'deck': deck.map((item) => item.toMap()).toList(),
+        'rounds': rounds.map((item) => item.toMap()).toList(),
+        'routeNodes': routeNodes.map((item) => item.toMap()).toList(),
+        'scoreBreakdown': breakdown.toMap(),
+        'comboMax': breakdown.maxCombo,
+        'elapsedMs': elapsed.inMilliseconds,
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        if (sourceCountryIso2 != null)
+          'sourceCountryIso2': sourceCountryIso2.toUpperCase(),
+        if (sourceCountryNameFr != null)
+          'sourceCountryNameFr': sourceCountryNameFr,
+      }, SetOptions(merge: true));
+
+      tx.set(profileRef, {
+        'themeStats': updatedThemeStats,
+        'countryStats': updatedCountryStats,
+        'assetStats': updatedAssetStats,
+        'weeklyAverageAccuracy': updatedWeeklyAccuracy,
+        'weeklyAverageCombined': updatedWeeklyCombined,
+        'bestCombo': math.max(previousBestCombo, breakdown.maxCombo),
+        'currentStreak': breakdown.finalScore >= 70 ? currentStreak + 1 : 0,
+        'sessionsCount': sessionsCount + 1,
+        'weeklySessionCount': weeklySessionCount + 1,
+        'leaderboardWeekKey': currentWeekKey,
+        'lastPlayedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      final userData = userSnap.data() ?? const <String, dynamic>{};
+      final leaderboardData =
+          leaderboardSnap.data() ?? const <String, dynamic>{};
+      final leaderboardCount =
+          (leaderboardData['sessionCount'] as num?)?.toInt() ?? 0;
+      tx.set(leaderboardRef, {
+        'averageAccuracy': _mergeAverage(
+          previousAverage:
+              (leaderboardData['averageAccuracy'] as num?)?.toDouble() ?? 0,
+          previousCount: leaderboardCount,
+          incomingValue: breakdown.accuracy * 100,
+        ),
+        'averageCombined': _mergeAverage(
+          previousAverage:
+              (leaderboardData['averageCombined'] as num?)?.toDouble() ?? 0,
+          previousCount: leaderboardCount,
+          incomingValue: breakdown.finalScore.toDouble(),
+        ),
+        'sessionCount': leaderboardCount + 1,
+        'bestCombo': math.max(
+          (leaderboardData['bestCombo'] as num?)?.toInt() ?? 0,
+          breakdown.maxCombo,
+        ),
+        'displayName':
+            (userData['displayName'] as String?) ??
+            (userData['name'] as String?) ??
+            'Joueur',
+        'avatar': userData['selected_avatar'] ?? userData['avatar'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      tx.set(_gamesProgressRef(), {
+        'xp': FieldValue.increment(newsSessionXpReward(breakdown.finalScore)),
+      }, SetOptions(merge: true));
+
+      final todayLabel = _dailyQuestDateLabel();
+      final questData = questSnap.data() ?? const <String, dynamic>{};
+      final sameDay = questData['date'] == todayLabel;
+      final countriesCovered =
+          <String>{
+            ...deck.map((item) => item.region),
+            if (sourceCountryNameFr != null && sourceCountryNameFr.isNotEmpty)
+              sourceCountryNameFr,
+          }.length;
+      tx.set(questRef, {
+        'date': todayLabel,
+        'news_runs_done': sameDay ? FieldValue.increment(1) : 1,
+        'news_countries_covered':
+            sameDay
+                ? math.max(
+                  (questData['news_countries_covered'] as num?)?.toInt() ?? 0,
+                  countriesCovered,
+                )
+                : countriesCovered,
+        'news_macro_perfects':
+            sameDay
+                ? ((questData['news_macro_perfects'] as num?)?.toInt() ?? 0) +
+                    rounds.where((round) => round.marketPerfect).length
+                : rounds.where((round) => round.marketPerfect).length,
+        'claimed_news_quiz':
+            sameDay
+                ? (questData['claimed_news_quiz'] as bool?) ?? false
+                : false,
+        'quizzes_done': sameDay ? FieldValue.increment(1) : 1,
+      }, SetOptions(merge: true));
+    });
+
+    await ActivityTrackingService.trackForUser(
+      uid: _uid,
+      type: 'daily_news_game_completed',
+      label: subMode.key,
+      points: 35 + breakdown.finalScore + (breakdown.maxCombo * 3),
+      counters: <String, int>{
+        'daily_news_runs_completed': 1,
+        'daily_news_correct_predictions':
+            rounds.where((round) => round.marketPerfect).length,
+      },
+    );
+  }
+
+  Map<String, double> _readDoubleMap(dynamic raw) {
+    if (raw is! Map) return const <String, double>{};
+    return raw.map<String, double>(
+      (dynamic key, dynamic value) =>
+          MapEntry(key.toString(), value is num ? value.toDouble() : 0),
+    );
+  }
+
+  double _mergeAverage({
+    required double previousAverage,
+    required int previousCount,
+    required double incomingValue,
+  }) {
+    if (previousCount <= 0) return incomingValue;
+    return ((previousAverage * previousCount) + incomingValue) /
+        (previousCount + 1);
+  }
+
+  Map<String, double> _mergeAverageMap({
+    required Map<String, double> existing,
+    required Map<String, double> incoming,
+  }) {
+    final merged = <String, double>{...existing};
+    for (final entry in incoming.entries) {
+      final previous = existing[entry.key];
+      merged[entry.key] =
+          previous == null ? entry.value : ((previous + entry.value) / 2);
+    }
+    return merged;
+  }
+
+  Map<String, double> _themeContributionMap(List<NewsRoundResult> rounds) {
+    final buckets = <String, List<int>>{};
+    for (final round in rounds) {
+      buckets.putIfAbsent(round.themeKey, () => <int>[]).add(round.marketScore);
+    }
+    return <String, double>{
+      for (final entry in buckets.entries)
+        entry.key:
+            entry.value.reduce((a, b) => a + b).toDouble() / entry.value.length,
+    };
+  }
+
+  Map<String, double> _countryContributionMap({
+    required List<NewsGameDeckItem> deck,
+    required List<NewsWorldRouteNode> routeNodes,
+    required String? sourceCountryNameFr,
+    required NewsSessionScoreBreakdown breakdown,
+  }) {
+    final countries = <String>{
+      ...deck.map((item) => item.region),
+      if (sourceCountryNameFr != null && sourceCountryNameFr.isNotEmpty)
+        sourceCountryNameFr,
+      if (routeNodes.isNotEmpty) 'Monde',
+    };
+    return <String, double>{
+      for (final country in countries) country: breakdown.accuracy * 100,
+    };
+  }
+
+  Map<String, double> _assetContributionMap({
+    required List<NewsGameDeckItem> deck,
+    required List<NewsWorldRouteNode> routeNodes,
+    required List<NewsRoundResult> rounds,
+  }) {
+    final buckets = <String, List<int>>{};
+    for (var index = 0; index < deck.length && index < rounds.length; index++) {
+      for (final option in deck[index].impactOptions.where(
+        (item) => item.isExpectedTarget,
+      )) {
+        buckets
+            .putIfAbsent(option.label, () => <int>[])
+            .add(rounds[index].marketScore);
+      }
+    }
+    final routeOffset = deck.length;
+    for (var index = 0; index < routeNodes.length; index++) {
+      final roundIndex = routeOffset + index;
+      if (roundIndex >= rounds.length) break;
+      for (final option in routeNodes[index].impactOptions.where(
+        (item) => item.isExpectedTarget,
+      )) {
+        buckets
+            .putIfAbsent(option.label, () => <int>[])
+            .add(rounds[roundIndex].marketScore);
+      }
+    }
+    return <String, double>{
+      for (final entry in buckets.entries)
+        entry.key:
+            entry.value.reduce((a, b) => a + b).toDouble() / entry.value.length,
+    };
   }
 }

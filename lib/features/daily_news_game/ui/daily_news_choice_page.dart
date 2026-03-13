@@ -28,11 +28,15 @@ const _accentGradient = LinearGradient(
 class DailyNewsChoicePage extends StatefulWidget {
   final VoidCallback onPickActus;
   final VoidCallback onPickMonde;
+  final String actusSubtitle;
+  final String mondeSubtitle;
 
   const DailyNewsChoicePage({
     super.key,
     required this.onPickActus,
     required this.onPickMonde,
+    required this.actusSubtitle,
+    required this.mondeSubtitle,
   });
 
   @override
@@ -50,17 +54,17 @@ class _DailyNewsChoicePageState extends State<DailyNewsChoicePage>
   // Tilt control
   StreamSubscription<AccelerometerEvent>? _accSub;
   bool _isDragging = false;
-static const double _tiltStrength = 0.040; // sensibilité
-double _tiltTargetSplit = 0.5;
-Ticker? _tiltTicker;
+  static const double _tiltStrength = 0.040; // sensibilité
+  double _tiltTargetSplit = 0.5;
+  Ticker? _tiltTicker;
 
-// Spring smoothing (réactif mais fluide)
-double _tiltVel = 0.0;
-static const double _springK = 32.0; // raideur
-static const double _springC = 12.0; // amortissement
-static const double _maxVel = 1.4;   // limite de vitesse
-static const double _tiltEpsilon = 0.00025;
-Duration? _lastTick;
+  // Spring smoothing (réactif mais fluide)
+  double _tiltVel = 0.0;
+  static const double _springK = 32.0; // raideur
+  static const double _springC = 12.0; // amortissement
+  static const double _maxVel = 1.4; // limite de vitesse
+  static const double _tiltEpsilon = 0.00025;
+  Duration? _lastTick;
 
   late final AnimationController _glowCtl;
   late final AnimationController _splitCtl;
@@ -88,12 +92,14 @@ Duration? _lastTick;
       vsync: this,
       duration: const Duration(milliseconds: 280),
     );
-    _confirmScale = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _confirmCtl, curve: Curves.easeOutBack),
-    );
-    _confirmFade = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _confirmCtl, curve: Curves.easeInCubic),
-    );
+    _confirmScale = Tween<double>(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(parent: _confirmCtl, curve: Curves.easeOutBack));
+    _confirmFade = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _confirmCtl, curve: Curves.easeInCubic));
     _accSub = accelerometerEvents.listen((e) {
       if (!mounted) return;
       if (_confirming) return;
@@ -105,53 +111,53 @@ Duration? _lastTick;
     });
 
     _tiltTicker = createTicker((elapsed) {
-  if (!mounted) return;
-  if (_confirming) return;
+      if (!mounted) return;
+      if (_confirming) return;
 
-  if (_isDragging) {
-    _lastTick = elapsed;
-    return;
-  }
+      if (_isDragging) {
+        _lastTick = elapsed;
+        return;
+      }
 
-  final last = _lastTick;
-  _lastTick = elapsed;
-  if (last == null) return;
+      final last = _lastTick;
+      _lastTick = elapsed;
+      if (last == null) return;
 
-  // dt en secondes (capé pour éviter les sauts)
-  var dt = (elapsed - last).inMicroseconds / 1e6;
-  if (dt <= 0) return;
-  dt = dt.clamp(0.0, 1 / 30); // max ~33ms
+      // dt en secondes (capé pour éviter les sauts)
+      var dt = (elapsed - last).inMicroseconds / 1e6;
+      if (dt <= 0) return;
+      dt = dt.clamp(0.0, 1 / 30); // max ~33ms
 
-  final x = _split;
-  final v = _tiltVel;
-  final target = _tiltTargetSplit;
+      final x = _split;
+      final v = _tiltVel;
+      final target = _tiltTargetSplit;
 
-  // Force ressort + amortissement (critically-ish damped)
-  final a = _springK * (target - x) - _springC * v;
+      // Force ressort + amortissement (critically-ish damped)
+      final a = _springK * (target - x) - _springC * v;
 
-  var vNext = v + a * dt;
-  vNext = vNext.clamp(-_maxVel, _maxVel);
+      var vNext = v + a * dt;
+      vNext = vNext.clamp(-_maxVel, _maxVel);
 
-  final xNext = (x + vNext * dt).clamp(0.18, 0.82);
+      final xNext = (x + vNext * dt).clamp(0.18, 0.82);
 
-  // évite setState microscopique
-  if ((xNext - _split).abs() < _tiltEpsilon && vNext.abs() < 0.002) {
-    _tiltVel = vNext;
-    return;
-  }
+      // évite setState microscopique
+      if ((xNext - _split).abs() < _tiltEpsilon && vNext.abs() < 0.002) {
+        _tiltVel = vNext;
+        return;
+      }
 
-  setState(() {
-    _split = xNext;
-    _tiltVel = vNext;
+      setState(() {
+        _split = xNext;
+        _tiltVel = vNext;
 
-    final diff = _split - 0.5;
-    if (diff.abs() < _armDeadZone) {
-      _armedSide = null;
-    } else {
-      _armedSide = diff < 0 ? 0 : 1;
-    }
-  });
-})..start();
+        final diff = _split - 0.5;
+        if (diff.abs() < _armDeadZone) {
+          _armedSide = null;
+        } else {
+          _armedSide = diff < 0 ? 0 : 1;
+        }
+      });
+    })..start();
   }
 
   @override
@@ -172,8 +178,8 @@ Duration? _lastTick;
     _splitAnim = Tween<double>(begin: _split, end: target).animate(
       CurvedAnimation(parent: _splitCtl, curve: Curves.easeOutCubic),
     )..addListener(() {
-        setState(() => _split = _splitAnim!.value);
-      });
+      setState(() => _split = _splitAnim!.value);
+    });
     _splitCtl
       ..reset()
       ..forward();
@@ -194,9 +200,10 @@ Duration? _lastTick;
     if (_armedSide == null || _armedSide != side) {
       setState(() => _armedSide = side);
       final nudge = 0.16; // 10–20%
-      final target = (side == 0 ? _split - nudge : _split + nudge)
-          .clamp(0.25, 0.75)
-          .toDouble();
+      final target =
+          (side == 0 ? _split - nudge : _split + nudge)
+              .clamp(0.25, 0.75)
+              .toDouble();
       _animateSplitTo(target);
       return;
     }
@@ -303,7 +310,10 @@ Duration? _lastTick;
                                     child: Container(
                                       decoration: const BoxDecoration(
                                         gradient: LinearGradient(
-                                          colors: [Colors.black, Color(0xFF1F1F1F)],
+                                          colors: [
+                                            Colors.black,
+                                            Color(0xFF1F1F1F),
+                                          ],
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         ),
@@ -313,7 +323,7 @@ Duration? _lastTick;
                                           side: 0,
                                           armedSide: _armedSide,
                                           title: 'Actus\ndu jour',
-                                          subtitle: '1–3 actus\n+ quiz\n(50 gemmes)',
+                                          subtitle: widget.actusSubtitle,
                                           icon: Icons.newspaper_rounded,
                                           primaryColor: Colors.white,
                                         ),
@@ -338,7 +348,7 @@ Duration? _lastTick;
                                           side: 1,
                                           armedSide: _armedSide,
                                           title: 'Map\nMonde',
-                                          subtitle: 'Choisis\nun pays\n→ quiz\n(100 gemmes)',
+                                          subtitle: widget.mondeSubtitle,
                                           icon: Icons.public_rounded,
                                           primaryColor: Colors.white,
                                         ),
@@ -365,9 +375,10 @@ Duration? _lastTick;
                                   bottom: 26,
                                   child: _OverlayPill(
                                     active: _armedSide == 0,
-                                    label: _armedSide == 0
-                                        ? 'Tap pour confirmer'
-                                        : 'Tap pour sélectionner',
+                                    label:
+                                        _armedSide == 0
+                                            ? 'Tap pour confirmer'
+                                            : 'Tap pour sélectionner',
                                   ),
                                 ),
                                 Positioned(
@@ -375,9 +386,10 @@ Duration? _lastTick;
                                   bottom: 26,
                                   child: _OverlayPill(
                                     active: _armedSide == 1,
-                                    label: _armedSide == 1
-                                        ? 'Tap pour confirmer'
-                                        : 'Tap pour sélectionner',
+                                    label:
+                                        _armedSide == 1
+                                            ? 'Tap pour confirmer'
+                                            : 'Tap pour sélectionner',
                                   ),
                                 ),
 
@@ -388,7 +400,6 @@ Duration? _lastTick;
                                   top: 14,
                                   child: _TopBadge(armedSide: _armedSide),
                                 ),
-
                               ],
                             ),
                           ),
@@ -465,7 +476,6 @@ class _TopBadge extends StatelessWidget {
   }
 }
 
-
 class _SideContent extends StatelessWidget {
   final int side;
   final int? armedSide;
@@ -529,8 +539,7 @@ class _SideContent extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             subtitle,
-            maxLines: 5,
-            overflow: TextOverflow.ellipsis,
+            maxLines: 6,
             textAlign: side == 0 ? TextAlign.left : TextAlign.right,
             style: TextStyle(
               fontSize: 12,
@@ -589,7 +598,6 @@ class _OverlayPill extends StatelessWidget {
     );
   }
 }
-
 
 class _GlassLayer extends StatelessWidget {
   final Widget child;
@@ -759,30 +767,33 @@ class _LightningDividerPainter extends CustomPainter {
 
     // Glow (animated)
     final pulse = 0.55 + 0.45 * math.sin(glowT * math.pi * 2);
-    final glowPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = detailsColor2.withValues(alpha: 0.16 + 0.08 * pulse)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
+    final glowPaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 14
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = detailsColor2.withValues(alpha: 0.16 + 0.08 * pulse)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16);
 
     canvas.drawPath(path, glowPaint);
 
     // Core stroke (white)
-    final corePaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = Colors.white.withValues(alpha: 0.78);
+    final corePaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.4
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = Colors.white.withValues(alpha: 0.78);
 
     canvas.drawPath(path, corePaint);
 
     // Small sparkles along the line
-    final sparklePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = Colors.white.withValues(alpha: 0.50);
+    final sparklePaint =
+        Paint()
+          ..style = PaintingStyle.fill
+          ..color = Colors.white.withValues(alpha: 0.50);
 
     for (int i = 1; i < pts.length - 1; i++) {
       final o = pts[i];
