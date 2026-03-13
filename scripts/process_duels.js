@@ -250,6 +250,17 @@ function quoteReferer(symbol) {
   return `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`;
 }
 
+function timestampFromUnixSeconds(value) {
+  const numeric = asNumber(value, 0);
+  return numeric > 0 ? new Date(numeric * 1000) : null;
+}
+
+function isoDateOrUnknown(value) {
+  return value instanceof Date && !Number.isNaN(value.getTime())
+    ? value.toISOString()
+    : 'n/a';
+}
+
 function safeJsonParse(value) {
   try {
     return value ? JSON.parse(value) : null;
@@ -432,6 +443,9 @@ function extractHtmlQuote(symbol, html) {
     exchange: String(price.exchangeName || price.fullExchangeName || price.exchange || ''),
     currency: String(price.currency || price.quoteCurrency || ''),
     quoteType: String(price.quoteType || price.instrumentType || 'UNKNOWN'),
+    priceAt: timestampFromUnixSeconds(
+      extractRawNumber(price.regularMarketTime) ?? extractRawNumber(price.postMarketTime),
+    ),
     source: regularMarketPrice > 0 ? 'html_regularMarketPrice' : 'html_previousClose',
   };
 }
@@ -503,6 +517,7 @@ async function fetchQuoteFromEndpoint(symbol, endpoint) {
     exchange: String(result.fullExchangeName || result.exchange || ''),
     currency: String(result.currency || ''),
     quoteType: String(result.quoteType || 'UNKNOWN'),
+    priceAt: timestampFromUnixSeconds(result.regularMarketTime),
     source: endpoint,
   };
 }
@@ -525,12 +540,23 @@ async function fetchChartPriceFromEndpoint(symbol, endpoint) {
   const json = await response.json();
   const result = json?.chart?.result?.[0];
   const meta = result?.meta || {};
+  const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : [];
   const closes = result?.indicators?.quote?.[0]?.close;
-  const lastClose = Array.isArray(closes)
-    ? [...closes].reverse().find((value) => typeof value === 'number' && Number.isFinite(value))
-    : 0;
+  let lastClose = 0;
+  let lastCloseAt = null;
+  if (Array.isArray(closes)) {
+    for (let index = closes.length - 1; index >= 0; index -= 1) {
+      const value = closes[index];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        lastClose = value;
+        lastCloseAt = timestampFromUnixSeconds(timestamps[index]);
+        break;
+      }
+    }
+  }
   const regularMarketPrice = asNumber(meta.regularMarketPrice, 0);
   const marketState = String(meta.marketState || '').toUpperCase();
+  const regularMarketTime = timestampFromUnixSeconds(meta.regularMarketTime);
 
   const marketPrice =
     (['REGULAR', 'PRE', 'POST', 'PREPRE', 'POSTPOST'].includes(marketState) &&
@@ -548,6 +574,11 @@ async function fetchChartPriceFromEndpoint(symbol, endpoint) {
     exchange: String(meta.exchangeName || ''),
     currency: String(meta.currency || ''),
     quoteType: String(meta.instrumentType || 'UNKNOWN'),
+    priceAt:
+      ['REGULAR', 'PRE', 'POST', 'PREPRE', 'POSTPOST'].includes(marketState) &&
+              regularMarketPrice > 0
+          ? regularMarketTime
+          : lastCloseAt,
     source:
       ['REGULAR', 'PRE', 'POST', 'PREPRE', 'POSTPOST'].includes(marketState) &&
               regularMarketPrice > 0
@@ -614,7 +645,23 @@ async function fetchQuote(symbol) {
   throw lastError || new Error(`Quote introuvable pour ${symbol}`);
 }
 
-async function loadPortfolio(uid) {
+function serializeAuditHolding(holding) {
+  return {
+    symbol: holding.symbol,
+    quantity: holding.quantity,
+    averagePrice: holding.averagePrice,
+    marketPrice: holding.marketPrice,
+    marketValue: holding.marketValue,
+    displayName: holding.displayName,
+    exchange: holding.exchange,
+    currency: holding.currency,
+    quoteType: holding.quoteType,
+    priceSource: holding.priceSource || 'unknown',
+    priceAt: holding.priceAt ? admin.firestore.Timestamp.fromDate(holding.priceAt) : null,
+  };
+}
+
+async function loadPortfolio(uid, {audit = false, auditLabel = ''} = {}) {
   const userRef = db.collection('users').doc(uid);
   const positionsRef = userRef.collection('games').doc('portofolio').collection('positions');
   const [userDoc, positionsSnap] = await Promise.all([userRef.get(), positionsRef.get()]);
@@ -650,6 +697,7 @@ async function loadPortfolio(uid) {
         exchange: String(data.exchange || ''),
         currency: String(data.currency || ''),
         quoteType: String(data.quoteType || 'UNKNOWN'),
+        priceAt: asTimestampDate(data.lastUpdated) || asTimestampDate(data.updatedAt),
         source: fallbackSource,
       };
       console.warn(
@@ -659,9 +707,9 @@ async function loadPortfolio(uid) {
 
     const averagePrice = asNumber(data.averagePrice, 0);
     const marketPrice = quote.marketPrice || averagePrice;
-    if (quote.source && quote.source !== 'query1') {
+    if (audit || (quote.source && quote.source !== 'query1')) {
       console.log(
-        `[duels] Prix ${symbol}: source=${quote.source} valeur=${marketPrice.toFixed(4)}`,
+        `[duels] Prix ${symbol}: source=${quote.source || 'unknown'} valeur=${marketPrice.toFixed(4)} qty=${quantity.toFixed(4)} marketValue=${(marketPrice * quantity).toFixed(4)} at=${isoDateOrUnknown(quote.priceAt)}${auditLabel ? ` audit=${auditLabel}` : ''}`,
       );
     }
     holdings.push({
@@ -675,6 +723,7 @@ async function loadPortfolio(uid) {
       currency: quote.currency || '',
       quoteType: quote.quoteType || 'UNKNOWN',
       priceSource: quote.source || 'unknown',
+      priceAt: quote.priceAt || null,
       raw: data,
     });
   }
@@ -1070,7 +1119,9 @@ async function settleDuel(doc) {
   const participantStates = Object.fromEntries(
     participantSnaps.map((snap, index) => [participantIds[index], snap.data() || {}]),
   );
-  const portfolios = await Promise.all(participantIds.map((uid) => loadPortfolio(uid)));
+  const portfolios = await Promise.all(
+    participantIds.map((uid) => loadPortfolio(uid, {audit: true, auditLabel: `settle:${doc.id}:${uid}`})),
+  );
   const portfolioByUid = Object.fromEntries(portfolios.map((portfolio) => [portfolio.uid, portfolio]));
 
   const resultByUid = Object.fromEntries(
@@ -1217,6 +1268,29 @@ async function settleDuel(doc) {
         rewardPosition: uid === winnerUid ? rewardPosition : null,
         lossPosition: uid === loserUid ? lossPosition : null,
       }, {merge: true});
+
+      transaction.set(
+        doc.ref.collection('audits').doc(uid),
+        {
+          uid,
+          duelId: doc.id,
+          settledAt: FieldValue.serverTimestamp(),
+          result: uid === winnerUid ? 'win' : 'lose',
+          startingHoldingsValue: asNumber(participantStates[uid]?.startingHoldingsValue, 0),
+          startingTotalCapital: asNumber(participantStates[uid]?.startingTotalCapital, 0),
+          currentHoldingsValue: portfolio.holdingsValue,
+          currentTotalCapital: portfolio.totalCapital,
+          currentReserveCoins: portfolio.reserveCoins,
+          returnPct: metrics.returnPct,
+          pureReturnPct: metrics.pureReturnPct,
+          structureBonus: metrics.structureBonus,
+          concentrationPenalty: metrics.concentrationPenalty,
+          persistentConcentrationPenalty: metrics.persistentConcentrationPenalty,
+          finalScore: metrics.finalScore,
+          holdingsSnapshot: portfolio.holdings.map(serializeAuditHolding),
+        },
+        {merge: true},
+      );
     }
 
     transaction.set(
@@ -1258,6 +1332,11 @@ async function settleDuel(doc) {
     console.log(
       `[duels] Score ${doc.id} uid=${uid} startHoldings=${asNumber(state.startingHoldingsValue, 0).toFixed(2)} startTotal=${asNumber(state.startingTotalCapital, 0).toFixed(2)} currentHoldings=${portfolio.holdingsValue.toFixed(2)} currentTotal=${portfolio.totalCapital.toFixed(2)} returnPct=${metrics.returnPct.toFixed(4)} bonus=${metrics.structureBonus.toFixed(2)} concentration=${metrics.concentrationPenalty.toFixed(2)} persistent=${metrics.persistentConcentrationPenalty.toFixed(2)} finalScore=${metrics.finalScore.toFixed(4)}`,
     );
+    for (const holding of portfolio.holdings) {
+      console.log(
+        `[duels] Audit ${doc.id} uid=${uid} symbol=${holding.symbol} qty=${holding.quantity.toFixed(4)} price=${holding.marketPrice.toFixed(4)} value=${holding.marketValue.toFixed(4)} source=${holding.priceSource || 'unknown'} at=${isoDateOrUnknown(holding.priceAt)}`,
+      );
+    }
   }
 
   if (notifiedAfterSettlement) {
