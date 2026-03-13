@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Notification quotidienne des cours de l'or et de l'argent.
+ * Notification quotidienne des cours de l'or et du pétrole.
  * Déclenché par GitHub Actions plusieurs fois autour de 9h30 Paris.
  * Le script privilégie l'envoi dans [9h30, 10h00[, mais autorise une
  * fenêtre de rattrapage jusqu'à 11h00 Paris si GitHub exécute le cron en retard.
@@ -144,25 +144,25 @@ async function main() {
   }
 
   // Fetch simultané des deux cours
-  const [gold, silver] = await Promise.all([
+  const [gold, oil] = await Promise.all([
     fetchSpot('GC=F'),  // Or (Gold futures)
-    fetchSpot('SI=F'),  // Argent (Silver futures)
+    fetchSpot('BZ=F'),  // Pétrole Brent
   ]);
 
-  console.log(`[metals] Prix bruts — Or: ${gold}, Argent: ${silver}`);
+  console.log(`[metals] Prix bruts — Or: ${gold}, Pétrole: ${oil}`);
 
   // Lire les prix de la veille
   const prevDoc  = await db.collection('metalsPrices').doc(yesterdayKey).get();
-  const prevGold   = prevDoc.data()?.gold   ?? null;
-  const prevSilver = prevDoc.data()?.silver ?? null;
+  const prevGold = prevDoc.data()?.gold ?? null;
+  const prevOil = prevDoc.data()?.oil ?? null;
 
-  const goldVar   = formatVariation(gold,   prevGold);
-  const silverVar = formatVariation(silver, prevSilver);
+  const goldVar = formatVariation(gold, prevGold);
+  const oilVar = formatVariation(oil, prevOil);
 
   // Écrire les prix du jour
   await todayRef.set({
     gold,
-    silver,
+    oil,
     fetchedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 
@@ -171,13 +171,13 @@ async function main() {
 
   const body =
     `🥇 Or : ${formatPrice(gold)} $/oz${goldVar}\n` +
-    `🥈 Argent : ${formatPrice(silver, 3)} $/oz${silverVar}`;
+    `🛢️ Pétrole : ${formatPrice(oil)} $/baril${oilVar}`;
 
   // Envoi FCM au topic
   const message = {
     topic: 'daily_metals',
     notification: {
-      title: `Cours des métaux — ${timeStr}`,
+      title: `Or & pétrole — ${timeStr}`,
       body,
     },
     apns: {
@@ -192,7 +192,7 @@ async function main() {
     data: {
       type:   'daily_metals',
       gold:   String(gold),
-      silver: String(silver),
+      oil:    String(oil),
       date:   todayKey,
     },
   };
@@ -217,13 +217,13 @@ async function main() {
 
   try {
     await db.collection('broadcasts').add({
-      title: `Cours des métaux — ${timeStr}`,
+      title: `Or & pétrole — ${timeStr}`,
       body,
       topic: 'daily_metals',
       type: 'daily_metals',
       trigger: process.env.TRIGGER ?? 'unknown',
       gold,
-      silver,
+      oil,
       dateKey: todayKey,
       messageId: response,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -233,7 +233,7 @@ async function main() {
     console.warn('[metals] Notification envoyee mais sauvegarde Firestore impossible:', error);
   }
   console.log(`[metals] Notification envoyée : ${response}`);
-  console.log(`[metals] Or ${formatPrice(gold)}${goldVar} | Argent ${formatPrice(silver, 3)}${silverVar}`);
+  console.log(`[metals] Or ${formatPrice(gold)}${goldVar} | Pétrole ${formatPrice(oil)}${oilVar}`);
 }
 
 main().catch(err => {

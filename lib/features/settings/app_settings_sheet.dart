@@ -484,7 +484,7 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                                 ),
                               ),
                               subtitle: const Text(
-                                'Active la notification quotidienne sur l’or et l’argent.',
+                                'Active la notification quotidienne sur l’or et le pétrole.',
                               ),
                             ),
                             SwitchListTile.adaptive(

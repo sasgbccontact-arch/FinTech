@@ -2010,7 +2010,7 @@ class _AgendaCard extends StatelessWidget {
       if (type != null && data['type'] != type) continue;
       if (requireMetalsPayload &&
           _readNum(data, 'gold') == null &&
-          _readNum(data, 'silver') == null) {
+          _readNum(data, 'oil') == null) {
         continue;
       }
       return data;
@@ -2026,7 +2026,7 @@ class _AgendaCard extends StatelessWidget {
       ..sort((left, right) => right.id.compareTo(left.id));
     for (final doc in sorted) {
       final data = doc.data();
-      if (_readNum(data, 'gold') != null || _readNum(data, 'silver') != null) {
+      if (_readNum(data, 'gold') != null || _readNum(data, 'oil') != null) {
         return data;
       }
     }
@@ -2126,10 +2126,10 @@ class _AgendaCard extends StatelessWidget {
                       _readNum(metalsToday, 'gold') ??
                       _readNum(latestMetalsDoc, 'gold') ??
                       _readNum(latestMetalsBroadcast, 'gold');
-                  final silver =
-                      _readNum(metalsToday, 'silver') ??
-                      _readNum(latestMetalsDoc, 'silver') ??
-                      _readNum(latestMetalsBroadcast, 'silver');
+                  final oil =
+                      _readNum(metalsToday, 'oil') ??
+                      _readNum(latestMetalsDoc, 'oil') ??
+                      _readNum(latestMetalsBroadcast, 'oil');
                   final latestTitle =
                       (latestBroadcast?['title'] as String?) ??
                       'Aucune annonce récente';
@@ -2236,10 +2236,10 @@ class _AgendaCard extends StatelessWidget {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: _AgendaTile(
-                                          title: 'Argent',
+                                          title: 'Pétrole',
                                           value:
-                                              '${_formatPrice(silver, decimals: 3)} \$/oz',
-                                          icon: '🥈',
+                                              '${_formatPrice(oil)} \$/baril',
+                                          icon: '🛢️',
                                         ),
                                       ),
                                     ],
