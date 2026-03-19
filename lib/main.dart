@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview_android/flutter_inappwebview_android.dart';
 import 'package:flutter_inappwebview_ios/flutter_inappwebview_ios.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/app_structure.dart';
@@ -17,6 +18,8 @@ import 'pages/login_page.dart';
 
 import 'services/yahoo_consent_page.dart';
 import 'services/yahoo_finance_service.dart';
+import 'services/ads/ad_config.dart';
+import 'services/ads/rewarded_ad_service.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -55,6 +58,12 @@ void main() async {
   };
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (AdConfig.isAnyAdEnabled) {
+    await MobileAds.instance.initialize();
+  }
+  if (AdConfig.isRewardedDailyBonusEnabled) {
+    unawaited(RewardedAdService.instance.load());
+  }
   await initPrefs();
   await MetalsNotificationService.init();
 

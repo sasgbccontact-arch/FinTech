@@ -10,6 +10,7 @@ import 'package:fintech/services/term_deposit_game_engine.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:fintech/widgets/help_fab.dart';
 
 const LinearGradient _treasuryGradient = LinearGradient(
   colors: <Color>[detailsColor1, detailsColor2],
@@ -119,7 +120,7 @@ class TermDepositSection extends StatefulWidget {
 }
 
 class _TermDepositSectionState extends State<TermDepositSection>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -565,8 +566,12 @@ class _TermDepositSectionState extends State<TermDepositSection>
         final questData = questSnap.data() ?? const <String, dynamic>{};
         final todayLabel = treasuryQuestDateLabel(now);
         final sameDay = questData['date'] == todayLabel;
+        final termXpGain = math.max(12, activityPoints ~/ 2);
         tx.set(progressRef, {
-          'xp': FieldValue.increment(math.max(12, activityPoints ~/ 2)),
+          'xp': FieldValue.increment(termXpGain),
+        }, SetOptions(merge: true));
+        tx.set(_userRef(uid), {
+          'xp': FieldValue.increment(termXpGain),
         }, SetOptions(merge: true));
         tx.set(questRef, {
           'date': todayLabel,
@@ -1430,6 +1435,24 @@ class _TreasuryDashboard extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: HelpFab(
+              helpText:
+                  'Bienvenue dans le Compte à Terme !\n\n'
+                  '🎯 Objectif : maximiser le rendement de tes coins en plaçant des dépôts à terme, tout en gardant suffisamment de liquidités.\n\n'
+                  '📋 Onglets :\n'
+                  '• Vue — aperçu global de ta trésorerie et de tes positions actives.\n'
+                  '• Offres — chaque jour un nouveau board de taux. Sélectionne une offre et place un dépôt avec le montant de ton choix.\n'
+                  '• Échéances — visualise la frise de tes dépôts en cours et retire-les si besoin.\n'
+                  '• Pilotage — améliore tes compétences, débloques des slots supplémentaires et suis ta progression.\n\n'
+                  '💡 Conseils :\n'
+                  '• Un taux élevé = bon rendement, mais souvent une durée longue.\n'
+                  '• Garde toujours des coins liquides pour pouvoir jouer les offres futures.\n'
+                  '• Les retraits anticipés sont possible mais coûtent des gems ou annulent les intérêts.',
             ),
           ),
           if (isRefreshingBoard)

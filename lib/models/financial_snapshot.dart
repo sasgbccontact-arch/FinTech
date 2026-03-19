@@ -40,6 +40,14 @@ class FinancialSnapshot {
     this.threeYearAverageReturn,
     this.betaThreeYear,
     this.fundCategory,
+    this.sector,
+    this.industry,
+    this.website,
+    this.longBusinessSummary,
+    this.fundFamily,
+    this.fundLegalType,
+    this.fundSummary,
+    this.fundInceptionDate,
   });
 
   final double? revenue;
@@ -82,6 +90,14 @@ class FinancialSnapshot {
   final double? threeYearAverageReturn;
   final double? betaThreeYear;
   final String? fundCategory;
+  final String? sector;
+  final String? industry;
+  final String? website;
+  final String? longBusinessSummary;
+  final String? fundFamily;
+  final String? fundLegalType;
+  final String? fundSummary;
+  final DateTime? fundInceptionDate;
 
   static FinancialSnapshot fromQuoteSummary(Map<String, dynamic> summary) {
     double? readNum(dynamic value) {
@@ -200,6 +216,28 @@ class FinancialSnapshot {
         }
       }
       return null;
+    }
+
+    String? readString(dynamic value) {
+      if (value == null) return null;
+      if (value is String) {
+        final trimmed = value.trim();
+        return trimmed.isEmpty ? null : trimmed;
+      }
+      if (value is Map<String, dynamic>) {
+        final raw = value['raw'];
+        if (raw is String) {
+          final trimmed = raw.trim();
+          if (trimmed.isNotEmpty) return trimmed;
+        }
+        final fmt = value['fmt'];
+        if (fmt is String) {
+          final trimmed = fmt.trim();
+          if (trimmed.isNotEmpty) return trimmed;
+        }
+      }
+      final stringified = value.toString().trim();
+      return stringified.isEmpty ? null : stringified;
     }
 
     double? computeGrowthFromHistory(
@@ -461,6 +499,22 @@ class FinancialSnapshot {
       betaThreeYear:
           readKeyStatistic('beta3Year') ?? readSummaryDetail('beta3Year'),
       fundCategory: readFundCategory(),
+      sector: readString(summaryProfile?['sector']),
+      industry: readString(summaryProfile?['industry']),
+      website: readString(summaryProfile?['website']),
+      longBusinessSummary: readString(summaryProfile?['longBusinessSummary']),
+      fundFamily:
+          readString(fundProfile?['family']) ??
+          readString(fundProfile?['fundFamily']),
+      fundLegalType: readString(fundProfile?['legalType']),
+      fundSummary:
+          readString(fundProfile?['investmentStrategy']) ??
+          readString(fundProfile?['summary']) ??
+          readString(fundProfile?['longBusinessSummary']) ??
+          readString(summaryProfile?['longBusinessSummary']),
+      fundInceptionDate:
+          readDate(fundProfile?['fundInceptionDate']) ??
+          readDate(fundProfile?['inceptionDate']),
     );
   }
 
@@ -476,8 +530,9 @@ class FinancialSnapshot {
   }
 
   static double? _computeFcfYield({double? freeCashflow, double? marketCap}) {
-    if (freeCashflow == null || marketCap == null || marketCap.abs() < 1e-9)
+    if (freeCashflow == null || marketCap == null || marketCap.abs() < 1e-9) {
       return null;
+    }
     return freeCashflow / marketCap;
   }
 }

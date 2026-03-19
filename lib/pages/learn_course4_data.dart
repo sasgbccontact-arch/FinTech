@@ -1,3 +1,5 @@
+import 'learn_course4_quiz_data.dart';
+
 Map<String, dynamic> _lesson4(String title, String content) => {
   'lesson_title': title,
   'content': content,
@@ -215,6 +217,7 @@ Les marchés financiers ne valorisent pas seulement des entreprises ; ils valori
               'La grammaire des agrégats macro',
               r'''La comptabilité nationale est la grammaire de la macroéconomie. Elle décrit qui produit quoi, qui reçoit quoi et qui dépense quoi.
 
+**Idée-clé**
 En finance, c'est essentiel car les marchés réagissent aux surprises sur la croissance, l'inflation ou les déficits. Or ces surprises sont précisément mesurées via les agrégats macroéconomiques.''',
             ),
           ],
@@ -390,9 +393,15 @@ Ce simple écart donne des informations sur le chômage, les capacités inutilis
             _lesson4(
               'Pourquoi les primes de risque sont cycliques',
               r'''Le cycle agit sur trois blocs décisifs pour les marchés :
-* les bénéfices : en expansion, les ventes et les profits progressent plus facilement ;
-* le risque de défaut : en ralentissement, les entreprises fragiles refinancent plus difficilement leur dette ;
-* la trajectoire des taux : un gap négatif alimente souvent l'idée de politique monétaire plus accommodante.
+
+**Bénéfices**
+En expansion, les ventes et les profits progressent plus facilement.
+
+**Risque de défaut**
+En ralentissement, les entreprises fragiles refinancent plus difficilement leur dette.
+
+**Trajectoire des taux**
+Un gap négatif alimente souvent l'idée de politique monétaire plus accommodante.
 
 Les primes de risque ne sont donc pas constantes. En période de stress macro-financier, l'incertitude et l'aversion au risque montent, ce qui réduit les valorisations des actifs risqués.''',
             ),
@@ -454,9 +463,15 @@ Les statistiques d'emploi sont parmi les publications les plus suivies, car elle
             _lesson4(
               'Liquidité, dépôts et crédit',
               r'''Les marchés sont des marchés de prix, mais aussi des marchés de liquidité. La monnaie remplit trois fonctions :
-* unité de compte ;
-* moyen de paiement ;
-* réserve de valeur.
+
+**Unité de compte**
+Elle permet de mesurer et comparer la valeur des biens et services.
+
+**Moyen de paiement**
+Elle facilite les échanges économiques.
+
+**Réserve de valeur**
+Elle permet de conserver du pouvoir d'achat dans le temps.
 
 Le système bancaire transforme des dépôts très liquides en crédits qui financent l'économie. Quand le crédit se développe, l'activité est soutenue. Quand il se contracte, le cycle ralentit.''',
             ),
@@ -942,7 +957,6 @@ C'est l'une des raisons pour lesquelles les valeurs de croissance souffrent souv
   ],
 };
 
-final Map<String, dynamic> chapter4QuizData = {
-  'course_title': 'Macroéconomie et marchés financiers : QCM',
-  'chapters': <Map<String, dynamic>>[],
-};
+final Map<String, dynamic> chapter4QuizData = buildChapter4QuizData(
+  chapter4CourseData,
+);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fintech/core/constants.dart';
 
 import '../../models/quiz_question.dart';
@@ -68,11 +69,13 @@ class _QuizPageState extends State<QuizPage>
 
   void _selectChoice(int choiceIdx) {
     if (_selectedChoice != null) return;
+    HapticFeedback.selectionClick();
     setState(() => _selectedChoice = choiceIdx);
     _nextCtl.forward(from: 0);
   }
 
   void _goNext() {
+    HapticFeedback.lightImpact();
     _answers[_currentIndex] = _selectedChoice;
     _nextCtl.reset();
     if (_currentIndex + 1 >= widget.questions.length) {

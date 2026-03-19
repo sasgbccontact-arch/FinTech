@@ -9,6 +9,7 @@ import 'package:fintech/core/constants.dart';
 import 'package:fintech/features/duel/duel_models.dart';
 import 'package:fintech/features/forum/forum_boursier_sheet.dart';
 import 'package:fintech/features/social/social_spotlight_card.dart';
+import 'package:fintech/widgets/sponsored_native_ad_card.dart';
 
 import 'community_page.dart';
 
@@ -103,6 +104,11 @@ class _ForumPageState extends State<ForumPage> {
                   padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
                   child: _ForumCommunityCard(),
                 ),
+                if (user != null)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    child: SponsoredNativeAdCard.social(),
+                  ),
               ],
             );
           },

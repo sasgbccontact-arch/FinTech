@@ -6,6 +6,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import 'package:fintech/core/constants.dart';
 
@@ -198,6 +199,7 @@ class _DailyNewsChoicePageState extends State<DailyNewsChoicePage>
 
     // 1er tap : on arme et on décale la séparation
     if (_armedSide == null || _armedSide != side) {
+      HapticFeedback.lightImpact();
       setState(() => _armedSide = side);
       final nudge = 0.16; // 10–20%
       final target =
@@ -209,6 +211,7 @@ class _DailyNewsChoicePageState extends State<DailyNewsChoicePage>
     }
 
     // 2e tap : confirmation
+    HapticFeedback.mediumImpact();
     setState(() => _confirming = true);
     await _confirmCtl.forward();
     if (!mounted) return;

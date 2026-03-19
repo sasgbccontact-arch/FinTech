@@ -9,7 +9,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
+import 'package:fintech/features/social/social_spotlight_card.dart';
 import '../features/notifications/metals_notification_service.dart';
+import '../services/ads/ad_config.dart';
+import '../services/ads/rewarded_ad_service.dart';
 import 'goal_page.dart';
 import '../features/daily_news_game/ui/daily_news_game_sheet.dart';
 import 'income_statement_game_page.dart';
@@ -18,6 +21,7 @@ import 'shop_page.dart';
 import 'compte_terme.dart';
 import 'package:fintech/core/constants.dart';
 import 'package:fintech/services/activity_tracking_service.dart';
+import 'package:fintech/services/daily_reward_service.dart';
 import 'package:fintech/services/scenario_game_engine.dart';
 
 const LinearGradient _accentGradient = LinearGradient(
@@ -176,7 +180,7 @@ class _GameSkeletonCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
         boxShadow: _softShadow,
       ),
     );
@@ -316,6 +320,10 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
   String _getAvatarAsset(String id) {
     if (id == '_easteregg') return 'assets/avatars/easteregg.png';
     if (id == '_sydsteregg') return 'assets/avatars/sydsteregg.png';
+    if (id == '_quintprime') return 'assets/avatars/quint_prime.png';
+    if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
+    if (id == '_groseline') return 'assets/avatars/groseline.png';
+    if (id == '_gay') return 'assets/avatars/gay.png';
     if (id == '_call') return 'assets/avatars/avatar_call.png';
     if (id == '_happy') return 'assets/avatars/avatar_happy.png';
     if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';
@@ -329,6 +337,19 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
     _migrateLearningToGames();
     _loadGameProgress();
     _loadScenarios();
+    unawaited(_trackGameHubOpen());
+  }
+
+  Future<void> _trackGameHubOpen() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await ActivityTrackingService.trackForUser(
+      uid: uid,
+      type: 'game_hub_opened',
+      label: 'Game hub',
+      points: 3,
+      counters: const <String, int>{'game_hub_visits': 1},
+    );
   }
 
   Future<void> _loadScenarios() async {
@@ -439,28 +460,49 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
                             .snapshots()
                         : null,
                 builder: (context, snapshot) {
-                  final avatarId =
-                      snapshot.data?.data()?['avatar_id'] as String?;
-                  return IconButton(
-                    icon:
-                        avatarId != null
-                            ? Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                image: DecorationImage(
-                                  image: AssetImage(_getAvatarAsset(avatarId)),
-                                  fit: BoxFit.cover,
+                  final userData = snapshot.data?.data() ?? <String, dynamic>{};
+                  final avatarId = userData['avatar_id'] as String?;
+                  final currentUser = FirebaseAuth.instance.currentUser;
+                  return GestureDetector(
+                    onLongPress:
+                        avatarId == null || currentUser == null
+                            ? null
+                            : () {
+                              HapticFeedback.mediumImpact();
+                              showAvatarPreview(
+                                context,
+                                _getAvatarAsset(avatarId),
+                              );
+                            },
+                    child: IconButton(
+                      icon:
+                          avatarId != null
+                              ? Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: DecorationImage(
+                                    image: AssetImage(
+                                      _getAvatarAsset(avatarId),
+                                    ),
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
+                              )
+                              : const Icon(
+                                Icons.account_circle_rounded,
+                                color: textColor,
+                                size: 28,
                               ),
-                            )
-                            : const Icon(
-                              Icons.account_circle_rounded,
-                              color: textColor,
-                              size: 28,
-                            ),
-                    onPressed: () => _showUserProfile(context, isAdmin),
+                      onPressed:
+                          currentUser == null
+                              ? null
+                              : () => _openProfileSheet(
+                                userId: currentUser.uid,
+                                userData: userData,
+                              ),
+                    ),
                   );
                 },
               ),
@@ -539,17 +581,16 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
     }
   }
 
-  void _showUserProfile(BuildContext context, bool isAdmin) {
-    showDialog(
+  Future<void> _openProfileSheet({
+    required String userId,
+    required Map<String, dynamic> userData,
+  }) async {
+    if (!mounted) return;
+    await showSocialProfileSheet(
       context: context,
-      builder:
-          (context) => Dialog(
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.all(20),
-            child: SingleChildScrollView(
-              child: UserProfileHeader(isAdmin: isAdmin),
-            ),
-          ),
+      userId: userId,
+      initialUserData: userData,
+      metric: SocialProfileMetric.level,
     );
   }
 }
@@ -567,6 +608,10 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
   bool _loading = true;
   bool _canClaim = false;
   bool _claiming = false;
+  bool _canClaimAdBonus = false;
+  bool _claimingAdBonus = false;
+  bool _adLoading = false;
+  bool _adReady = false;
 
   @override
   void initState() {
@@ -596,25 +641,33 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
               .doc(user.uid)
               .get();
       final data = doc.data();
-      final lastRewardTs = data?['last_daily_reward'] as Timestamp?;
-
-      bool claimedToday = false;
-      if (lastRewardTs != null) {
-        final now = DateTime.now();
-        final last = lastRewardTs.toDate();
-        if (now.year == last.year &&
-            now.month == last.month &&
-            now.day == last.day) {
-          claimedToday = true;
-        }
-      }
+      final now = DateTime.now();
+      final dailyClaimed = DailyRewardService.hasClaimedToday(
+        (data?['last_daily_reward'] as Timestamp?)?.toDate(),
+        now: now,
+      );
+      final adBonusClaimed = DailyRewardService.hasClaimedToday(
+        (data?['last_daily_reward_ad'] as Timestamp?)?.toDate(),
+        now: now,
+      );
+      final canClaimAdBonus =
+          dailyClaimed &&
+          !adBonusClaimed &&
+          AdConfig.isRewardedDailyBonusEnabled;
 
       if (mounted) {
         setState(() {
-          _canClaim = !claimedToday;
+          _canClaim = !dailyClaimed;
+          _canClaimAdBonus = canClaimAdBonus;
           _loading = false;
           _claiming = false;
+          _claimingAdBonus = false;
+          _adLoading = false;
+          _adReady = canClaimAdBonus && RewardedAdService.instance.isReady;
         });
+      }
+      if (canClaimAdBonus) {
+        unawaited(_prepareAdBonus(showError: false));
       }
     } catch (e) {
       debugPrint("Error checking daily reward: $e");
@@ -622,6 +675,8 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
         setState(() {
           _loading = false;
           _claiming = false;
+          _claimingAdBonus = false;
+          _adLoading = false;
         });
       }
     }
@@ -637,31 +692,13 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
       _loading = true;
       _claiming = true;
     });
-
-    final random = math.Random();
-    final isCoins = random.nextBool();
-
-    int amount;
-    String type;
-    String label;
-
-    if (isCoins) {
-      type = 'coins';
-      final options = [100, 200, 300];
-      amount = options[random.nextInt(options.length)];
-      label = 'Pièces';
-    } else {
-      type = 'gems';
-      final options = [2, 4, 6];
-      amount = options[random.nextInt(options.length)];
-      label = 'Gemmes';
-    }
+    final grant = DailyRewardService.rollDailyReward();
 
     try {
       final ref = FirebaseFirestore.instance.collection('users').doc(user.uid);
 
       await ref.set({
-        type: FieldValue.increment(amount),
+        grant.currencyKey: FieldValue.increment(grant.amount),
         'last_daily_reward': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -670,7 +707,7 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
           uid: user.uid,
           type: 'daily_reward_claimed',
           label: 'Récompense quotidienne',
-          points: 14 + (isCoins ? amount ~/ 20 : amount * 8),
+          points: grant.activityPoints,
           counters: const <String, int>{'daily_rewards_claimed': 1},
         ),
       );
@@ -678,16 +715,22 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("🎁 Récompense récupérée : +$amount $label !"),
+            content: Text(
+              "🎁 Récompense récupérée : +${grant.amount} ${grant.label} !",
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
         setState(() {
           _canClaim = false;
+          _canClaimAdBonus = AdConfig.isRewardedDailyBonusEnabled;
           _loading = false;
           _claiming = false;
         });
+      }
+      if (AdConfig.isRewardedDailyBonusEnabled) {
+        unawaited(_prepareAdBonus(showError: false));
       }
     } catch (e) {
       debugPrint("Error claiming reward: $e");
@@ -706,12 +749,147 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
     }
   }
 
+  Future<void> _prepareAdBonus({bool showError = true}) async {
+    if (!_canClaimAdBonus || !AdConfig.isRewardedDailyBonusEnabled) {
+      if (mounted) {
+        setState(() {
+          _adLoading = false;
+          _adReady = false;
+        });
+      }
+      return;
+    }
+    if (_adLoading) return;
+
+    setState(() {
+      _adLoading = true;
+    });
+
+    final loaded = await RewardedAdService.instance.load();
+    if (!mounted) return;
+
+    setState(() {
+      _adLoading = false;
+      _adReady = loaded && RewardedAdService.instance.isReady;
+    });
+
+    if (!loaded && showError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("La pub de test n'est pas encore prête."),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  Future<void> _claimAdBonus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || !_canClaimAdBonus || _claimingAdBonus) {
+      return;
+    }
+
+    if (!_adReady) {
+      await _prepareAdBonus();
+      if (!mounted || !_adReady) {
+        return;
+      }
+    }
+
+    setState(() {
+      _claimingAdBonus = true;
+    });
+
+    final shown = await RewardedAdService.instance.show(
+      onRewardEarned: () {
+        unawaited(_grantAdBonusReward(user.uid));
+      },
+      onClosed: (rewardEarned) {
+        if (!mounted || rewardEarned) return;
+        setState(() {
+          _claimingAdBonus = false;
+          _adReady = RewardedAdService.instance.isReady;
+        });
+        unawaited(_prepareAdBonus(showError: false));
+      },
+      onFailedToShow: (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Impossible d'ouvrir la pub de test pour le moment."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
+    );
+
+    if (!shown && mounted) {
+      setState(() {
+        _claimingAdBonus = false;
+        _adReady = RewardedAdService.instance.isReady;
+      });
+    }
+  }
+
+  Future<void> _grantAdBonusReward(String uid) async {
+    final grant = DailyRewardService.rollAdBonusReward();
+
+    try {
+      final ref = FirebaseFirestore.instance.collection('users').doc(uid);
+      await ref.set({
+        grant.currencyKey: FieldValue.increment(grant.amount),
+        'last_daily_reward_ad': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      unawaited(
+        ActivityTrackingService.trackForUser(
+          uid: uid,
+          type: 'daily_reward_ad_claimed',
+          label: 'Bonus pub quotidien',
+          points: grant.activityPoints,
+          counters: const <String, int>{'daily_reward_ads_claimed': 1},
+        ),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "🎬 Bonus pub récupéré : +${grant.amount} ${grant.label} !",
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      setState(() {
+        _canClaimAdBonus = false;
+        _claimingAdBonus = false;
+        _adReady = false;
+      });
+    } catch (e) {
+      debugPrint("Error claiming rewarded ad bonus: $e");
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Erreur lors de l'attribution du bonus pub."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _claimingAdBonus = false;
+        _adReady = RewardedAdService.instance.isReady;
+      });
+      unawaited(_prepareAdBonus(showError: false));
+    }
+  }
+
   Future<void> _resetReward() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
       'last_daily_reward': FieldValue.delete(),
+      'last_daily_reward_ad': FieldValue.delete(),
     });
     _checkStatus();
   }
@@ -722,104 +900,158 @@ class _DailyRewardCardState extends State<_DailyRewardCard> {
       return _DailyRewardLoadingCard(claiming: _claiming);
     }
 
-    return GestureDetector(
-      onTap: _canClaim ? _claimReward : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.black.withOpacity(0.06)),
-          boxShadow: _softShadow,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _GameBadgeShell(
-              svg: _dailyRewardCardSvg,
-              active: _canClaim,
-              size: 56,
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 14, right: 12, top: 2),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Récompense quotidienne",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: textColor,
-                      ),
+    final badgeActive = _canClaim || _canClaimAdBonus;
+    final statusLabel =
+        _canClaim
+            ? 'Disponible maintenant'
+            : _canClaimAdBonus
+            ? (_adReady ? 'Bonus pub prêt' : 'Préparation pub de test')
+            : AdConfig.isRewardedDailyBonusEnabled
+            ? 'Reviens demain'
+            : 'iOS uniquement';
+    final statusColor =
+        _canClaim || _canClaimAdBonus ? detailsColor2 : Colors.green;
+    final subtitle =
+        _canClaim
+            ? 'Cadeau gratuit : 100-300 coins ou 2-6 gems.'
+            : _canClaimAdBonus
+            ? 'Second cadeau via une pub de test : 40-80 coins ou 1-2 gems.'
+            : AdConfig.isRewardedDailyBonusEnabled
+            ? 'Cadeau gratuit et bonus pub déjà récupérés aujourd’hui.'
+            : 'Déjà récupérée aujourd’hui. Le bonus pub est activé sur iOS uniquement.';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        boxShadow: _softShadow,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _GameBadgeShell(
+            svg: _dailyRewardCardSvg,
+            active: badgeActive,
+            size: 56,
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 14, right: 12, top: 2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Récompense quotidienne",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _canClaim
-                          ? 'Claim aléatoire: 100-300 coins ou 2-6 gems.'
-                          : 'Déjà récupérée aujourd’hui, reviens demain.',
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
-                        height: 1.35,
-                      ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
                     ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            _canClaim
-                                ? detailsColor1.withValues(alpha: 0.12)
-                                : Colors.green.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        _canClaim ? 'Disponible maintenant' : 'Reviens demain',
-                        style: TextStyle(
-                          color: _canClaim ? detailsColor2 : Colors.green,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12,
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              (_canClaim || _canClaimAdBonus)
+                                  ? detailsColor1.withValues(alpha: 0.12)
+                                  : Colors.green.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          statusLabel,
+                          style: TextStyle(
+                            color: statusColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      if (_canClaim)
+                        _DailyRewardActionButton(
+                          icon: Icons.card_giftcard_rounded,
+                          label:
+                              _claiming
+                                  ? 'Récupération...'
+                                  : 'Récupérer le cadeau',
+                          onPressed: _claiming ? null : _claimReward,
+                        )
+                      else if (_canClaimAdBonus)
+                        _DailyRewardActionButton(
+                          icon:
+                              _adReady
+                                  ? Icons.ondemand_video_rounded
+                                  : Icons.downloading_rounded,
+                          label:
+                              _claimingAdBonus
+                                  ? 'Pub en cours...'
+                                  : _adReady
+                                  ? 'Voir une pub de test'
+                                  : _adLoading
+                                  ? 'Chargement...'
+                                  : 'Préparer la pub',
+                          onPressed:
+                              _claimingAdBonus
+                                  ? null
+                                  : _adReady
+                                  ? _claimAdBonus
+                                  : () => _prepareAdBonus(),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            if (widget.isAdmin && !_canClaim)
-              IconButton(
-                icon: const Icon(Icons.refresh, color: Colors.grey),
-                onPressed: _resetReward,
-                tooltip: "Reset (Admin)",
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              )
-            else
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: _canClaim ? _accentGradient : null,
-                  color:
-                      _canClaim ? null : Colors.green.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  _canClaim
-                      ? Icons.arrow_forward_rounded
-                      : Icons.check_circle_rounded,
-                  color: _canClaim ? Colors.white : Colors.green,
-                ),
+          ),
+          if (widget.isAdmin && !_canClaim && !_canClaimAdBonus)
+            IconButton(
+              icon: const Icon(Icons.refresh, color: Colors.grey),
+              onPressed: _resetReward,
+              tooltip: "Reset (Admin)",
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            )
+          else
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                gradient: badgeActive ? _accentGradient : null,
+                color:
+                    badgeActive ? null : Colors.green.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
               ),
-          ],
-        ),
+              alignment: Alignment.center,
+              child: Icon(
+                _canClaim
+                    ? Icons.card_giftcard_rounded
+                    : _canClaimAdBonus
+                    ? Icons.ondemand_video_rounded
+                    : Icons.check_circle_rounded,
+                color: badgeActive ? Colors.white : Colors.green,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -986,6 +1218,35 @@ class _DailyRewardLoadingCardState extends State<_DailyRewardLoadingCard>
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DailyRewardActionButton extends StatelessWidget {
+  const _DailyRewardActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        backgroundColor: detailsColor2,
+        disabledBackgroundColor: Colors.black.withValues(alpha: 0.12),
+        disabledForegroundColor: Colors.black45,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+      ),
+      icon: Icon(icon, size: 18),
+      label: Text(label),
     );
   }
 }
@@ -2341,6 +2602,10 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
   String _getAvatarAsset(String id) {
     if (id == '_easteregg') return 'assets/avatars/easteregg.png';
     if (id == '_sydsteregg') return 'assets/avatars/sydsteregg.png';
+    if (id == '_quintprime') return 'assets/avatars/quint_prime.png';
+    if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
+    if (id == '_groseline') return 'assets/avatars/groseline.png';
+    if (id == '_gay') return 'assets/avatars/gay.png';
     if (id == '_call') return 'assets/avatars/avatar_call.png';
     if (id == '_happy') return 'assets/avatars/avatar_happy.png';
     if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';
@@ -2437,14 +2702,18 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                         'unlocked_avatars': FieldValue.arrayUnion(['_wealthy']),
                       }, SetOptions(merge: true));
 
-                  await FirebaseFirestore.instance
+                  final wealthyUserRef = FirebaseFirestore.instance
                       .collection('users')
-                      .doc(user.uid)
+                      .doc(user.uid);
+                  await wealthyUserRef
                       .collection('games')
                       .doc('progress')
                       .set({
                         'xp': FieldValue.increment(200),
                       }, SetOptions(merge: true));
+                  await wealthyUserRef.set({
+                    'xp': FieldValue.increment(200),
+                  }, SetOptions(merge: true));
 
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -2546,8 +2815,8 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                 children: [
                   // Carte d'infos (en bas)
                   Container(
-                    margin: const EdgeInsets.only(top: 60, bottom: 16),
-                    padding: const EdgeInsets.fromLTRB(16, 70, 16, 16),
+                    margin: const EdgeInsets.only(top: 80, bottom: 16),
+                    padding: const EdgeInsets.fromLTRB(16, 90, 16, 16),
                     // width: double.infinity, // REMOVED: Caused layout issues in some contexts
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -2698,41 +2967,44 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                   // Avatar (au dessus)
                   GestureDetector(
                     onTap:
-                        () =>
-                            _showAvatarSelector(context, avatarId, allUnlocked),
+                        () => _showAvatarPreview(
+                          context,
+                          avatarId,
+                          allUnlocked,
+                        ),
                     child: Container(
-                      width: 120,
-                      height: 120,
+                      width: 160,
+                      height: 160,
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(40),
                         border: Border.all(color: Colors.white, width: 4),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
                       child:
                           avatarId != null
                               ? ClipRRect(
-                                borderRadius: BorderRadius.circular(26),
+                                borderRadius: BorderRadius.circular(36),
                                 child: Image.asset(
                                   _getAvatarAsset(avatarId),
                                   fit: BoxFit.cover,
                                   errorBuilder:
                                       (_, __, ___) => const Icon(
                                         Icons.person,
-                                        size: 60,
+                                        size: 80,
                                         color: Colors.grey,
                                       ),
                                 ),
                               )
                               : const Icon(
                                 Icons.person,
-                                size: 60,
+                                size: 80,
                                 color: Colors.grey,
                               ),
                     ),
@@ -2741,6 +3013,83 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showAvatarPreview(
+    BuildContext context,
+    String? avatarId,
+    List<String> allUnlocked,
+  ) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Image agrandie
+              ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: avatarId != null
+                    ? Image.asset(
+                        _getAvatarAsset(avatarId),
+                        width: 280,
+                        height: 280,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 280,
+                          height: 280,
+                          color: Colors.grey.shade200,
+                          child: const Icon(Icons.person, size: 120, color: Colors.grey),
+                        ),
+                      )
+                    : Container(
+                        width: 280,
+                        height: 280,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                        child: const Icon(Icons.person, size: 120, color: Colors.grey),
+                      ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                    },
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    label: const Text('Fermer', style: TextStyle(color: Colors.white70)),
+                  ),
+                  const SizedBox(width: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _showAvatarSelector(context, avatarId, allUnlocked);
+                    },
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Changer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         );
       },
     );
@@ -2761,6 +3110,10 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
       '_skelet',
       '_easteregg',
       '_sydsteregg',
+      '_quintprime',
+      '_beyondbig',
+      '_groseline',
+      '_gay',
       '_call',
       '_happy',
       '_wealthy',
@@ -2768,7 +3121,7 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
     ];
 
     // Avatars cachés tant qu'ils ne sont pas débloqués (codes secrets)
-    final Set<String> secretAvatars = {'_easteregg', '_sydsteregg'};
+    final Set<String> secretAvatars = {'_easteregg', '_sydsteregg', '_quintprime', '_beyondbig', '_groseline', '_gay'};
 
     final List<String> allAvatars =
         specialAvatars.where((id) {

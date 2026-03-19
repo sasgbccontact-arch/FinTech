@@ -2908,7 +2908,10 @@ class _QuestionBlock extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: InkWell(
-              onTap: () => onAnswerSelected(choiceIndex),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onAnswerSelected(choiceIndex);
+              },
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding: const EdgeInsets.all(14),

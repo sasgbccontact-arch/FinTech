@@ -316,6 +316,52 @@
           ]
         },
         {
+          "lesson_id": "chapter_2_l3",
+          "lesson_title": "Comment une entreprise entre-t-elle en bourse ?",
+          "questions": [
+            {
+              "question": "Que signifie une introduction en bourse (IPO) ?",
+              "options": [
+                "L’entrée d’une entreprise sur les marchés financiers via l’émission d’actions",
+                "La transformation automatique d’actions en obligations",
+                "Le rachat complet de l’entreprise par une banque",
+                "La suppression des actionnaires existants"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Quelles sont les deux grandes méthodes de valorisation mentionnées avant l’émission d’actions ?",
+              "options": [
+                "L’analyse graphique et les volumes de marché",
+                "Les éléments du bilan comptable et les flux de trésorerie prévisionnels",
+                "Le rendement du dividende et le taux directeur",
+                "Le PER et le cours de l’or"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Dans le cas d’une émission obligataire, quel rôle jouent les investisseurs ?",
+              "options": [
+                "Ils deviennent propriétaires de l’entreprise",
+                "Ils prêtent de l’argent à l’entreprise en échange d’intérêts",
+                "Ils fixent le prix des produits vendus par l’entreprise",
+                "Ils garantissent le bénéfice net"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Comment le texte compare-t-il en moyenne le marché obligataire au marché des actions ?",
+              "options": [
+                "Il est environ trois fois plus important",
+                "Il est deux fois plus petit",
+                "Il a exactement la même taille",
+                "Il est réservé aux États uniquement"
+              ],
+              "correct_answer_index": 0
+            }
+          ]
+        },
+        {
           "lesson_id": "chapter_2_l4",
           "lesson_title": "Que peut-il arriver au cours d’une action ?",
           "questions": [

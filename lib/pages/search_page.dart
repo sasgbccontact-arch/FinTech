@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:fintech/core/constants.dart';
+import 'package:fintech/features/social/social_spotlight_card.dart';
 
 import '../services/yahoo_finance_service.dart';
 import 'info_page.dart';
@@ -55,6 +57,10 @@ class _SearchPageState extends State<SearchPage>
   String _getAvatarAsset(String id) {
     if (id == '_easteregg') return 'assets/avatars/easteregg.png';
     if (id == '_sydsteregg') return 'assets/avatars/sydsteregg.png';
+    if (id == '_quintprime') return 'assets/avatars/quint_prime.png';
+    if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
+    if (id == '_groseline') return 'assets/avatars/groseline.png';
+    if (id == '_gay') return 'assets/avatars/gay.png';
     return 'assets/avatars/avatar$id.png';
   }
 
@@ -545,6 +551,16 @@ class _SearchPageState extends State<SearchPage>
             children: [
               GestureDetector(
                 onTap: () => _showUserProfile(context),
+                onLongPress:
+                    _avatarId == null
+                        ? null
+                        : () {
+                          HapticFeedback.mediumImpact();
+                          showAvatarPreview(
+                            context,
+                            _getAvatarAsset(_avatarId!),
+                          );
+                        },
                 child: Container(
                   width: 38,
                   height: 38,

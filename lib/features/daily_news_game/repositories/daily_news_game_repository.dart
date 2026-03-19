@@ -925,8 +925,12 @@ class DailyNewsGameRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      final newsXpGain = newsSessionXpReward(breakdown.finalScore);
       tx.set(_gamesProgressRef(), {
-        'xp': FieldValue.increment(newsSessionXpReward(breakdown.finalScore)),
+        'xp': FieldValue.increment(newsXpGain),
+      }, SetOptions(merge: true));
+      tx.set(_db.collection('users').doc(_uid), {
+        'xp': FieldValue.increment(newsXpGain),
       }, SetOptions(merge: true));
 
       final todayLabel = _dailyQuestDateLabel();

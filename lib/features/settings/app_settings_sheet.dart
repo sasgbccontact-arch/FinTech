@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:fintech/core/constants.dart';
 import 'package:fintech/features/notifications/metals_notification_service.dart';
@@ -115,6 +116,63 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
         ),
       );
     }
+  }
+
+  Future<void> _changeAvatar() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userRef =
+        FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final progressRef = userRef.collection('games').doc('progress');
+
+    final userSnap = await userRef.get();
+    final progressSnap = await progressRef.get();
+    if (!mounted) return;
+
+    final userData = userSnap.data() ?? const <String, dynamic>{};
+    final progressData = progressSnap.data() ?? const <String, dynamic>{};
+
+    final currentAvatarId = userData['avatar_id'] as String?;
+    final inventory =
+        (progressData['inventory'] as List<dynamic>?)
+            ?.whereType<String>()
+            .toList() ??
+        <String>[];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => AvatarPickerSheet(
+        currentAvatarId: currentAvatarId,
+        unlockedAvatars: inventory,
+        onSelect: (id) async {
+          try {
+            await userRef.set({'avatar_id': id}, SetOptions(merge: true));
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Avatar modifié avec succès.'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } catch (_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Erreur lors du changement d\'avatar.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
 
   Future<void> _changeName() async {
@@ -399,6 +457,13 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
                               onTap: _changeName,
                             ),
                             _ActionTile(
+                              icon: Icons.face_rounded,
+                              title: 'Changer mon avatar',
+                              subtitle:
+                                  'Choisir parmi vos avatars débloqués, gratuitement.',
+                              onTap: _changeAvatar,
+                            ),
+                            _ActionTile(
                               icon: Icons.auto_awesome_rounded,
                               title: 'Relancer l’onboarding',
                               subtitle:
@@ -583,6 +648,224 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+class AvatarPickerSheet extends StatelessWidget {
+  const AvatarPickerSheet({
+    required this.currentAvatarId,
+    required this.unlockedAvatars,
+    required this.onSelect,
+  });
+
+  final String? currentAvatarId;
+  final List<String> unlockedAvatars;
+  final Future<void> Function(String id) onSelect;
+
+  static const List<String> _allAvatarIds = [
+    '1',
+    '_student',
+    '_expert',
+    '_bling',
+    '_strong',
+    '_geek',
+    '_skelet',
+    '_call',
+    '_happy',
+    '_wealthy',
+    '_rich',
+    '_bandit',
+    '_easteregg',
+    '_sydsteregg',
+    '_quintprime',
+    '_beyondbig',
+    '_groseline',
+    '_gay',
+  ];
+
+  static const Set<String> _secretAvatarIds = {
+    '_easteregg',
+    '_sydsteregg',
+    '_quintprime',
+    '_beyondbig',
+    '_groseline',
+    '_gay',
+  };
+
+  static String _assetPath(String id) {
+    switch (id) {
+      case '_easteregg':
+        return 'assets/avatars/easteregg.png';
+      case '_sydsteregg':
+        return 'assets/avatars/sydsteregg.png';
+      case '_quintprime':
+        return 'assets/avatars/quint_prime.png';
+      case '_beyondbig':
+        return 'assets/avatars/beyond_big.png';
+      case '_groseline':
+        return 'assets/avatars/groseline.png';
+      case '_gay':
+        return 'assets/avatars/gay.png';
+      case '_student':
+        return 'assets/avatars/avatar_student.png';
+      case '_expert':
+        return 'assets/avatars/avatar_expert.png';
+      case '_bling':
+        return 'assets/avatars/avatar_bling.png';
+      case '_strong':
+        return 'assets/avatars/avatar_strong.png';
+      case '_geek':
+        return 'assets/avatars/avatar_geek.png';
+      case '_skelet':
+        return 'assets/avatars/avatar_skelet.png';
+      case '_call':
+        return 'assets/avatars/avatar_call.png';
+      case '_happy':
+        return 'assets/avatars/avatar_happy.png';
+      case '_wealthy':
+        return 'assets/avatars/avatar_wealthy.png';
+      case '_rich':
+        return 'assets/avatars/avatar_rich.png';
+      case '_bandit':
+        return 'assets/avatars/avatar_bandit.png';
+      default:
+        return 'assets/avatars/avatar$id.png';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Filtrer : les avatars secrets n'apparaissent que s'ils sont débloqués
+    final visible = _allAvatarIds.where((id) {
+      if (_secretAvatarIds.contains(id)) return unlockedAvatars.contains(id);
+      return true;
+    }).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [detailsColor1, detailsColor2],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.face_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Choisir un avatar',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: textColor,
+                        ),
+                      ),
+                      Text(
+                        'Gratuit — parmi vos avatars débloqués.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemCount: visible.length,
+              itemBuilder: (context, index) {
+                final id = visible[index];
+                final isSelected = id == currentAvatarId;
+                final isUnlocked =
+                    id == '1' || unlockedAvatars.contains(id);
+
+                return GestureDetector(
+                  onTap: isUnlocked
+                      ? () async {
+                          Navigator.of(context).pop();
+                          await onSelect(id);
+                        }
+                      : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: isSelected
+                          ? Border.all(color: detailsColor2, width: 3)
+                          : Border.all(
+                              color: const Color(0xFFE6E8EB),
+                            ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: detailsColor2.withValues(alpha: 0.25),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: ColorFiltered(
+                        colorFilter: isUnlocked
+                            ? const ColorFilter.mode(
+                                Colors.transparent,
+                                BlendMode.color,
+                              )
+                            : const ColorFilter.matrix(<double>[
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0.2126, 0.7152, 0.0722, 0, 0,
+                                0,      0,      0,      1, 0,
+                              ]),
+                        child: Image.asset(
+                          _assetPath(id),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.person,
+                            color: Colors.black26,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
     required this.icon,
@@ -606,7 +889,10 @@ class _ActionTile extends StatelessWidget {
             : const [detailsColor1, detailsColor2];
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),

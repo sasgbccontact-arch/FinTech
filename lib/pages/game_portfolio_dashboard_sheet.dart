@@ -109,6 +109,9 @@ class _GamePortfolioDashboardSheetState
     await userRef.collection('games').doc('progress').set({
       'xp': FieldValue.increment(400),
     }, SetOptions(merge: true));
+    await userRef.set({
+      'xp': FieldValue.increment(400),
+    }, SetOptions(merge: true));
   }
 
   Future<void> _openInfo(_GamePositionAnalytics position) async {

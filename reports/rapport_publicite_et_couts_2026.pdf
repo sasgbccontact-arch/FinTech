@@ -1,0 +1,784 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Pages /Count 11 /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R 20 0 R 22 0 R 24 0 R 26 0 R] >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+5 0 obj
+<< /Length 5174 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 1) Tj ET
+BT /F2 22.0 Tf 1 0 0 1 52.00 787.89 Tm (Rapport strategique) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 755.89 Tm (Publicite, revenus et couts d'infrastructure) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 730.89 Tm (FinHub - analyse au 15 mars 2026) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 703.89 Tm (1. Objet du rapport) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 672.89 Tm (Ce rapport a un objectif simple: expliquer a une personne exterieure au projet comment) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 659.29 Tm (FinHub peut monetiser proprement son audience, quels revenus publicitaires sont) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 645.69 Tm (plausibles selon plusieurs scenarios, et a quel moment l'architecture Firestore actuelle) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 632.09 Tm (commence a couter plus cher qu'elle ne le devrait.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 609.49 Tm (Le fil rouge est le suivant:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 586.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 586.89 Tm (FinHub n'est pas une app de contenu passive. C'est une app d'apprentissage gamifie de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 573.29 Tm (la finance, avec un melange de pedagogie, de boucles quotidiennes, d'economie) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 559.69 Tm (virtuelle, de portefeuille simule et de social.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 544.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 544.09 Tm (Cette nature hybride change completement la strategie pub. Les emplacements rentables) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 530.49 Tm (ne sont pas les memes que dans un jeu mobile pur, et les endroits ou une publicite) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 516.89 Tm (detruit la confiance ne sont pas les memes que dans une app media.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 501.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 501.29 Tm (Cote couts, Firestore reste globalement peu cher tant que les requetes restent locales) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 487.69 Tm (et bien bornees. En revanche, certaines ecoutes temps reel sur des collections larges) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 474.09 Tm (ou non limitees creent un risque de derive economique a mesure que l'app grandit.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 458.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 458.49 Tm (Enfin, deplacer les workers GitHub Actions vers Cloud Functions / Cloud Scheduler peut) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 444.89 Tm (simplifier l'exploitation et reduire un petit cout de compute, mais cela ne resout pas) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 431.29 Tm (a lui seul les vrais postes de depense. Le point critique reste la forme des requetes) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 417.69 Tm (Firestore.) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 396.09 Tm (2. Lecture produit: ou l'app cree de la valeur, et donc) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 375.09 Tm (ou la pub est acceptable) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 344.09 Tm (FinHub repose aujourd'hui sur cinq surfaces principales:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 321.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 321.49 Tm (`Aujourd'hui`: hub quotidien, relance, actus, notifications, raccourcis.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 305.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 305.89 Tm (`Dashboard`: portefeuille et suivi de positions.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 290.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 290.29 Tm (`Apprendre`: cours, quiz, progression.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 274.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 274.69 Tm (`Game`: recompenses quotidiennes, simulation, quetes, economie virtuelle.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 259.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 259.09 Tm (`Social`: communaute, forum, amis, duels, classements.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 237.49 Tm (En termes de perception utilisateur, ces surfaces n'ont pas la meme tolerance a la) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 223.89 Tm (publicite:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 201.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 201.29 Tm (Les zones de confiance forte sont `Dashboard`, `Apprendre`, les vues portefeuille et) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 187.69 Tm (les ecrans d'information financiere. Ici, la pub intrusive detruit la credibilite du) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 174.09 Tm (produit.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 158.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 158.49 Tm (Les zones de boucle et de monnaie virtuelle sont `Game`, `Daily reward`, `Daily News`,) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 144.89 Tm (`rerolls`, `bonus`, `quetes`, `duels`. Ici, une pub recompensee peut etre percue comme) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 131.29 Tm (un echange explicite et acceptable.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 115.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 115.69 Tm (Les zones de type feed sont `Aujourd'hui`, `Social`, `Forum`, `Notifications`. Ici,) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 102.09 Tm (des formats natifs legers peuvent fonctionner s'ils restent visuellement propres et) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 88.49 Tm (clairement marques comme sponsorises.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 66.89 Tm (Conclusion produit:) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 5522 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 2) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 787.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 787.89 Tm (FinHub doit etre monetise en priorite par des formats `rewarded` optionnels.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 772.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 772.29 Tm (Les `native ads` ne sont acceptables que dans les surfaces feed / hub.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 756.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 756.69 Tm (Les `interstitials` doivent rester rares et places uniquement sur des transitions) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 743.09 Tm (naturelles de fin de session.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 727.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 727.49 Tm (Les bannieres fixes ne sont pas recommandees: elles degradent l'experience plus) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 713.89 Tm (qu'elles ne rapportent dans un produit de ce type.) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 692.29 Tm (3. Ce que le code montre aujourd'hui) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 661.29 Tm (L'audit du code confirme cette lecture produit mais montre aussi plusieurs signaux de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 647.69 Tm (cout:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 625.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 625.09 Tm (Le hub `Aujourd'hui` ecoute en temps reel plusieurs documents utiles, mais aussi deux) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 611.49 Tm (collections entieres: `metalsPrices` et `broadcasts`.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 595.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 595.89 Tm (L'onglet social charge un classement global a partir d'un listener sur toute la) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 582.29 Tm (collection `users`, ce qui est acceptable a petite echelle mais dangereux a grande) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 568.69 Tm (echelle.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 553.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 553.09 Tm (Plusieurs ecrans cumulent des listeners imbriques sur les memes documents utilisateur,) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 539.49 Tm (ce qui augmente le nombre de reads initiaux.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 523.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 523.89 Tm (Le tracking d'activite ecrit deux documents par evenement tracke.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 508.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 508.29 Tm (Les jobs backend actuels tournent via GitHub Actions selon une cadence tres frequente,) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 494.69 Tm (surtout pour les duels.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 473.09 Tm (Reperes techniques internes utilises pour cette analyse:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 448.49 Tm (Today page) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 437.29 Tm (- lib/pages/today_page.dart:202-207 -> listener users/{uid}) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 426.09 Tm (- lib/pages/today_page.dart:1730-1758 -> listeners progress, quests, dailyBenefits,) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 414.89 Tm (metalsPrices/{today}, metalsPrices \(collection entiere\), broadcasts \(collection entiere\)) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 403.69 Tm (Social / leaderboard) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 392.49 Tm (- lib/features/social/social_spotlight_card.dart:87-88 -> collection\('users'\).snapshots\(\)) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 381.29 Tm (- lib/features/social/social_spotlight_card.dart:460-463 -> ce flux alimente le leaderboard) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 370.09 Tm (Notifications) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 358.89 Tm (- lib/features/notifications/notification_center_page.dart:309-332 -> 4 listeners principaux) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 347.69 Tm (- lib/features/notifications/notification_center_page.dart:766-840 -> listeners additionnels) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 336.49 Tm (par item actionable) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 325.29 Tm (Tracking d'activite) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 314.09 Tm (- lib/services/activity_tracking_service.dart:44-68 -> 1 write sur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 302.89 Tm (users/{uid}/activity_daily) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 291.69 Tm (+ 1 write sur users/{uid} pour last_active_at) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 280.49 Tm (Workers planifies) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 269.29 Tm (- .github/workflows/daily_metals.yml:4-8) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 258.09 Tm (- .github/workflows/weekly_leaderboard.yml:4-5) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 246.89 Tm (- .github/workflows/settle.yml:4-5) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 235.69 Tm (Leaderboard batch) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 224.49 Tm (- scripts/build_weekly_leaderboard.js:295-300 -> lecture de tous les users puis) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 213.29 Tm (chargement d'activite par user) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 192.09 Tm (4. Scenarios publicitaires) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 161.09 Tm (Principes de conception) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 134.09 Tm (Avant de parler chiffres, voici la regle de decision utilisee:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 111.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 111.49 Tm (On ne place pas de pub dans une etape ou l'utilisateur est en train d'apprendre, de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 97.89 Tm (reflechir ou de consulter son portefeuille.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 82.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 82.29 Tm (On place la pub la ou l'utilisateur comprend immediatement l'echange: "je regarde une) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 68.69 Tm (pub, j'obtiens un bonus".) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 4499 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 3) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 787.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 787.89 Tm (On garde une frequence capee et lisible pour eviter l'effet casino.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 772.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 772.29 Tm (On privilegie d'abord la retention et la confiance; la monetisation vient ensuite.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 750.69 Tm (Scenario A - Conservateur) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 723.69 Tm (Positionnement:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 701.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 701.09 Tm (Bonus apres le cadeau quotidien gratuit.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 685.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 685.49 Tm (Une session `Daily News` sponsorisee apres l'entree gratuite.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 669.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 669.89 Tm (Un bonus ponctuel sur une mecanique de reroll / double recompense dans `Game`.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 648.29 Tm (Formats:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 625.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 625.69 Tm (`Rewarded ads` uniquement.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 604.09 Tm (Impact UX:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 581.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 581.49 Tm (Gene faible.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 565.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 565.89 Tm (Tres bon respect de la promesse educative.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 550.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 550.29 Tm (Monetisation plus lente mais saine.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 528.69 Tm (Projection de revenu brut:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 504.09 Tm (Hypothese de monetisation) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 492.89 Tm (- 0,35 impression rewarded / DAU / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 481.69 Tm (- eCPM rewarded iOS Europe de l'Ouest: 8 $ a 12 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 470.49 Tm (Projection brute) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 459.29 Tm (- 1k DAU: 84 $ a 126 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 448.09 Tm (- 10k DAU: 840 $ a 1 260 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 436.89 Tm (- 50k DAU: 4 200 $ a 6 300 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 425.69 Tm (- 100k DAU: 8 400 $ a 12 600 $ / mois) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 404.49 Tm (Scenario B - Equilibre et recommande) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 377.49 Tm (Positionnement:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 354.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 354.89 Tm (Tout le scenario A.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 339.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 339.29 Tm (Une `native ad` dans le hub `Aujourd'hui`, sous le premier bloc utile.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 323.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 323.69 Tm (Une `native ad` dans l'espace `Social / Forum`.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 308.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 308.09 Tm (Un `interstitial` tres rare, uniquement apres la fin complete d'une session fermee:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 294.49 Tm (fin de run `Daily News`, fin de simulation, fin de sequence de duel consommee.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 272.89 Tm (Formats:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 250.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 250.29 Tm (`Rewarded` en priorite.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 234.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 234.69 Tm (`Native` leger sur les surfaces feed.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 219.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 219.09 Tm (`Interstitial` cape tres strictement.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 197.49 Tm (Impact UX:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 174.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 174.89 Tm (Gene faible a moderee.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 159.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 159.29 Tm (Bon compromis revenu / image produit.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 143.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 143.69 Tm (C'est le scenario qui semble le plus coherent avec FinHub aujourd'hui.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 122.09 Tm (Projection de revenu brut:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 97.49 Tm (Hypothese de monetisation) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 86.29 Tm (- 0,45 rewarded / DAU / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 75.09 Tm (- 1,20 native / DAU / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 63.89 Tm (- 0,10 interstitial / DAU / jour) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 4428 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 4) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 787.89 Tm (- eCPM rewarded: 8 $ a 12 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 776.69 Tm (- eCPM native: 1 $ a 2 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 765.49 Tm (- eCPM interstitial: 4 $ a 7 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 754.29 Tm (Projection brute) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 743.09 Tm (- 1k DAU: 156 $ a 255 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 731.89 Tm (- 10k DAU: 1 560 $ a 2 550 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 720.69 Tm (- 50k DAU: 7 800 $ a 12 750 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 709.49 Tm (- 100k DAU: 15 600 $ a 25 500 $ / mois) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 688.29 Tm (Scenario C - Croissance plus agressive) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 661.29 Tm (Positionnement:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 638.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 638.69 Tm (Tout le scenario B.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 623.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 623.09 Tm (Un `app open ad` tres doux au retour au foreground, pas au cold start.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 607.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 607.49 Tm (Plus de transitions monetisees autour des runs de jeu et des fins de session.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 585.89 Tm (Formats:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 563.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 563.29 Tm (`Rewarded`) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 547.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 547.69 Tm (`Native`) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 532.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 532.09 Tm (`Interstitial`) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 516.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 516.49 Tm (`App Open`) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 494.89 Tm (Impact UX:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 472.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 472.29 Tm (Gene moderee.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 456.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 456.69 Tm (Augmentation sensible du risque de fatigue publicitaire.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 441.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 441.09 Tm (A reserver a un produit deja tres stable en retention.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 419.49 Tm (Projection de revenu brut:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 394.89 Tm (Hypothese de monetisation) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 383.69 Tm (- 0,65 rewarded / DAU / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 372.49 Tm (- 1,60 native / DAU / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 361.29 Tm (- 0,22 interstitial / DAU / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 350.09 Tm (- 0,20 app open / DAU / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 338.89 Tm (- eCPM rewarded: 8 $ a 12 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 327.69 Tm (- eCPM native: 1 $ a 2,2 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 316.49 Tm (- eCPM interstitial: 4 $ a 7 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 305.29 Tm (- eCPM app open: 3 $ a 6 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 294.09 Tm (Projection brute) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 282.89 Tm (- 1k DAU: 248 $ a 422 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 271.69 Tm (- 10k DAU: 2 484 $ a 4 218 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 260.49 Tm (- 50k DAU: 12 420 $ a 21 090 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 249.29 Tm (- 100k DAU: 24 840 $ a 42 180 $ / mois) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 228.09 Tm (Recommandation publicitaire) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 201.09 Tm (La meilleure trajectoire n'est pas le scenario le plus agressif.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 178.49 Tm (La recommandation est:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 155.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 155.89 Tm (court terme: Scenario A si l'objectif principal est de preserver la qualite produit et) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 142.29 Tm (de valider la mecanique rewarded;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 126.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 126.69 Tm (trajectoire recommandee: Scenario B, parce qu'il monetise les surfaces "naturellement) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 113.09 Tm (sponsorisables" sans fragiliser les surfaces de confiance;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 97.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 97.49 Tm (eviter le scenario C tant que la retention, les caps de frequence et la mesure de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 83.89 Tm (churn post-pub ne sont pas solides.) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 4575 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 5) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 787.89 Tm (5. Modele de cout Firestore) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 756.89 Tm (Ce que facture Firestore) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 729.89 Tm (Sur la base des tarifs standard Firestore cites dans la documentation Firebase, le modele) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 716.29 Tm (utilise dans ce rapport est:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 691.69 Tm (Prix unitaires utilises) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 680.49 Tm (- Read:   0,06 $ / 100 000 reads) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 669.29 Tm (- Write:  0,18 $ / 100 000 writes) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 658.09 Tm (- Delete: 0,02 $ / 100 000 deletes) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 646.89 Tm (Soit en cout unitaire) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 635.69 Tm (- 1 read   = 0,0000006 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 624.49 Tm (- 1 write  = 0,0000018 $) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 613.29 Tm (- 1 delete = 0,0000002 $) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 592.09 Tm (Important:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 569.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 569.49 Tm (Les listeners temps reel sont factures a l'initialisation puis a chaque document) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 555.89 Tm (ajoute, modifie ou retire du resultat.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 540.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 540.29 Tm (Si un listener se reconnecte apres une coupure suffisamment longue, Firestore le) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 526.69 Tm (refacture comme une nouvelle requete.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 511.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 511.09 Tm (La documentation officielle recommande explicitement de garder les datasets ecoutes en) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 497.49 Tm (temps reel petits.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 475.89 Tm (Hypothese de modelisation) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 448.89 Tm (Ce rapport ne s'appuie pas sur des analytics de production. Il s'appuie sur le code) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 435.29 Tm (actuel et sur des hypotheses d'usage plausibles.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 412.69 Tm (J'utilise donc trois profils de "journee utilisateur":) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 390.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 390.09 Tm (`leger`: ouvre l'app, consulte le hub, recupere un bonus, fait peu d'actions;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 374.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 374.49 Tm (`standard`: utilise le hub, le jeu, une partie apprentissage, quelques recompenses et) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 360.89 Tm (ecrit un peu de progression;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 345.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 345.29 Tm (`intense`: utilise plusieurs surfaces, plus de quetes, plus de tracking, plus de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 331.69 Tm (navigation, plus de social.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 310.09 Tm (Projection Firestore du cout mensuel, hors stockage et bande passante:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 285.49 Tm (Profil leger) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 274.29 Tm (- 250 reads / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 263.09 Tm (- 12 writes / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 251.89 Tm (- 0,2 delete / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 240.69 Tm (Projection mensuelle) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 229.49 Tm (- 1k DAU:    5,15 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 218.29 Tm (- 10k DAU:  51,49 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 207.09 Tm (- 50k DAU: 257,46 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 195.89 Tm (- 100k DAU: 514,92 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 184.69 Tm (Profil standard) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 173.49 Tm (- 650 reads / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 162.29 Tm (- 20 writes / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 151.09 Tm (- 0,4 delete / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 139.89 Tm (Projection mensuelle) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 128.69 Tm (- 1k DAU:    12,78 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 117.49 Tm (- 10k DAU:  127,82 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 106.29 Tm (- 50k DAU:  639,12 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 95.09 Tm (- 100k DAU: 1 278,24 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 83.89 Tm (Profil intense) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 72.69 Tm (- 1 500 reads / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 61.49 Tm (- 35 writes / jour / utilisateur) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 4644 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 6) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 787.89 Tm (- 1 delete / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 776.69 Tm (Projection mensuelle) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 765.49 Tm (- 1k DAU:    28,90 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 754.29 Tm (- 10k DAU:  288,96 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 743.09 Tm (- 50k DAU: 1 444,80 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 731.89 Tm (- 100k DAU: 2 889,60 $ / mois) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 710.69 Tm (Lecture importante:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 688.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 688.09 Tm (A petite et moyenne echelle, Firestore n'est pas le probleme principal de FinHub.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 672.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 672.49 Tm (Le cout variable pur par utilisateur est bas.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 656.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 656.89 Tm (Le vrai danger n'est pas "Firestore est cher"; le vrai danger est "certaines requetes) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 643.29 Tm (ont une forme qui devient chere quand la taille des collections augmente".) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 621.69 Tm (6. Les points de derive a grande echelle) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 590.69 Tm (6.1 Hub `Aujourd'hui`: ecoute de collections entieres) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 563.69 Tm (Aujourd'hui, le hub ecoute:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 541.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 541.09 Tm (le document du jour sur `metalsPrices/{today}`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 525.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 525.49 Tm (mais aussi toute la collection `metalsPrices`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 509.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 509.89 Tm (et toute la collection `broadcasts`.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 488.29 Tm (Ce design fonctionne au debut, mais sa facture augmente avec la taille de chaque) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 474.69 Tm (collection.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 452.09 Tm (Hypothese utilisee pour illustrer le risque:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 429.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 429.49 Tm (`metalsPrices`: 365 documents d'historique;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 413.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 413.89 Tm (`broadcasts`: 80 documents, car le script de notification les prune a 80;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 398.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 398.29 Tm (2 sessions utilisateur par jour qui declenchent un snapshot initial.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 376.69 Tm (Impact mensuel des seuls listeners "historique + broadcasts":) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 352.09 Tm (Cout mensuel additionnel estime) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 340.89 Tm (- 10k DAU:   160,20 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 329.69 Tm (- 50k DAU:   801,00 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 318.49 Tm (- 100k DAU: 1 602,00 $ / mois) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 297.29 Tm (Ce n'est pas dramatique a 10k DAU, mais cela devient un cout inutile parce que la valeur) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 283.69 Tm (produit n'exige pas de relire l'integralite de l'historique pour afficher le hub du jour.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 261.09 Tm (6.2 Social leaderboard: listener global sur `users`) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 234.09 Tm (C'est le point le plus risque du code actuel.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 211.49 Tm (Le leaderboard du social repose aujourd'hui sur un listener temps reel sur toute la) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 197.89 Tm (collection `users`. Tant que la base reste petite, cela passe. Des que le produit) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 184.29 Tm (grossit, on se retrouve avec un cout proportionnel a:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 161.69 Tm (`nombre de visites social par jour x nombre total d'utilisateurs stockes`) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 139.09 Tm (Projection illustrative:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 116.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 116.49 Tm (10k utilisateurs totaux, 10k DAU, 20% ouvrent le social chaque jour;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 100.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 100.89 Tm (50k utilisateurs totaux, 50k DAU, 15% ouvrent le social chaque jour;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 85.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 85.29 Tm (100k utilisateurs totaux, 100k DAU, 10% ouvrent le social chaque jour.) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 61.69 Tm (Cout mensuel estime du seul listener global users) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 15 0 R >>
+endobj
+17 0 obj
+<< /Length 4954 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 7) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 787.89 Tm (- 10k users / 10k DAU / 20% social:    360 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 776.69 Tm (- 50k users / 50k DAU / 15% social:  6 750 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 765.49 Tm (- 100k users / 100k DAU / 10% social: 18 000 $ / mois) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 744.29 Tm (Ce point change completement l'analyse economique du produit:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 721.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 721.69 Tm (sans correction, un tres bon usage social peut detruire une grande partie de la marge) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 708.09 Tm (publicitaire;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 692.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 692.49 Tm (avec correction, Firestore redevient un cout tres raisonnable.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 670.89 Tm (6.3 Tracking d'activite: petit cout unitaire, gros volume cumule) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 643.89 Tm (Chaque evenement tracke ecrit:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 621.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 621.29 Tm (un document journalier `users/{uid}/activity_daily/{date}`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 605.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 605.69 Tm (puis met a jour `users/{uid}.last_active_at`.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 584.09 Tm (Un seul evenement coute peu. Mais sur une app gamifiee, les evenements s'empilent vite.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 570.49 Tm (Le tracking n'est pas le plus gros risque actuel, mais il devient un accelerateur de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 556.89 Tm (writes a mesure que les mini-boucles se multiplient.) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 534.29 Tm (7. Projection apres optimisation des requetes) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 503.29 Tm (Si l'on garde le produit tel quel mais qu'on fait seulement une "hygiene de requetes", le) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 489.69 Tm (cout chute vite:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 467.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 467.09 Tm (remplacer les listeners globaux par des requetes limitees / paginees;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 451.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 451.49 Tm (pre-calculer les classements affiches dans le social;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 435.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 435.89 Tm (ecouter `broadcasts` avec `orderBy\(createdAt desc\).limit\(20\)`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 420.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 420.29 Tm (ecouter `metalsPrices` avec une fenetre bornee ou un document de synthese;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 404.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 404.69 Tm (dedupliquer certains listeners utilisateur redondants.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 383.09 Tm (Modele optimise retenu:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 358.49 Tm (Profil standard optimise) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 347.29 Tm (- 150 reads / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 336.09 Tm (- 18 writes / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 324.89 Tm (- 0,4 delete / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 313.69 Tm (Projection mensuelle) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 302.49 Tm (- 1k DAU:    3,67 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 291.29 Tm (- 10k DAU:  36,74 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 280.09 Tm (- 50k DAU: 183,72 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 268.89 Tm (- 100k DAU: 367,44 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 257.69 Tm (Profil intense optimise) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 246.49 Tm (- 300 reads / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 235.29 Tm (- 30 writes / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 224.09 Tm (- 1 delete / jour / utilisateur) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 212.89 Tm (Projection mensuelle) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 201.69 Tm (- 1k DAU:    7,03 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 190.49 Tm (- 10k DAU:  70,26 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 179.29 Tm (- 50k DAU: 351,30 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 168.09 Tm (- 100k DAU: 702,60 $ / mois) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 146.89 Tm (Lecture business:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 124.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 124.29 Tm (A 10k DAU, la difference entre etat actuel standard et etat optimise reste faible en) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 110.69 Tm (valeur absolue.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 95.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 95.09 Tm (A 50k ou 100k DAU, l'optimisation devient structurelle parce qu'elle protege la marge.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 79.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 79.49 Tm (L'optimisation la plus urgente n'est pas une micro-optimisation; c'est la suppression) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 65.89 Tm (des listeners non bornes.) Tj ET
+endstream
+endobj
+18 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 17 0 R >>
+endobj
+19 0 obj
+<< /Length 4626 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 8) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 787.89 Tm (8. GitHub Actions aujourd'hui, Cloud Functions demain) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 756.89 Tm (Ce qui tourne actuellement) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 729.89 Tm (Aujourd'hui, trois familles de jobs planifies existent:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 705.29 Tm (Cadence observee) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 694.09 Tm (- Daily metals:            24 runs / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 682.89 Tm (- Weekly leaderboard:       1 run / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 671.69 Tm (- Duel worker settle:     144 runs / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 660.49 Tm (Total estime: 169 runs / jour) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 649.29 Tm (Total estime: 5 070 runs / mois) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 628.09 Tm (Cout GitHub Actions actuel) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 601.09 Tm (Le cout actuel depend d'un point externe au repo:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 578.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 578.49 Tm (si le depot est public: les runners standards GitHub-hosted sont gratuits;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 562.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 562.89 Tm (si le depot est prive: le cout depend du plan GitHub et des minutes incluses.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 541.29 Tm (Reperes officiels actuels:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 518.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 518.69 Tm (GitHub Free: 2 000 minutes / mois incluses;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 503.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 503.09 Tm (GitHub Pro / Team: 3 000 minutes / mois incluses;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 487.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 487.49 Tm (Linux 2-core standard runner: 0,006 $ / minute depuis le 1er janvier 2026.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 465.89 Tm (Avec 5 070 runs / mois, le cout depend donc surtout de la duree moyenne de chaque job:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 441.29 Tm (Si le repo est prive et si les jobs utilisent un runner Linux 2-core) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 430.09 Tm (Duree moyenne 0,75 min / run) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 418.89 Tm (- 3k minutes incluses: ~ 4,82 $ / mois au-dela du quota) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 407.69 Tm (Duree moyenne 1,00 min / run) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 396.49 Tm (- 3k minutes incluses: ~ 12,42 $ / mois au-dela du quota) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 385.29 Tm (Duree moyenne 1,50 min / run) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 374.09 Tm (- 3k minutes incluses: ~ 27,63 $ / mois au-dela du quota) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 352.89 Tm (En clair:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 330.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 330.29 Tm (aujourd'hui, GitHub Actions ne represente probablement qu'un petit cout, ou meme zero) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 316.69 Tm (si le repo est public;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 301.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 301.09 Tm (ce n'est pas le poste le plus important.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 279.49 Tm (Ce que change le passage a Cloud Functions / Cloud Scheduler) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 252.49 Tm (Si par "passer les actions git en CF" on entend "remplacer ces workers GitHub Actions par) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 238.89 Tm (des fonctions planifiees Firebase / Google Cloud", alors:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 216.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 216.29 Tm (`Cloud Scheduler`: les 3 premiers jobs sont inclus sans cout, puis 0,10 $ par job et) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 202.69 Tm (par mois;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 187.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 187.09 Tm (`Cloud Functions`: 2M invocations / mois incluses au Blaze plan;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 171.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 171.49 Tm (`FCM`: toujours sans cout d'usage.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 149.89 Tm (Avec les cadences actuelles:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 127.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 127.29 Tm (5 070 invocations / mois est tres loin du seuil gratuit de 2M invocations;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 111.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 111.69 Tm (3 jobs planifies tiennent dans l'allocation gratuite Cloud Scheduler;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 96.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 96.09 Tm (le cout direct de compute des jobs actuels serait donc probablement proche de zero a) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 82.49 Tm (ce stade, ou tres faible.) Tj ET
+endstream
+endobj
+20 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 19 0 R >>
+endobj
+21 0 obj
+<< /Length 4756 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 9) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 787.89 Tm (Le point cle) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 760.89 Tm (Deplacer ces workers vers Cloud Functions ameliore:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 738.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 738.29 Tm (la fiabilite d'exploitation;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 722.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 722.69 Tm (la centralisation des secrets;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 707.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 707.09 Tm (la coherence de la stack Firebase;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 691.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 691.49 Tm (la possibilite de brancher des triggers plus propres a terme.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 669.89 Tm (Mais cela ne change pas la logique economique fondamentale:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 647.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 647.29 Tm (si un job lit beaucoup de documents Firestore, il les lira toujours en Cloud) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 633.69 Tm (Functions;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 618.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 618.09 Tm (si un leaderboard charge tous les users, le cout Firestore restera lie au nombre de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 604.49 Tm (users, quelle que soit la plateforme d'execution;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 588.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 588.89 Tm (migrer GitHub Actions vers Cloud Functions ne remplace donc pas l'optimisation des) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 575.29 Tm (requetes Firestore.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 553.69 Tm (Nuance de cout 2nd gen) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 526.69 Tm (Il faut cependant noter une subtilite officielle importante:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 504.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 504.09 Tm (en Cloud Functions 2nd gen, les petites fonctions low-memory ont par defaut 1 CPU, ce) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 490.49 Tm (qui peut rendre certaines fonctions plus cheres qu'attendu si on les porte sans) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 476.89 Tm (reglage fin.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 455.29 Tm (Dans votre cas, cette nuance ne renverse pas la conclusion:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 432.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 432.69 Tm (a l'echelle actuelle, les workers resteront vraisemblablement dans les quotas gratuits) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 419.09 Tm (ou tres proches;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 403.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 403.49 Tm (a plus grande echelle, la vraie facture restera largement cote Firestore et non cote) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 389.89 Tm (invocations de fonctions.) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 368.29 Tm (9. Lecture economique globale) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 337.29 Tm (Le point le plus interessant du dossier est le suivant:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 314.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 314.69 Tm (dans une version disciplinee de FinHub, la pub peut largement couvrir les couts) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 301.09 Tm (Firestore;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 285.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 285.49 Tm (dans une version non optimisee avec listeners globaux, la marge peut etre rongee) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 271.89 Tm (inutilement a mesure que le social grossit.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 250.29 Tm (Lecture synthetique:) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 225.69 Tm (A 10k DAU) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 214.49 Tm (- Revenu pub scenario B:     1 560 $ a 2 550 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 203.29 Tm (- Firestore etat standard:     128 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 192.09 Tm (- Firestore optimise:           37 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 180.89 Tm (A 50k DAU) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 169.69 Tm (- Revenu pub scenario B:     7 800 $ a 12 750 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 158.49 Tm (- Firestore etat standard:     639 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 147.29 Tm (- Firestore optimise:          184 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 136.09 Tm (- Risque si leaderboard global users conserve: ~ 6 750 $ / mois a lui seul) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 124.89 Tm (A 100k DAU) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 113.69 Tm (- Revenu pub scenario B:    15 600 $ a 25 500 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 102.49 Tm (- Firestore etat standard:   1 278 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 91.29 Tm (- Firestore optimise:          367 $ / mois) Tj ET
+BT /F3 8.9 Tf 1 0 0 1 62.00 80.09 Tm (- Risque si leaderboard global users conserve: ~ 18 000 $ / mois) Tj ET
+endstream
+endobj
+22 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 21 0 R >>
+endobj
+23 0 obj
+<< /Length 4790 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 10) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 787.89 Tm (La conclusion n'est donc pas "la pub financera forcement tout" ni "Firestore est trop) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 774.29 Tm (cher". La bonne conclusion est:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 751.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 751.69 Tm (le modele peut etre tres rentable;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 736.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 736.09 Tm (mais cette rentabilite depend fortement de deux ou trois decisions de requetes qui) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 722.49 Tm (paraissent anodines tant que la base est petite.) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 700.89 Tm (10. Recommandations concretes) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 669.89 Tm (Priorite 1 - Monetisation) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 642.89 Tm (Lancer d'abord le scenario B, pas le C:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 620.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 620.29 Tm (bonus rewarded apres le cadeau quotidien;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 604.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 604.69 Tm (une session sponsorisee `Daily News`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 589.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 589.09 Tm (une native dans `Aujourd'hui`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 573.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 573.49 Tm (une native dans `Social / Forum`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 557.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 557.89 Tm (un interstitial tres rare a une vraie fin de session.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 536.29 Tm (Priorite 2 - Requetes Firestore a corriger avant la vraie montee en) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 519.29 Tm (charge) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 492.29 Tm (1.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 70.00 492.29 Tm (Remplacer le listener global `users` du social par:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 476.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 476.69 Tm (un leaderboard materialise;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 461.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 461.09 Tm (ou une collection dediee `leaderboards/current`;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 445.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 445.49 Tm (ou au minimum une requete `limit\(10\)` / pagination.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 423.89 Tm (2.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 70.00 423.89 Tm (Remplacer les listeners entiers sur `metalsPrices` et `broadcasts` par:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 408.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 408.29 Tm (un document de synthese du jour;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 392.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 392.69 Tm (ou une requete ordonnee et bornee.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 371.09 Tm (3.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 70.00 371.09 Tm (Reduire les listeners imbriques redondants sur `users/{uid}` dans `Game`, `Shop` et) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 70.00 357.49 Tm (certaines cartes de hub.) Tj ET
+BT /F2 12.5 Tf 1 0 0 1 52.00 335.89 Tm (Priorite 3 - Backend ops) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 308.89 Tm (Migrer les jobs GitHub Actions vers Cloud Functions / Cloud Scheduler pour:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 286.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 286.29 Tm (simplifier l'exploitation;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 270.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 270.69 Tm (eviter la dependance a GitHub pour des taches produit;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 255.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 255.09 Tm (preparer des traitements backend plus proches du reste de l'architecture.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 233.49 Tm (Mais ne pas vendre cette migration comme une economie massive:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 210.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 210.89 Tm (la vraie economie viendra surtout de l'hygiene Firestore.) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 189.29 Tm (11. Conclusion) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 158.29 Tm (FinHub a un profil tres favorable a une monetisation publicitaire mesuree:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 135.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 135.69 Tm (la boucle quotidienne et les monnaies virtuelles se pretent bien au rewarded;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 120.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 120.09 Tm (les surfaces feed se pretent a quelques native ads;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 104.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 104.49 Tm (les surfaces de confiance doivent rester tres peu polluees.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 82.89 Tm (Le meilleur compromis, a ce stade, est un modele `rewarded-first` complete par un peu de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 69.29 Tm (`native`, avec tres peu d'interstitiels.) Tj ET
+endstream
+endobj
+24 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 23 0 R >>
+endobj
+25 0 obj
+<< /Length 5116 >>
+stream
+BT /F1 9 Tf 1 0 0 1 52.00 26.00 Tm (Page 11) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 787.89 Tm (Sur les couts, le constat est rassurant mais exigeant:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 765.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 765.29 Tm (Firestore pur reste peu cher par utilisateur si les requetes sont bien formees;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 749.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 749.69 Tm (l'architecture actuelle contient deja un ou deux patterns qui ne passeront pas bien a) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 736.09 Tm (grande echelle;) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 720.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 720.49 Tm (corriger ces patterns avant d'accelerer l'acquisition est une decision de marge, pas) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 706.89 Tm (seulement une decision d'ingenierie.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 685.29 Tm (Autrement dit:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 662.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 662.69 Tm (Oui, la pub peut financer proprement l'app.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 647.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 647.09 Tm (Oui, passer les workers GitHub vers Cloud Functions a du sens.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 631.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 631.49 Tm (Non, il ne faut pas confondre migration d'execution et vraie optimisation de cout.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 615.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 615.89 Tm (Le vrai levier economique prioritaire est la suppression des listeners non bornes et) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 602.29 Tm (des lectures globales inutiles.) Tj ET
+BT /F2 15.5 Tf 1 0 0 1 52.00 580.69 Tm (12. Sources) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 549.69 Tm (Sources officielles:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 527.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 527.09 Tm (Firebase pricing: https://firebase.google.com/pricing) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 511.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 511.49 Tm (Cloud Firestore billing: https://firebase.google.com/docs/firestore/pricing) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 495.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 495.89 Tm (Firestore realtime queries at scale:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 482.29 Tm (https://firebase.google.com/docs/firestore/real-time_queries_at_scale) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 466.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 466.69 Tm (Scheduled functions / Cloud Scheduler cost note:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 453.09 Tm (https://firebase.google.com/docs/functions/schedule-functions) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 437.49 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 437.49 Tm (Cloud Functions for Firebase: https://firebase.google.com/docs/functions/) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 421.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 421.89 Tm (Cloud Functions manage functions:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 408.29 Tm (https://firebase.google.com/docs/functions/manage-functions) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 392.69 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 392.69 Tm (GitHub Actions billing:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 379.09 Tm (https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-f) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 365.49 Tm (or-github-actions) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 349.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 349.89 Tm (GitHub Actions runner pricing:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 336.29 Tm (https://docs.github.com/billing/reference/actions-runner-pricing) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 314.69 Tm (Benchmarks publicitaires utilises comme base directionnelle:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 292.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 292.09 Tm (Appodeal Benchmarks / eCPM report:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 278.49 Tm (https://appodeal.com/blog/mobile-ecpm-report-app-ad-monetization-worldwide-performance) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 264.89 Tm (/) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 249.29 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 249.29 Tm (Appodeal Q4 2024 report teaser:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 235.69 Tm (https://appodeal.com/wp-content/uploads/2025/03/Quarterly_Mobile_eCPM_Report_-_Q4_2024) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 222.09 Tm (.pdf) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 200.49 Tm (Note methodologique:) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 177.89 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 177.89 Tm (Les placements, taux d'impression et projections de revenu sont des modelisations) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 164.29 Tm (internes construites a partir du produit, du code et des benchmarks publics; ce ne) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 150.69 Tm (sont pas des revenus garantis.) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 52.00 135.09 Tm (-) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 135.09 Tm (Les projections de cout Firestore sont des ordres de grandeur batis a partir des) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 121.49 Tm (tarifs officiels et de scenarios d'usage plausibles, pas des exports de facturation de) Tj ET
+BT /F1 10.5 Tf 1 0 0 1 68.00 107.89 Tm (production.) Tj ET
+endstream
+endobj
+26 0 obj
+<< /Type /Page /Parent 1 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 2 0 R /F2 3 0 R /F3 4 0 R >> >> /Contents 25 0 R >>
+endobj
+27 0 obj
+<< /Type /Catalog /Pages 1 0 R >>
+endobj
+xref
+0 28
+0000000000 65535 f 
+0000000015 00000 n 
+0000000142 00000 n 
+0000000212 00000 n 
+0000000287 00000 n 
+0000000355 00000 n 
+0000005581 00000 n 
+0000005733 00000 n 
+0000011307 00000 n 
+0000011459 00000 n 
+0000016010 00000 n 
+0000016163 00000 n 
+0000020644 00000 n 
+0000020798 00000 n 
+0000025426 00000 n 
+0000025580 00000 n 
+0000030277 00000 n 
+0000030431 00000 n 
+0000035438 00000 n 
+0000035592 00000 n 
+0000040271 00000 n 
+0000040425 00000 n 
+0000045234 00000 n 
+0000045388 00000 n 
+0000050231 00000 n 
+0000050385 00000 n 
+0000055554 00000 n 
+0000055708 00000 n 
+trailer
+<< /Size 28 /Root 27 0 R >>
+startxref
+55758
+%%EOF

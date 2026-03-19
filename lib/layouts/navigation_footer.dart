@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fintech/core/constants.dart';
 
 /// Modern animated bottom footer with 5 items:
@@ -312,6 +313,7 @@ class _FooterItem extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (selected) return;
+          HapticFeedback.selectionClick();
           onTap(index);
         },
         splashColor: Colors.black.withValues(alpha: 0.06),

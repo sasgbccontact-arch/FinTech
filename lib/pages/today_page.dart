@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
@@ -21,6 +22,7 @@ import 'package:fintech/pages/goal_page.dart';
 import 'package:fintech/pages/info_page.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
 import 'package:fintech/utils/search_suggestion_ranker.dart';
+import 'package:fintech/widgets/sponsored_native_ad_card.dart';
 
 class TodayPage extends StatefulWidget {
   const TodayPage({super.key, required this.onNavigateToTab});
@@ -40,6 +42,10 @@ class _TodayPageState extends State<TodayPage> {
   String _avatarAsset(String id) {
     if (id == '_easteregg') return 'assets/avatars/easteregg.png';
     if (id == '_sydsteregg') return 'assets/avatars/sydsteregg.png';
+    if (id == '_quintprime') return 'assets/avatars/quint_prime.png';
+    if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
+    if (id == '_groseline') return 'assets/avatars/groseline.png';
+    if (id == '_gay') return 'assets/avatars/gay.png';
     if (id == '_call') return 'assets/avatars/avatar_call.png';
     if (id == '_happy') return 'assets/avatars/avatar_happy.png';
     if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';
@@ -241,6 +247,16 @@ class _TodayPageState extends State<TodayPage> {
                             userId: user.uid,
                             userData: userData,
                           ),
+                      onLongPress:
+                          avatarId == null
+                              ? null
+                              : () {
+                                HapticFeedback.mediumImpact();
+                                showAvatarPreview(
+                                  context,
+                                  _avatarAsset(avatarId),
+                                );
+                              },
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -303,6 +319,8 @@ class _TodayPageState extends State<TodayPage> {
                   onOpenDividendCalendar: _openDividendCalendar,
                   onOpenCommunity: _openCommunity,
                 ),
+                const SizedBox(height: 16),
+                const SponsoredNativeAdCard.today(),
               ],
             );
           },
@@ -325,10 +343,15 @@ class _TodayPageState extends State<TodayPage> {
 }
 
 class _AvatarButton extends StatelessWidget {
-  const _AvatarButton({required this.avatarAsset, required this.onTap});
+  const _AvatarButton({
+    required this.avatarAsset,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   final String? avatarAsset;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -338,6 +361,7 @@ class _AvatarButton extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           width: 42,
           height: 42,
@@ -806,14 +830,6 @@ class _HeroTodayCardState extends State<_HeroTodayCard> {
                         height: 1.05,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'FinHub te propose les actions les plus utiles pour progresser sans te perdre.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        height: 1.45,
-                      ),
-                    ),
                     const SizedBox(height: 14),
                     Wrap(
                       spacing: 10,
@@ -831,45 +847,6 @@ class _HeroTodayCardState extends State<_HeroTodayCard> {
                         ),
                       ],
                     ),
-                    if (widget.interests.isNotEmpty) ...[
-                      const SizedBox(height: 14),
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 220),
-                        opacity: _searchExpanded ? 0.72 : 1,
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children:
-                              widget.interests
-                                  .map(
-                                    (interest) => Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.14,
-                                        ),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        interest.toUpperCase(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 11,
-                                          letterSpacing: 0.4,
-                                        ),
-                                      ),
-                                    ),
-                                  )
-                                  .toList(),
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 18),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 280),
@@ -2775,13 +2752,24 @@ class _TodayHubActionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: detailsColor1.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: detailsColor2, size: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: detailsColor1.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: detailsColor2, size: 16),
+                  ),
+                  const Spacer(),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 12,
+                    color: detailsColor2,
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               Text(
@@ -3071,9 +3059,9 @@ class _MiniActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF7F8FA),
+          color: detailsColor1.withValues(alpha: 0.18),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE6E8EB)),
+          border: Border.all(color: detailsColor2.withValues(alpha: 0.22)),
         ),
         child: Column(
           children: [

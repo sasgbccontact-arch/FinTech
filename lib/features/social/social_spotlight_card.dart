@@ -3,10 +3,13 @@ import 'package:flutter/cupertino.dart';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import 'package:fintech/core/constants.dart';
+import 'package:fintech/features/settings/app_settings_sheet.dart' show AvatarPickerSheet;
 
 enum _LeaderboardScope { global, friends }
 
@@ -38,6 +41,30 @@ Future<void> showSocialProfileSheet({
   );
 }
 
+void showAvatarPreview(BuildContext context, String? assetPath) {
+  if (assetPath == null) return;
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.78),
+    builder:
+        (ctx) => GestureDetector(
+          onTap: () => Navigator.of(ctx).pop(),
+          behavior: HitTestBehavior.opaque,
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: Image.asset(
+                assetPath,
+                width: 280,
+                height: 280,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+  );
+}
+
 class SocialSpotlightCard extends StatefulWidget {
   const SocialSpotlightCard({
     super.key,
@@ -55,6 +82,34 @@ class SocialSpotlightCard extends StatefulWidget {
 class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
   _LeaderboardScope _scope = _LeaderboardScope.global;
   _LeaderboardMetric _metric = _LeaderboardMetric.level;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncCurrentUserXpToRootDoc();
+  }
+
+  /// Copie l'XP de games/progress vers users/{uid} pour que le leaderboard
+  /// et la fiche profil puissent lire le bon niveau.
+  Future<void> _syncCurrentUserXpToRootDoc() async {
+    try {
+      final db = FirebaseFirestore.instance;
+      final uid = widget.currentUserId;
+      final progressSnap = await db
+          .collection('users')
+          .doc(uid)
+          .collection('games')
+          .doc('progress')
+          .get();
+      final xp = (progressSnap.data()?['xp'] as num?)?.toInt();
+      if (xp != null && xp > 0) {
+        await db
+            .collection('users')
+            .doc(uid)
+            .set({'xp': xp}, SetOptions(merge: true));
+      }
+    } catch (_) {}
+  }
 
   void _log(String message) {
     debugPrint('[SocialFriends] $message');
@@ -493,7 +548,7 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
   }
 }
 
-class _LeaderboardSection extends StatelessWidget {
+class _LeaderboardSection extends StatefulWidget {
   const _LeaderboardSection({
     required this.scope,
     required this.metric,
@@ -511,9 +566,42 @@ class _LeaderboardSection extends StatelessWidget {
   final ValueChanged<_SocialUserEntry> onOpenProfile;
 
   @override
+  State<_LeaderboardSection> createState() => _LeaderboardSectionState();
+}
+
+class _LeaderboardSectionState extends State<_LeaderboardSection> {
+  final Map<String, int> _xpCache = {};
+  final Set<String> _fetching = {};
+
+  void _fetchXpForNew(List<_SocialUserEntry> entries) {
+    for (final e in entries) {
+      if (_xpCache.containsKey(e.uid) || _fetching.contains(e.uid)) continue;
+      _fetching.add(e.uid);
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(e.uid)
+          .collection('games')
+          .doc('progress')
+          .get()
+          .then((snap) {
+            final xp = (snap.data()?['xp'] as num?)?.toInt();
+            if (xp != null && mounted) {
+              setState(() => _xpCache[e.uid] = xp);
+            }
+          });
+    }
+  }
+
+  List<_SocialUserEntry> _patchXp(List<_SocialUserEntry> entries) =>
+      entries.map((e) {
+        final cached = _xpCache[e.uid];
+        return cached != null ? e.withXp(cached) : e;
+      }).toList();
+
+  @override
   Widget build(BuildContext context) {
     final title =
-        scope == _LeaderboardScope.global
+        widget.scope == _LeaderboardScope.global
             ? 'Top 10 global'
             : 'Classement entre amis';
 
@@ -530,13 +618,13 @@ class _LeaderboardSection extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Tri actuel: ${_metricLabel(metric)}',
+          'Tri actuel: ${_metricLabel(widget.metric)}',
           style: const TextStyle(color: Colors.black54),
         ),
         const SizedBox(height: 12),
-        if (scope == _LeaderboardScope.global)
+        if (widget.scope == _LeaderboardScope.global)
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: globalStream,
+            stream: widget.globalStream,
             builder: (context, snapshot) {
               if (snapshot.hasError) {
                 return const _EmptyLeaderboard(
@@ -544,7 +632,7 @@ class _LeaderboardSection extends StatelessWidget {
                       'Impossible de charger le classement global pour le moment.',
                 );
               }
-              final entries =
+              final rawEntries =
                   (snapshot.data?.docs ?? const [])
                       .map(
                         (doc) => _SocialUserEntry.fromUserDoc(
@@ -554,25 +642,26 @@ class _LeaderboardSection extends StatelessWidget {
                       )
                       .whereType<_SocialUserEntry>()
                       .toList();
+              _fetchXpForNew(rawEntries);
               return _LeaderboardList(
-                entries: _sortEntries(entries, metric),
-                metric: metric,
-                onOpenProfile: onOpenProfile,
+                entries: _sortEntries(_patchXp(rawEntries), widget.metric),
+                metric: widget.metric,
+                onOpenProfile: widget.onOpenProfile,
               );
             },
           )
         else
           _FriendsLeaderboard(
-            friendIds: friendIds,
-            metric: metric,
-            onOpenProfile: onOpenProfile,
+            friendIds: widget.friendIds,
+            metric: widget.metric,
+            onOpenProfile: widget.onOpenProfile,
           ),
       ],
     );
   }
 }
 
-class _FriendsLeaderboard extends StatelessWidget {
+class _FriendsLeaderboard extends StatefulWidget {
   const _FriendsLeaderboard({
     required this.friendIds,
     required this.metric,
@@ -584,8 +673,41 @@ class _FriendsLeaderboard extends StatelessWidget {
   final ValueChanged<_SocialUserEntry> onOpenProfile;
 
   @override
+  State<_FriendsLeaderboard> createState() => _FriendsLeaderboardState();
+}
+
+class _FriendsLeaderboardState extends State<_FriendsLeaderboard> {
+  final Map<String, int> _xpCache = {};
+  final Set<String> _fetching = {};
+
+  void _fetchXpForNew(List<_SocialUserEntry> entries) {
+    for (final e in entries) {
+      if (_xpCache.containsKey(e.uid) || _fetching.contains(e.uid)) continue;
+      _fetching.add(e.uid);
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(e.uid)
+          .collection('games')
+          .doc('progress')
+          .get()
+          .then((snap) {
+            final xp = (snap.data()?['xp'] as num?)?.toInt();
+            if (xp != null && mounted) {
+              setState(() => _xpCache[e.uid] = xp);
+            }
+          });
+    }
+  }
+
+  List<_SocialUserEntry> _patchXp(List<_SocialUserEntry> entries) =>
+      entries.map((e) {
+        final cached = _xpCache[e.uid];
+        return cached != null ? e.withXp(cached) : e;
+      }).toList();
+
+  @override
   Widget build(BuildContext context) {
-    final ids = friendIds.take(30).toList();
+    final ids = widget.friendIds.take(30).toList();
     if (ids.length <= 1) {
       return const _EmptyLeaderboard(
         message: 'Ajoute des amis pour débloquer ce classement.',
@@ -604,7 +726,7 @@ class _FriendsLeaderboard extends StatelessWidget {
                 'Impossible de charger le classement entre amis pour le moment.',
           );
         }
-        final entries =
+        final rawEntries =
             (snapshot.data?.docs ?? const [])
                 .map(
                   (doc) =>
@@ -612,10 +734,11 @@ class _FriendsLeaderboard extends StatelessWidget {
                 )
                 .whereType<_SocialUserEntry>()
                 .toList();
+        _fetchXpForNew(rawEntries);
         return _LeaderboardList(
-          entries: _sortEntries(entries, metric),
-          metric: metric,
-          onOpenProfile: onOpenProfile,
+          entries: _sortEntries(_patchXp(rawEntries), widget.metric),
+          metric: widget.metric,
+          onOpenProfile: widget.onOpenProfile,
         );
       },
     );
@@ -2199,18 +2322,29 @@ class _SocialProfileSheetLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (initialUserData != null) {
-      return _SocialProfileSheet(
-        entry: _SocialUserEntry.fromMap(initialUserData, fallbackUid: userId),
-        metric: metric,
-      );
-    }
-
-    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+    return FutureBuilder<List<DocumentSnapshot<Map<String, dynamic>>>>(
+      future: Future.wait([
+        FirebaseFirestore.instance.collection('users').doc(userId).get(),
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .collection('games')
+            .doc('progress')
+            .get(),
+      ]),
       builder: (context, snapshot) {
+        // Affichage instantané avec initialUserData en attendant le vrai XP
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
+          if (initialUserData != null) {
+            return _SocialProfileSheet(
+              entry: _SocialUserEntry.fromMap(
+                initialUserData,
+                fallbackUid: userId,
+              ),
+              metric: metric,
+            );
+          }
           return const Material(
             color: backgroundColor,
             child: SafeArea(
@@ -2220,9 +2354,16 @@ class _SocialProfileSheetLoader extends StatelessWidget {
           );
         }
 
+        final userDoc = snapshot.data?[0];
+        final progressDoc = snapshot.data?[1];
+        // Fusionner les deux documents : games/progress fournit xp réel
+        final merged = <String, dynamic>{
+          ...?userDoc?.data(),
+          ...?progressDoc?.data(),
+        };
         return _SocialProfileSheet(
-          entry: _SocialUserEntry.fromUserDoc(
-            snapshot.data,
+          entry: _SocialUserEntry.fromMap(
+            merged.isEmpty ? null : merged,
             fallbackUid: userId,
           ),
           metric: metric,
@@ -2232,14 +2373,71 @@ class _SocialProfileSheetLoader extends StatelessWidget {
   }
 }
 
-class _SocialProfileSheet extends StatelessWidget {
+class _SocialProfileSheet extends StatefulWidget {
   const _SocialProfileSheet({required this.entry, required this.metric});
 
   final _SocialUserEntry entry;
   final _LeaderboardMetric metric;
 
   @override
+  State<_SocialProfileSheet> createState() => _SocialProfileSheetState();
+}
+
+class _SocialProfileSheetState extends State<_SocialProfileSheet> {
+  bool get _isCurrentUser =>
+      FirebaseAuth.instance.currentUser?.uid == widget.entry.uid;
+
+  Future<void> _changeAvatar() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    HapticFeedback.lightImpact();
+
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid);
+    final progressRef = userRef.collection('games').doc('progress');
+
+    final progressSnap = await progressRef.get();
+    if (!mounted) return;
+
+    final progressData = progressSnap.data() ?? {};
+    final inventory =
+        (progressData['inventory'] as List<dynamic>?)
+            ?.whereType<String>()
+            .toList() ??
+        <String>[];
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder:
+          (_) => AvatarPickerSheet(
+            currentAvatarId: widget.entry.avatarId,
+            unlockedAvatars: inventory,
+            onSelect: (id) async {
+              await userRef.set({'avatar_id': id}, SetOptions(merge: true));
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Avatar modifié avec succès.'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+          ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final metric = widget.metric;
     return Material(
       color: backgroundColor,
       child: SafeArea(
@@ -2294,7 +2492,54 @@ class _SocialProfileSheet extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    _AvatarBadge(avatarId: entry.avatarId, rank: null),
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        GestureDetector(
+                          onTap: () => showAvatarPreview(
+                            context,
+                            _avatarAsset(entry.avatarId),
+                          ),
+                          child: _AvatarBadge(
+                            avatarId: entry.avatarId,
+                            rank: null,
+                          ),
+                        ),
+                        if (_isCurrentUser)
+                          Positioned(
+                            right: -4,
+                            bottom: -4,
+                            child: GestureDetector(
+                              onTap: _changeAvatar,
+                              child: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withValues(alpha: 0.15),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.edit_rounded,
+                                  size: 12,
+                                  color: detailsColor2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
@@ -2633,6 +2878,20 @@ class _SocialUserEntry {
   final int coins;
   final int gems;
 
+  _SocialUserEntry withXp(int newXp) => _SocialUserEntry(
+    uid: uid,
+    name: name,
+    avatarId: avatarId,
+    profilePublic: profilePublic,
+    badges: badges,
+    interests: interests,
+    xp: newXp,
+    level: _levelForXp(newXp),
+    streak: streak,
+    coins: coins,
+    gems: gems,
+  );
+
   factory _SocialUserEntry.fromMap(
     Map<String, dynamic>? data, {
     required String fallbackUid,
@@ -2920,6 +3179,10 @@ String? _avatarAsset(String? id) {
   if (id == null || id.isEmpty) return null;
   if (id == '_easteregg') return 'assets/avatars/easteregg.png';
   if (id == '_sydsteregg') return 'assets/avatars/sydsteregg.png';
+  if (id == '_quintprime') return 'assets/avatars/quint_prime.png';
+  if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
+  if (id == '_groseline') return 'assets/avatars/groseline.png';
+  if (id == '_gay') return 'assets/avatars/gay.png';
   if (id == '_call') return 'assets/avatars/avatar_call.png';
   if (id == '_happy') return 'assets/avatars/avatar_happy.png';
   if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';

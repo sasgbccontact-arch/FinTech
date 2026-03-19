@@ -1,3 +1,5 @@
+import 'learn_course5_quiz_data.dart';
+
 Map<String, dynamic> _lesson5(String title, String content) => {
   'lesson_title': title,
   'content': content,
@@ -108,6 +110,7 @@ On peut les classer du plus simple au plus complexe. Ce chapitre présente une l
               'Actions, obligations et ETF',
               r'''Durant le début de l'apprentissage, plusieurs produits financiers classiques ont déjà été rencontrés. Voici un rappel rapide.
 
+**Action**
 Une **action** représente une part de propriété d'une entreprise. Son rendement total peut se résumer par :
 
 \[
@@ -116,6 +119,7 @@ Une **action** représente une part de propriété d'une entreprise. Son rendeme
 
 Le risque principal d'une action est la baisse du cours, voire la faillite de l'entreprise.
 
+**Obligation**
 Une **obligation** est un prêt accordé à un État ou à une entreprise. L'investisseur devient créancier et non propriétaire. L'émetteur s'engage à verser un coupon et à rembourser le capital à l'échéance.
 
 \[
@@ -126,6 +130,7 @@ Les principaux risques sont :
 * le risque de défaut ;
 * le risque de taux.
 
+**ETF**
 Un **ETF** est un fonds coté qui permet une diversification immédiate, à moindre frais et facile d'accès. On distingue notamment des ETF indiciels, sectoriels, obligataires ou matières premières, avec réplication physique ou synthétique.''',
             ),
           ],
@@ -190,13 +195,13 @@ Capital \ + \ Interets
 
 Le rendement est connu dès le départ. Il n'y a aucune incertitude sur le taux promis.
 
-Les avantages :
+**Les avantages**
 * capital garanti ;
 * peu ou pas de frais ;
 * rémunération souvent supérieure aux livrets ;
 * visibilité parfaite sur le gain final.
 
-Les limites :
+**Les limites**
 * argent bloqué pendant la durée du placement ;
 * impossibilité d'alimenter progressivement le compte ;
 * fiscalité sur les intérêts ;
@@ -359,7 +364,7 @@ Dans tous les cas, ces produits ne cherchent pas à prévoir toute la trajectoir
               lessons: [
                 _lesson5(
                   'Des instruments de scénario, pas de détention passive',
-                  r'''Les produits dérivés partagent plusieurs caractéristiques :
+                  r'''**Caractéristiques communes des produits dérivés**
 * leur valeur est souvent sensible au temps ;
 * une perte totale est possible ;
 * leur comportement dépend de nombreux paramètres : temps, volatilité, barrières, distance au prix.
@@ -577,7 +582,6 @@ Les crypto-actifs n'ont pas vocation à remplacer toutes les autres classes d'ac
   ],
 };
 
-final Map<String, dynamic> chapter5QuizData = {
-  'course_title': 'Les actifs financiers : QCM',
-  'chapters': <Map<String, dynamic>>[],
-};
+final Map<String, dynamic> chapter5QuizData = buildChapter5QuizData(
+  chapter5CourseData,
+);

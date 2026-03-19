@@ -529,18 +529,14 @@ class DuelService {
         {
           'startingHoldingsValue': initiatorProfile.holdingsValueEstimate,
           'startingReserveCoins': initiatorProfile.reserveCoins,
-          'startingTotalCapital':
-              initiatorProfile.holdingsValueEstimate +
-              initiatorProfile.reserveCoins,
+          'startingTotalCapital': initiatorProfile.holdingsValueEstimate,
           'startingPositionsCount': initiatorProfile.positionsCount,
           'startingHoldings': const <Map<String, dynamic>>[],
           'startingHoldingsCapturedAt': null,
           'capitalTimeline': <Map<String, dynamic>>[
             <String, dynamic>{
               'at': Timestamp.fromDate(acceptedAt),
-              'totalCapital':
-                  initiatorProfile.holdingsValueEstimate +
-                  initiatorProfile.reserveCoins,
+              'totalCapital': initiatorProfile.holdingsValueEstimate,
               'score': 0,
               'returnPct': 0,
             },
@@ -552,9 +548,7 @@ class DuelService {
           'currentReturnPctCache': 0,
           'currentScoreCache': 0,
           'currentHoldingsValueCache': initiatorProfile.holdingsValueEstimate,
-          'currentTotalCapitalCache':
-              initiatorProfile.holdingsValueEstimate +
-              initiatorProfile.reserveCoins,
+          'currentTotalCapitalCache': initiatorProfile.holdingsValueEstimate,
           'currentReserveCoinsCache': initiatorProfile.reserveCoins,
           'currentPositionsCountCache': initiatorProfile.positionsCount,
           'currentUpdatedAt': Timestamp.fromDate(acceptedAt),
@@ -567,8 +561,7 @@ class DuelService {
       transaction.set(_duelParticipantRef(duelDoc.id, uid), {
         'startingHoldingsValue': targetProfile.holdingsValueEstimate,
         'startingReserveCoins': targetProfile.reserveCoins,
-        'startingTotalCapital':
-            targetProfile.holdingsValueEstimate + targetProfile.reserveCoins,
+        'startingTotalCapital': targetProfile.holdingsValueEstimate,
         'startingPositionsCount': targetProfile.positionsCount,
         'startingHoldings': acceptedUserHoldings
             .map((holding) => holding.toMap())
@@ -577,9 +570,7 @@ class DuelService {
         'capitalTimeline': <Map<String, dynamic>>[
           <String, dynamic>{
             'at': Timestamp.fromDate(acceptedAt),
-            'totalCapital':
-                targetProfile.holdingsValueEstimate +
-                targetProfile.reserveCoins,
+            'totalCapital': targetProfile.holdingsValueEstimate,
             'score': 0,
             'returnPct': 0,
           },
@@ -591,8 +582,7 @@ class DuelService {
         'currentReturnPctCache': 0,
         'currentScoreCache': 0,
         'currentHoldingsValueCache': targetProfile.holdingsValueEstimate,
-        'currentTotalCapitalCache':
-            targetProfile.holdingsValueEstimate + targetProfile.reserveCoins,
+        'currentTotalCapitalCache': targetProfile.holdingsValueEstimate,
         'currentReserveCoinsCache': targetProfile.reserveCoins,
         'currentPositionsCountCache': targetProfile.positionsCount,
         'currentUpdatedAt': Timestamp.fromDate(acceptedAt),
@@ -804,17 +794,13 @@ class DuelService {
       0,
       (total, holding) => total + holding.marketValue,
     );
-    final totalCapital = holdingsValue + reserveCoins;
-    final totalCapitalBaseline =
-        participant.startingTotalCapital <= 0
-            ? math.max(totalCapital, 1)
-            : participant.startingTotalCapital;
-    final engagedCapitalBaseline =
+    final investedBaseline =
         participant.startingHoldingsValue > 0
             ? participant.startingHoldingsValue
-            : totalCapitalBaseline;
-    final pnl = totalCapital - totalCapitalBaseline;
-    final pureReturnPct = (pnl / math.max(engagedCapitalBaseline, 1)) * 100;
+            : math.max(holdingsValue, 1);
+    final investedPnl = holdingsValue - investedBaseline;
+    final pureReturnPct =
+        (investedPnl / math.max(investedBaseline, 1)) * 100;
     final structureBonus = _structureBonus(holdings, holdingsValue);
     final concentrationPenalty = _concentrationPenalty(holdings, holdingsValue);
     final score = pureReturnPct + structureBonus - concentrationPenalty;
@@ -822,7 +808,7 @@ class DuelService {
     return DuelLiveMetrics(
       holdingsValue: holdingsValue,
       reserveCoins: reserveCoins,
-      totalCapital: totalCapital,
+      totalCapital: holdingsValue,
       pureReturnPct: pureReturnPct,
       returnPct: pureReturnPct,
       structureBonus: structureBonus,

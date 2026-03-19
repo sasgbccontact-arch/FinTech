@@ -42,7 +42,7 @@ service cloud.firestore {
     }
 
     function isValidPostType(postType) {
-      return postType in ['discussion', 'question', 'analyse', 'alerte'];
+      return postType in ['discussion', 'question', 'analyse', 'alerte', 'pitch'];
     }
 
     function isValidTags(tags) {
@@ -237,6 +237,12 @@ service cloud.firestore {
 
     match /users/{userId}/games/portofolio/positions/{positionId} {
       allow read: if (isSignedIn() && uid() == userId) || sharesActiveDuelWith(userId);
+    }
+
+    // Lecture publique du progrès (XP/niveau) pour le classement social
+    match /users/{userId}/games/progress {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && uid() == userId;
     }
 
     match /users/{userId}/{document=**} {
@@ -682,15 +688,21 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && request.resource.data.keys().hasOnly([
-          'text', 'uid', 'authorName', 'photoURL',
+          'text', 'uid', 'authorName', 'photoURL', 'authorAvatarId',
           'themeId', 'themeName',
           'upVotes', 'downVotes', 'score',
           'createdAt', 'lastVoteAt',
           'reactions', 'isPinned',
-          'postType', 'tags', 'attachment'
+          'postType', 'tags',
+          'attachment', 'attachments',
+          'authorKarma', 'isVerifiedAuthor',
+          'chartAnnotationPng',
+          'pitchTitle', 'pitchThesis', 'pitchCatalysts', 'pitchRisks',
+          'portfolioSnapshot'
         ])
         && request.resource.data.uid == uid()
-        && isValidMessageText(request.resource.data.text)
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 2000
         && isValidAuthorName(request.resource.data.authorName)
         && request.resource.data.themeId is string
         && request.resource.data.themeId.size() > 0
@@ -707,17 +719,21 @@ service cloud.firestore {
         && request.resource.data.reactions.insightful == 0
         && request.resource.data.isPinned == false
         && isValidPostType(request.resource.data.postType)
-        && isValidTags(request.resource.data.tags)
-        && isValidAttachment(request.resource.data.attachment);
+        && isValidTags(request.resource.data.tags);
 
       allow update: if isSignedIn()
         && request.resource.data.keys().hasOnly([
-          'text', 'uid', 'authorName', 'photoURL',
+          'text', 'uid', 'authorName', 'photoURL', 'authorAvatarId',
           'themeId', 'themeName',
           'upVotes', 'downVotes', 'score',
           'createdAt', 'lastVoteAt',
           'reactions', 'isPinned',
-          'postType', 'tags', 'attachment'
+          'postType', 'tags',
+          'attachment', 'attachments',
+          'authorKarma', 'isVerifiedAuthor',
+          'chartAnnotationPng',
+          'pitchTitle', 'pitchThesis', 'pitchCatalysts', 'pitchRisks',
+          'portfolioSnapshot'
         ])
         && (
           // Vote
@@ -727,6 +743,7 @@ service cloud.firestore {
             && request.resource.data.uid == resource.data.uid
             && request.resource.data.authorName == resource.data.authorName
             && request.resource.data.photoURL == resource.data.photoURL
+            && request.resource.data.get('authorAvatarId', null) == resource.data.get('authorAvatarId', null)
             && request.resource.data.themeId == resource.data.themeId
             && request.resource.data.themeName == resource.data.themeName
             && request.resource.data.createdAt == resource.data.createdAt
@@ -734,7 +751,16 @@ service cloud.firestore {
             && request.resource.data.isPinned == resource.data.isPinned
             && request.resource.data.postType == resource.data.postType
             && request.resource.data.tags == resource.data.tags
-            && request.resource.data.attachment == resource.data.attachment
+            && request.resource.data.get('attachment', null) == resource.data.get('attachment', null)
+            && request.resource.data.get('attachments', null) == resource.data.get('attachments', null)
+            && request.resource.data.get('authorKarma', 0) == resource.data.get('authorKarma', 0)
+            && request.resource.data.get('isVerifiedAuthor', false) == resource.data.get('isVerifiedAuthor', false)
+            && request.resource.data.get('chartAnnotationPng', null) == resource.data.get('chartAnnotationPng', null)
+            && request.resource.data.get('pitchTitle', null) == resource.data.get('pitchTitle', null)
+            && request.resource.data.get('pitchThesis', null) == resource.data.get('pitchThesis', null)
+            && request.resource.data.get('pitchCatalysts', null) == resource.data.get('pitchCatalysts', null)
+            && request.resource.data.get('pitchRisks', null) == resource.data.get('pitchRisks', null)
+            && request.resource.data.get('portfolioSnapshot', null) == resource.data.get('portfolioSnapshot', null)
             && request.resource.data.upVotes is int
             && request.resource.data.downVotes is int
             && request.resource.data.upVotes >= 0
@@ -762,12 +788,22 @@ service cloud.firestore {
             && request.resource.data.uid == resource.data.uid
             && request.resource.data.authorName == resource.data.authorName
             && request.resource.data.photoURL == resource.data.photoURL
+            && request.resource.data.get('authorAvatarId', null) == resource.data.get('authorAvatarId', null)
             && request.resource.data.themeId == resource.data.themeId
             && request.resource.data.themeName == resource.data.themeName
             && request.resource.data.createdAt == resource.data.createdAt
             && request.resource.data.postType == resource.data.postType
             && request.resource.data.tags == resource.data.tags
-            && request.resource.data.attachment == resource.data.attachment
+            && request.resource.data.get('attachment', null) == resource.data.get('attachment', null)
+            && request.resource.data.get('attachments', null) == resource.data.get('attachments', null)
+            && request.resource.data.get('authorKarma', 0) == resource.data.get('authorKarma', 0)
+            && request.resource.data.get('isVerifiedAuthor', false) == resource.data.get('isVerifiedAuthor', false)
+            && request.resource.data.get('chartAnnotationPng', null) == resource.data.get('chartAnnotationPng', null)
+            && request.resource.data.get('pitchTitle', null) == resource.data.get('pitchTitle', null)
+            && request.resource.data.get('pitchThesis', null) == resource.data.get('pitchThesis', null)
+            && request.resource.data.get('pitchCatalysts', null) == resource.data.get('pitchCatalysts', null)
+            && request.resource.data.get('pitchRisks', null) == resource.data.get('pitchRisks', null)
+            && request.resource.data.get('portfolioSnapshot', null) == resource.data.get('portfolioSnapshot', null)
             && request.resource.data.isPinned == resource.data.isPinned
             && request.resource.data.upVotes == resource.data.upVotes
             && request.resource.data.downVotes == resource.data.downVotes
@@ -800,12 +836,22 @@ service cloud.firestore {
             && request.resource.data.uid == resource.data.uid
             && request.resource.data.authorName == resource.data.authorName
             && request.resource.data.photoURL == resource.data.photoURL
+            && request.resource.data.get('authorAvatarId', null) == resource.data.get('authorAvatarId', null)
             && request.resource.data.themeId == resource.data.themeId
             && request.resource.data.themeName == resource.data.themeName
             && request.resource.data.createdAt == resource.data.createdAt
             && request.resource.data.postType == resource.data.postType
             && request.resource.data.tags == resource.data.tags
-            && request.resource.data.attachment == resource.data.attachment
+            && request.resource.data.get('attachment', null) == resource.data.get('attachment', null)
+            && request.resource.data.get('attachments', null) == resource.data.get('attachments', null)
+            && request.resource.data.get('authorKarma', 0) == resource.data.get('authorKarma', 0)
+            && request.resource.data.get('isVerifiedAuthor', false) == resource.data.get('isVerifiedAuthor', false)
+            && request.resource.data.get('chartAnnotationPng', null) == resource.data.get('chartAnnotationPng', null)
+            && request.resource.data.get('pitchTitle', null) == resource.data.get('pitchTitle', null)
+            && request.resource.data.get('pitchThesis', null) == resource.data.get('pitchThesis', null)
+            && request.resource.data.get('pitchCatalysts', null) == resource.data.get('pitchCatalysts', null)
+            && request.resource.data.get('pitchRisks', null) == resource.data.get('pitchRisks', null)
+            && request.resource.data.get('portfolioSnapshot', null) == resource.data.get('portfolioSnapshot', null)
             && request.resource.data.reactions == resource.data.reactions
             && request.resource.data.upVotes == resource.data.upVotes
             && request.resource.data.downVotes == resource.data.downVotes
@@ -815,12 +861,15 @@ service cloud.firestore {
           )
         );
 
-      allow delete: if isLeaseActive()
-        && (
-          (resource.data.downVotes is int && resource.data.downVotes >= 5)
-          || (
-            resource.data.lastVoteAt is timestamp
-            && resource.data.lastVoteAt < request.time - duration.value(7, 'd')
+      allow delete: if (isSignedIn() && resource.data.uid == uid())
+        || isAdminUser()
+        || (isLeaseActive()
+          && (
+            (resource.data.downVotes is int && resource.data.downVotes >= 5)
+            || (
+              resource.data.lastVoteAt is timestamp
+              && resource.data.lastVoteAt < request.time - duration.value(7, 'd')
+            )
           )
         );
 
@@ -853,16 +902,51 @@ service cloud.firestore {
 
         allow create: if isSignedIn()
           && request.resource.data.keys().hasOnly([
-            'text', 'uid', 'authorName', 'photoURL', 'createdAt'
+            'text', 'uid', 'authorName', 'photoURL', 'authorAvatarId',
+            'createdAt', 'upVotes', 'downVotes', 'score'
           ])
           && request.resource.data.uid == uid()
           && isValidMessageText(request.resource.data.text)
           && isValidAuthorName(request.resource.data.authorName)
-          && request.resource.data.createdAt is timestamp;
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.upVotes == 0
+          && request.resource.data.downVotes == 0
+          && request.resource.data.score == 0;
 
-        allow update: if false;
+        // Vote sur réponse
+        allow update: if isSignedIn()
+          && resource.data.uid != uid()
+          && request.resource.data.keys().hasOnly([
+            'text', 'uid', 'authorName', 'photoURL', 'authorAvatarId',
+            'createdAt', 'upVotes', 'downVotes', 'score'
+          ])
+          && request.resource.data.text == resource.data.text
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.authorName == resource.data.authorName
+          && request.resource.data.photoURL == resource.data.photoURL
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.upVotes is int
+          && request.resource.data.downVotes is int
+          && request.resource.data.upVotes >= 0
+          && request.resource.data.downVotes >= 0
+          && request.resource.data.score is int
+          && request.resource.data.score == (request.resource.data.upVotes - request.resource.data.downVotes);
+
         allow delete: if isSignedIn() && resource.data.uid == uid();
       }
+    }
+
+    // Notifications forum (in-app)
+    match /users/{userId}/forum_notifications/{notifId} {
+      allow read, update: if isSignedIn() && uid() == userId;
+      allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+          'type', 'postId', 'fromUid', 'fromName', 'createdAt', 'read'
+        ])
+        && request.resource.data.type in ['reply', 'mention', 'vote_milestone']
+        && request.resource.data.read == false
+        && request.resource.data.createdAt is timestamp;
+      allow delete: if isSignedIn() && uid() == userId;
     }
 
     match /forum_reports/{reportId} {

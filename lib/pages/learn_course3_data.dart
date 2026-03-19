@@ -1,3 +1,5 @@
+import 'learn_course3_quiz_data.dart';
+
 Map<String, dynamic> _lesson(String title, String content) => {
   'lesson_title': title,
   'content': content,
@@ -287,8 +289,13 @@ Si un actif risqué offrait le même rendement qu'un actif sûr, personne ne vou
               'Choisir sous contrainte dans un monde incertain',
               r'''La tension entre préférences individuelles et contrainte de marché explique une grande partie de la finance moderne.
 
+**Fonction d'utilité**
 La fonction d'utilité représente les préférences de l'investisseur.
+
+**Frontière rendement-risque**
 La frontière rendement-risque représente la contrainte économique imposée par le marché.
+
+**Choix optimal**
 Le choix optimal correspond au meilleur compromis possible compte tenu de cette contrainte.
 
 **À retenir**
@@ -604,7 +611,10 @@ L'idée de fond est simple : le contrat doit pousser le dirigeant à choisir les
               'Dette ou actions : un arbitrage microéconomique',
               r'''Une entreprise peut se financer par actions ou par dette.
 
+**Financement par actions**
 Le financement par actions partage le risque avec les investisseurs.
+
+**Financement par dette**
 La dette impose des paiements fixes et introduit une discipline plus forte.
 
 La structure du capital résulte donc d'un arbitrage entre partage du risque, incitations managériales et coûts de difficulté financière.
@@ -933,7 +943,6 @@ Une perte ressentie est souvent psychologiquement plus forte qu'un gain de même
   ],
 };
 
-final Map<String, dynamic> chapter3QuizData = {
-  'course_title': 'Microéconomie et marchés financiers : QCM',
-  'chapters': <Map<String, dynamic>>[],
-};
+final Map<String, dynamic> chapter3QuizData = buildChapter3QuizData(
+  chapter3CourseData,
+);

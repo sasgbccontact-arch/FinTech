@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
+import 'lesson_quiz_question.dart';
 import 'shop_page.dart';
 import 'package:fintech/core/constants.dart';
 import 'package:fintech/services/activity_tracking_service.dart';
@@ -17,26 +18,6 @@ import 'learn_course4_data.dart';
 import 'learn_course5_data.dart';
 
 // --- Models ---
-
-class Question {
-  final String question;
-  final List<String> options;
-  final int correctAnswerIndex;
-
-  Question({
-    required this.question,
-    required this.options,
-    required this.correctAnswerIndex,
-  });
-
-  factory Question.fromJson(Map<String, dynamic> json) {
-    return Question(
-      question: json['question'] ?? '',
-      options: List<String>.from(json['options'] ?? []),
-      correctAnswerIndex: json['correct_answer_index'] ?? 0,
-    );
-  }
-}
 
 class LessonContent {
   final String title;
@@ -74,6 +55,142 @@ class CourseContent {
     required this.author,
     required this.chapters,
   });
+}
+
+String _normalizeQuizLessonTitle(String value) {
+  return value
+      .replaceAll('’', "'")
+      .replaceAll('‘', "'")
+      .replaceAll('“', '"')
+      .replaceAll('”', '"')
+      .replaceAll(' (', '(')
+      .replaceAll('( ', '(')
+      .replaceAll(' )', ')')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .toLowerCase();
+}
+
+CourseContent parseLearnCourseContent(dynamic courseJson, dynamic quizJson) {
+  return _LearnCourseParser().parseCourseContent(courseJson, quizJson);
+}
+
+CourseContent? parseLearnCourseContentSafely(
+  dynamic courseJson,
+  dynamic quizJson,
+  String label,
+) {
+  try {
+    return parseLearnCourseContent(courseJson, quizJson);
+  } catch (e) {
+    debugPrint('$label: échec du parsing avec quiz, fallback sans quiz: $e');
+    try {
+      return parseLearnCourseContent(courseJson, {'chapters': <dynamic>[]});
+    } catch (fallbackError) {
+      debugPrint('$label: échec du fallback sans quiz: $fallbackError');
+      return null;
+    }
+  }
+}
+
+class _LearnCourseParser {
+  CourseContent parseCourseContent(dynamic courseJson, dynamic quizJson) {
+    final chapters = <ChapterContent>[];
+    final courseChapters = courseJson['chapters'] as List;
+    final quizChapters = quizJson['chapters'] as List;
+
+    for (var cData in courseChapters) {
+      chapters.add(_parseChapter(cData, quizChapters));
+    }
+
+    return CourseContent(
+      title: courseJson['course_title'] ?? 'Cours',
+      author: courseJson['author'] ?? '',
+      chapters: chapters,
+    );
+  }
+
+  ChapterContent _parseChapter(
+    dynamic cData,
+    List quizChapters, {
+    List<dynamic>? inheritedQuizzes,
+  }) {
+    final cTitle = cData['chapter_title'];
+
+    var subChaptersFirst = false;
+    if (cData is Map) {
+      final keys = cData.keys.toList();
+      final lIndex = keys.indexOf('lessons');
+      final sIndex = keys.indexOf('sub_chapters');
+      if (sIndex != -1 && lIndex != -1 && sIndex < lIndex) {
+        subChaptersFirst = true;
+      }
+    }
+
+    final cLessons = cData['lessons'] as List? ?? [];
+    final cSubChapters = cData['sub_chapters'] as List? ?? [];
+
+    final List<dynamic> qQuizzes;
+    if (inheritedQuizzes != null) {
+      qQuizzes = inheritedQuizzes;
+    } else {
+      Map<String, dynamic>? qChapter;
+      for (final quizChapter in quizChapters.cast<Map<String, dynamic>>()) {
+        if (quizChapter['chapter_title'] == cTitle) {
+          qChapter = quizChapter;
+          break;
+        }
+      }
+      qQuizzes = (qChapter?['quizzes'] as List?) ?? const <dynamic>[];
+    }
+
+    final lessons = <LessonContent>[];
+    for (var lData in cLessons) {
+      final lTitle = lData['lesson_title'] as String? ?? '';
+      final lContent = lData['content'] as String? ?? '';
+
+      final normalizedLessonTitle = _normalizeQuizLessonTitle(lTitle);
+      Map<String, dynamic>? qData;
+      for (final quiz in qQuizzes.cast<Map<String, dynamic>>()) {
+        if (_normalizeQuizLessonTitle(
+              (quiz['lesson_title'] as String?) ?? '',
+            ) ==
+            normalizedLessonTitle) {
+          qData = quiz;
+          break;
+        }
+      }
+
+      final questions = <Question>[];
+      if (qData != null && qData['questions'] != null) {
+        for (var q in qData['questions']) {
+          questions.add(Question.fromJson(q));
+        }
+      }
+
+      lessons.add(
+        LessonContent(
+          title: lTitle,
+          content: lContent,
+          quizQuestions: questions,
+        ),
+      );
+    }
+
+    final subChapters = <ChapterContent>[];
+    for (var subData in cSubChapters) {
+      subChapters.add(
+        _parseChapter(subData, quizChapters, inheritedQuizzes: qQuizzes),
+      );
+    }
+
+    return ChapterContent(
+      title: cTitle,
+      lessons: lessons,
+      subChapters: subChapters,
+      subChaptersFirst: subChaptersFirst,
+    );
+  }
 }
 
 // --- Pages ---
@@ -145,7 +262,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
       final q1Json = jsonDecode(
         await rootBundle.loadString('assets/quizz1.json'),
       );
-      _course1 = _parseCourseContent(c1Json, q1Json);
+      _course1 = parseLearnCourseContent(c1Json, q1Json);
     } catch (e) {
       setState(() {
         _error = 'Erreur lors du chargement du Chapitre 1: $e';
@@ -162,13 +279,13 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
       final q2Json = jsonDecode(
         await rootBundle.loadString('assets/quizz2.json'),
       );
-      _course2 = _parseCourseContent(c2Json, q2Json);
+      _course2 = parseLearnCourseContent(c2Json, q2Json);
     } catch (e) {
       debugPrint('Erreur chargement Chapitre 2 (ignorée): $e');
     }
 
     try {
-      _course3 = _parseCourseContentSafely(
+      _course3 = parseLearnCourseContentSafely(
         chapter3CourseData,
         chapter3QuizData,
         'Chapitre 3',
@@ -178,7 +295,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
     }
 
     try {
-      _course4 = _parseCourseContentSafely(
+      _course4 = parseLearnCourseContentSafely(
         chapter4CourseData,
         chapter4QuizData,
         'Chapitre 4',
@@ -188,7 +305,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
     }
 
     try {
-      _course5 = _parseCourseContentSafely(
+      _course5 = parseLearnCourseContentSafely(
         chapter5CourseData,
         chapter5QuizData,
         'Chapitre 5',
@@ -208,117 +325,6 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
         _loading = false;
       });
     }
-  }
-
-  CourseContent _parseCourseContent(dynamic courseJson, dynamic quizJson) {
-    final chapters = <ChapterContent>[];
-    final courseChapters = courseJson['chapters'] as List;
-    final quizChapters = quizJson['chapters'] as List;
-
-    for (var cData in courseChapters) {
-      chapters.add(_parseChapter(cData, quizChapters));
-    }
-
-    return CourseContent(
-      title: courseJson['course_title'] ?? 'Cours',
-      author: courseJson['author'] ?? '',
-      chapters: chapters,
-    );
-  }
-
-  CourseContent? _parseCourseContentSafely(
-    dynamic courseJson,
-    dynamic quizJson,
-    String label,
-  ) {
-    try {
-      return _parseCourseContent(courseJson, quizJson);
-    } catch (e) {
-      debugPrint('$label: échec du parsing avec quiz, fallback sans quiz: $e');
-      try {
-        return _parseCourseContent(courseJson, {'chapters': <dynamic>[]});
-      } catch (fallbackError) {
-        debugPrint('$label: échec du fallback sans quiz: $fallbackError');
-        return null;
-      }
-    }
-  }
-
-  ChapterContent _parseChapter(
-    dynamic cData,
-    List quizChapters, {
-    List<dynamic>? inheritedQuizzes,
-  }) {
-    final cTitle = cData['chapter_title'];
-
-    bool subChaptersFirst = false;
-    if (cData is Map) {
-      final keys = cData.keys.toList();
-      final lIndex = keys.indexOf('lessons');
-      final sIndex = keys.indexOf('sub_chapters');
-      if (sIndex != -1 && lIndex != -1 && sIndex < lIndex) {
-        subChaptersFirst = true;
-      }
-    }
-
-    final cLessons = cData['lessons'] as List? ?? [];
-    final cSubChapters = cData['sub_chapters'] as List? ?? [];
-
-    // Find matching quiz chapter
-    final qChapter = quizChapters.firstWhere(
-      (q) => q['chapter_title'] == cTitle,
-      orElse: () => null,
-    );
-
-    // Use found quizzes or inherited ones
-    final List<dynamic> qQuizzes =
-        qChapter != null
-            ? (qChapter['quizzes'] as List)
-            : (inheritedQuizzes ?? []);
-
-    final lessons = <LessonContent>[];
-    for (var lData in cLessons) {
-      final lTitle = lData['lesson_title'];
-      final lContent = lData['content'];
-
-      // Find matching quiz
-      final qIndex = qQuizzes.indexWhere((q) => q['lesson_title'] == lTitle);
-      Map<String, dynamic>? qData;
-      if (qIndex != -1) {
-        qData = qQuizzes[qIndex];
-        // Remove to handle duplicate titles in order and avoid reusing the same quiz
-        qQuizzes.removeAt(qIndex);
-      }
-
-      final questions = <Question>[];
-      if (qData != null && qData['questions'] != null) {
-        for (var q in qData['questions']) {
-          questions.add(Question.fromJson(q));
-        }
-      }
-
-      lessons.add(
-        LessonContent(
-          title: lTitle,
-          content: lContent,
-          quizQuestions: questions,
-        ),
-      );
-    }
-
-    final subChapters = <ChapterContent>[];
-    for (var subData in cSubChapters) {
-      subChapters.add(
-        _parseChapter(subData, quizChapters, inheritedQuizzes: qQuizzes),
-      );
-    }
-
-    return ChapterContent(
-      title: cTitle,
-      lessons: lessons,
-      subChapters: subChapters,
-      subChaptersFirst: subChaptersFirst,
-    );
   }
 
   Future<void> _loadProgress() async {
@@ -481,6 +487,9 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
         // Ici c'est de l'XP. On le met maintenant dans games/progress.
         final progressRef = userRef.collection('games').doc('progress');
         await progressRef.set({
+          'xp': FieldValue.increment(xpGained),
+        }, SetOptions(merge: true));
+        await userRef.set({
           'xp': FieldValue.increment(xpGained),
         }, SetOptions(merge: true));
         if (mounted) {
@@ -1458,7 +1467,8 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
     bool isTopLevel = false,
   }) {
     List<Widget> children = [];
-    bool currentUnlocked = unlocked;
+    final effectiveUnlocked = isAdmin || unlocked;
+    bool currentUnlocked = effectiveUnlocked;
     final isCompleted = _isChapterCompleted(chapter);
     final chapterLessons = _countChapterLessons(chapter);
     final chapterCompletedLessons = _countCompletedChapterLessons(chapter);
@@ -1566,7 +1576,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
           ),
         );
 
-        if (!isCompleted) {
+        if (!isAdmin && !isCompleted) {
           currentUnlocked = false;
         }
       }
@@ -1584,7 +1594,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
             isTopLevel: false,
           ),
         );
-        if (!_isChapterCompleted(sub)) {
+        if (!isAdmin && !_isChapterCompleted(sub)) {
           currentUnlocked = false;
         }
       }
@@ -1605,7 +1615,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
             colors: [
-              Colors.white.withValues(alpha: unlocked ? 0.78 : 0.62),
+              Colors.white.withValues(alpha: effectiveUnlocked ? 0.78 : 0.62),
               detailsColor1.withValues(alpha: 0.14),
             ],
             begin: Alignment.topLeft,
@@ -1637,7 +1647,7 @@ class _LearnPageState extends State<LearnPage> with TickerProviderStateMixin {
                     fontWeight: FontWeight.w800,
                     fontSize: 16,
                     color:
-                        unlocked
+                        effectiveUnlocked
                             ? titleColor
                             : bodyColor.withValues(alpha: 0.58),
                   ),
@@ -1869,8 +1879,12 @@ class _LevelIndicator extends StatelessWidget {
         }
         final data = snapshot.data?.data();
         final xp = (data?['xp'] as num?)?.toInt() ?? 0;
-        final level = (xp / 100).floor() + 1;
-        final progress = (xp % 100) / 100.0;
+        final level =
+            (math.log((xp / 500) + 1) / math.log(1.2)).floor() + 1;
+        final startXp = 500 * (math.pow(1.2, level - 1) - 1);
+        final nextLevelXp = 500 * (math.pow(1.2, level) - 1);
+        final range = nextLevelXp - startXp;
+        final progress = range > 0 ? (xp - startXp) / range : 0.0;
 
         return Row(
           mainAxisSize: MainAxisSize.min,
@@ -2319,6 +2333,7 @@ class LessonPage extends StatelessWidget {
                 width: double.infinity,
                 child: InkWell(
                   onTap: () {
+                    HapticFeedback.lightImpact();
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder:
@@ -2639,6 +2654,24 @@ class _FormattedLessonText extends StatelessWidget {
         }
       }
 
+      // 4b. Italic * ... * (single asterisk, not bullet)
+      if (text[i] == '*' &&
+          i + 1 < text.length &&
+          text[i + 1] != ' ' &&
+          text[i + 1] != '*') {
+        int end = text.indexOf('*', i + 1);
+        if (end != -1 && text[end - 1] != ' ') {
+          spans.add(
+            TextSpan(
+              text: text.substring(i + 1, end),
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
+          );
+          i = end + 1;
+          continue;
+        }
+      }
+
       // 5. Bullet point * (followed by space)
       if (text[i] == '*' && i + 1 < text.length && text[i + 1] == ' ') {
         spans.add(
@@ -2692,6 +2725,19 @@ class _FormattedLessonText extends StatelessWidget {
       }
       if (text.contains('* ', i)) {
         candidates.add(text.indexOf('* ', i));
+      }
+      // Italic: single * not followed by space or *
+      {
+        int j = i;
+        while (j < text.length) {
+          j = text.indexOf('*', j);
+          if (j == -1) break;
+          if (j + 1 < text.length && text[j + 1] != ' ' && text[j + 1] != '*') {
+            candidates.add(j);
+            break;
+          }
+          j++;
+        }
       }
       if (text.contains('\\begin{figure}', i)) {
         candidates.add(text.indexOf('\\begin{figure}', i));
@@ -2870,10 +2916,11 @@ class _LatexRenderer extends StatelessWidget {
         }
         children.add(
           Transform.translate(
-            offset: const Offset(0, -6),
-            child: Text(
-              supContent,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            offset: const Offset(0, -8),
+            child: Transform.scale(
+              scale: 0.65,
+              alignment: Alignment.centerLeft,
+              child: _parseExpression(supContent),
             ),
           ),
         );
@@ -2893,9 +2940,10 @@ class _LatexRenderer extends StatelessWidget {
         children.add(
           Transform.translate(
             offset: const Offset(0, 5),
-            child: Text(
-              subContent,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            child: Transform.scale(
+              scale: 0.65,
+              alignment: Alignment.centerLeft,
+              child: _parseExpression(subContent),
             ),
           ),
         );
@@ -3370,28 +3418,62 @@ class QuizPage extends StatefulWidget {
   State<QuizPage> createState() => _QuizPageState();
 }
 
-class _QuizPageState extends State<QuizPage> {
+class _QuizPageState extends State<QuizPage>
+    with SingleTickerProviderStateMixin {
+  late final List<Question> _questions;
+  late final AnimationController _ambientController;
+  late final Animation<double> _ambientAnimation;
+  late final Stopwatch _quizStopwatch;
+  ScrollController? _scrollController;
   int _currentIndex = 0;
   int _score = 0;
   bool _finished = false;
   int? _selectedAnswerIndex;
   bool _isValidated = false;
+  Duration? _completionDuration;
   final List<bool> _results = [];
+
+  ScrollController get _quizScrollController =>
+      _scrollController ??= ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    final random = math.Random();
+    _questions =
+        widget.questions.map((question) => question.shuffled(random)).toList();
+    _ambientController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 12),
+    )..repeat(reverse: true);
+    _ambientAnimation = CurvedAnimation(
+      parent: _ambientController,
+      curve: Curves.easeInOutSine,
+    );
+    _quizStopwatch = Stopwatch()..start();
+  }
+
+  @override
+  void dispose() {
+    _ambientController.dispose();
+    _scrollController?.dispose();
+    super.dispose();
+  }
 
   void _onOptionSelected(int index) {
     if (_isValidated) return;
-
+    HapticFeedback.selectionClick();
     setState(() {
       _selectedAnswerIndex = index;
     });
   }
 
   void _validateAnswer() {
+    HapticFeedback.lightImpact();
     setState(() {
       _isValidated = true;
       final isCorrect =
-          _selectedAnswerIndex ==
-          widget.questions[_currentIndex].correctAnswerIndex;
+          _selectedAnswerIndex == _questions[_currentIndex].correctAnswerIndex;
       if (isCorrect) {
         _score++;
       }
@@ -3400,166 +3482,1414 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _nextQuestion() {
-    if (_currentIndex < widget.questions.length - 1) {
+    if (_currentIndex < _questions.length - 1) {
       setState(() {
         _currentIndex++;
         _selectedAnswerIndex = null;
         _isValidated = false;
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_quizScrollController.hasClients) {
+          _quizScrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
     } else {
+      _quizStopwatch.stop();
       setState(() {
         _finished = true;
+        _completionDuration = _quizStopwatch.elapsed;
       });
       widget.onCompleted?.call(_score, _results);
     }
   }
 
+  String _formatElapsedTime(Duration duration) {
+    final minutes = duration.inMinutes;
+    final seconds = duration.inSeconds % 60;
+    return '$minutes:${seconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_finished) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Résultats')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.emoji_events_rounded,
-                size: 80,
-                color: Colors.amber,
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Score: $_score / ${widget.questions.length}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Retour à la leçon'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildResultView();
     }
+    return _buildQuestionView();
+  }
 
-    final question = widget.questions[_currentIndex];
+  Widget _buildQuestionView() {
+    final question = _questions[_currentIndex];
+    final progress = (_currentIndex + 1) / _questions.length;
+    final topPadding = MediaQuery.paddingOf(context).top;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final collapsedHeaderHeight = topPadding + 88;
+    final minimumBodyHeight = math.max(
+      0.0,
+      viewportHeight - collapsedHeaderHeight + 36,
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Quizz (${_currentIndex + 1}/${widget.questions.length})'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              question.question,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 24),
-            ...List.generate(question.options.length, (index) {
-              final isCorrect = index == question.correctAnswerIndex;
-              final isSelected = index == _selectedAnswerIndex;
+      backgroundColor: backgroundColor,
+      body: AnimatedBuilder(
+        animation: _ambientAnimation,
+        builder: (context, child) {
+          final drift = math.sin(_ambientAnimation.value * math.pi * 2);
+          final oppositeDrift = math.cos(_ambientAnimation.value * math.pi * 2);
 
-              Color? backgroundColor;
-              Color borderColor = Colors.black12;
-              Color textColor = Colors.black87;
-              FontWeight fontWeight = FontWeight.normal;
-
-              if (_isValidated) {
-                if (isCorrect) {
-                  backgroundColor = Colors.green.withValues(alpha: 0.1);
-                  borderColor = Colors.green;
-                  textColor = Colors.green.shade800;
-                  fontWeight = FontWeight.bold;
-                } else if (isSelected) {
-                  backgroundColor = Colors.red.withValues(alpha: 0.1);
-                  borderColor = Colors.red;
-                  textColor = Colors.red.shade800;
-                  fontWeight = FontWeight.bold;
-                }
-              } else if (isSelected) {
-                backgroundColor = Colors.black.withValues(alpha: 0.05);
-                borderColor = Colors.black87;
-                fontWeight = FontWeight.w600;
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: OutlinedButton(
-                  onPressed: () => _onOptionSelected(index),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: backgroundColor,
-                    side: BorderSide(color: borderColor),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 12,
-                    ),
-                    alignment: Alignment.centerLeft,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: Text(
-                    question.options[index],
-                    style: TextStyle(
-                      color: textColor,
-                      fontSize: 15,
-                      fontWeight: fontWeight,
-                    ),
-                  ),
+          return Stack(
+            children: [
+              Positioned(
+                left: -30 + drift * 18,
+                top: -20,
+                child: _GlowOrb(
+                  size: 150,
+                  color: detailsColor1.withValues(alpha: 0.12),
                 ),
-              );
-            }),
-            if (_selectedAnswerIndex != null) ...[
-              const SizedBox(height: 24),
-              InkWell(
-                onTap: _isValidated ? _nextQuestion : _validateAnswer,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  height: 54,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    gradient: const LinearGradient(
-                      colors: [detailsColor1, detailsColor2],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: .12),
-                        blurRadius: 18,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      _isValidated
-                          ? (_currentIndex < widget.questions.length - 1
-                              ? 'Question suivante'
-                              : 'Voir les résultats')
-                          : 'Valider',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: .2,
-                      ),
+              ),
+              Positioned(
+                right: -28 + oppositeDrift * 16,
+                top: 120 + drift * 18,
+                child: _GlowOrb(
+                  size: 170,
+                  color: detailsColor2.withValues(alpha: 0.10),
+                ),
+              ),
+              Positioned(
+                right: -12 + drift * 10,
+                top: 20 + oppositeDrift * 10,
+                child: Opacity(
+                  opacity: 0.10,
+                  child: Transform.rotate(
+                    angle: 0.06 * drift,
+                    child: SizedBox(
+                      width: 240,
+                      height: 220,
+                      child: SvgPicture.string(_quizQuestionBackdropSvg),
                     ),
                   ),
                 ),
               ),
+              CustomScrollView(
+                controller: _quizScrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  SliverAppBar(
+                    pinned: true,
+                    stretch: true,
+                    backgroundColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    elevation: 0,
+                    toolbarHeight: 0,
+                    collapsedHeight: topPadding + 88,
+                    expandedHeight: topPadding + 260,
+                    automaticallyImplyLeading: false,
+                    flexibleSpace: _buildCollapsibleQuizHeader(
+                      progress: progress,
+                      drift: drift,
+                      oppositeDrift: oppositeDrift,
+                      topPadding: topPadding,
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+                    sliver: SliverToBoxAdapter(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 380),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.06, 0),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: ConstrainedBox(
+                          key: ValueKey('question-$_currentIndex'),
+                          constraints: BoxConstraints(
+                            minHeight: minimumBodyHeight,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildQuestionCard(question),
+                              const SizedBox(height: 16),
+                              ...List.generate(
+                                question.options.length,
+                                (index) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _QuizOptionCard(
+                                    indexLabel: String.fromCharCode(65 + index),
+                                    text: question.options[index],
+                                    isSelected: _selectedAnswerIndex == index,
+                                    isValidated: _isValidated,
+                                    isCorrect:
+                                        index == question.correctAnswerIndex,
+                                    onTap:
+                                        _isValidated
+                                            ? null
+                                            : () => _onOptionSelected(index),
+                                  ),
+                                ),
+                              ),
+                              if (_isValidated) ...[
+                                const SizedBox(height: 4),
+                                _QuizFeedbackBanner(
+                                  isCorrect:
+                                      _selectedAnswerIndex ==
+                                      question.correctAnswerIndex,
+                                  correctLabel: String.fromCharCode(
+                                    65 + question.correctAnswerIndex,
+                                  ),
+                                ),
+                              ],
+                              if (_selectedAnswerIndex != null) ...[
+                                const SizedBox(height: 14),
+                                _QuizPrimaryButton(
+                                  key: ValueKey(
+                                    'action-$_currentIndex-$_isValidated',
+                                  ),
+                                  label:
+                                      _isValidated
+                                          ? (_currentIndex <
+                                                  _questions.length - 1
+                                              ? 'Question suivante'
+                                              : 'Voir les résultats')
+                                          : 'Valider',
+                                  icon:
+                                      _isValidated
+                                          ? Icons.arrow_forward_rounded
+                                          : Icons.check_rounded,
+                                  onTap:
+                                      _isValidated
+                                          ? _nextQuestion
+                                          : _validateAnswer,
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCollapsibleQuizHeader({
+    required double progress,
+    required double drift,
+    required double oppositeDrift,
+    required double topPadding,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minHeight = topPadding + 88;
+        final maxHeight = topPadding + 260;
+        final collapse = ((maxHeight - constraints.maxHeight) /
+                (maxHeight - minHeight))
+            .clamp(0.0, 1.0);
+        final expandedOpacity = (1 -
+                Curves.easeOut.transform((collapse / 0.56).clamp(0.0, 1.0)))
+            .clamp(0.0, 1.0);
+        final collapsedOpacity = Curves.easeOut
+            .transform(((collapse - 0.42) / 0.38).clamp(0.0, 1.0))
+            .clamp(0.0, 1.0);
+        final radius = ui.lerpDouble(28, 22, collapse) ?? 22;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, topPadding + 8, 16, 8),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(radius),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF33154E), Color(0xFF140A1E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: detailsColor1.withValues(alpha: 0.16)),
+              boxShadow: [
+                BoxShadow(
+                  color: detailsColor2.withValues(alpha: 0.18),
+                  blurRadius: 30,
+                  offset: const Offset(0, 16),
+                ),
+                BoxShadow(
+                  color: detailsColor1.withValues(alpha: 0.10),
+                  blurRadius: 46,
+                  spreadRadius: -12,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(radius),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: -16 + drift * 10,
+                    top: -18,
+                    child: _GlowOrb(
+                      size: 120,
+                      color: detailsColor1.withValues(alpha: 0.22),
+                    ),
+                  ),
+                  Positioned(
+                    right: -16 + oppositeDrift * 10,
+                    bottom: -30,
+                    child: _GlowOrb(
+                      size: 138,
+                      color: const Color(0xFFB88AD8).withValues(alpha: 0.15),
+                    ),
+                  ),
+                  Positioned(
+                    right: 0 + drift * 8,
+                    top: 10 + oppositeDrift * 7,
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: 0.30,
+                        child: Transform.rotate(
+                          angle: 0.04 * drift,
+                          child: SizedBox(
+                            width: 180,
+                            height: 170,
+                            child: SvgPicture.string(_quizQuestionBackdropSvg),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.white.withValues(alpha: 0.04),
+                              Colors.white.withValues(alpha: 0.01),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 12,
+                    top: 12,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.14),
+                        ),
+                      ),
+                      child: IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 20,
+                    right: 20,
+                    top: 18,
+                    child: Opacity(
+                      opacity: expandedOpacity,
+                      child: IgnorePointer(
+                        ignoring: expandedOpacity < 0.02,
+                        child: Transform.translate(
+                          offset: Offset(0, collapse * -18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                  ),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.quiz_rounded,
+                                      size: 16,
+                                      color: detailsColor1,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Quiz de leçon',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                widget.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.1,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Question ${_currentIndex + 1} sur ${_questions.length}',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.76),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 8,
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.10,
+                                  ),
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                        detailsColor1,
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  _HeroMetricChip(
+                                    icon: Icons.layers_rounded,
+                                    label: '${_questions.length} questions',
+                                  ),
+                                  const _HeroMetricChip(
+                                    icon: Icons.check_circle_outline_rounded,
+                                    label: '1 bonne réponse',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 70,
+                    right: 18,
+                    top: 18,
+                    child: Opacity(
+                      opacity: collapsedOpacity,
+                      child: IgnorePointer(
+                        ignoring: collapsedOpacity < 0.02,
+                        child: Transform.translate(
+                          offset: Offset(0, (1 - collapsedOpacity) * 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Quiz',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                widget.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.74),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildQuestionCard(Question question) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Colors.white, Color(0xFFFCFBF7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: detailsColor1.withValues(alpha: 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: detailsColor2.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: detailsColor1.withValues(alpha: 0.08),
+            blurRadius: 26,
+            spreadRadius: -8,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -12,
+              top: -10,
+              child: Opacity(
+                opacity: 0.10,
+                child: SizedBox(
+                  width: 150,
+                  height: 140,
+                  child: SvgPicture.string(_courseBackdropSvg),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          detailsColor1.withValues(alpha: 0.18),
+                          detailsColor2.withValues(alpha: 0.12),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      'Question ${_currentIndex + 1}',
+                      style: const TextStyle(
+                        color: detailsColor2,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    question.question,
+                    style: const TextStyle(
+                      color: textColor,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      height: 1.28,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultView() {
+    final total = _questions.length;
+    final ratio = total == 0 ? 0.0 : _score / total;
+    final wrongAnswers = total - _score;
+    final percentage = (ratio * 100).round();
+    final elapsed = _completionDuration ?? _quizStopwatch.elapsed;
+
+    String headline;
+    String description;
+    if (ratio >= 1) {
+      headline = 'Sans faute';
+      description =
+          'Tu maîtrises parfaitement cette leçon. Le score est validé au maximum.';
+    } else if (ratio >= 0.8) {
+      headline = 'Très solide';
+      description =
+          'Très bon niveau de compréhension, avec seulement quelques hésitations.';
+    } else if (ratio >= 0.6) {
+      headline = 'Bonne progression';
+      description =
+          'Les bases sont là. Une relecture rapide de la leçon te fera gagner en précision.';
+    } else {
+      headline = 'À retravailler';
+      description =
+          'Le quiz est utile ici: relis la leçon puis retente-le avec un nouvel ordre de réponses.';
+    }
+
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      appBar: AppBar(
+        title: const Text(
+          'Résultats',
+          style: TextStyle(fontWeight: FontWeight.w800, color: textColor),
+        ),
+        backgroundColor: backgroundColor,
+        foregroundColor: textColor,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: AnimatedBuilder(
+        animation: _ambientAnimation,
+        builder: (context, child) {
+          final drift = math.sin(_ambientAnimation.value * math.pi * 2);
+          final oppositeDrift = math.cos(_ambientAnimation.value * math.pi * 2);
+
+          return Stack(
+            children: [
+              Positioned(
+                left: -24 + drift * 16,
+                top: 0,
+                child: _GlowOrb(
+                  size: 170,
+                  color: detailsColor1.withValues(alpha: 0.14),
+                ),
+              ),
+              Positioned(
+                right: -26 + oppositeDrift * 18,
+                top: 180,
+                child: _GlowOrb(
+                  size: 180,
+                  color: detailsColor2.withValues(alpha: 0.10),
+                ),
+              ),
+              Positioned(
+                right: -8 + drift * 10,
+                top: 12,
+                child: Opacity(
+                  opacity: 0.10,
+                  child: Transform.rotate(
+                    angle: -0.04 * drift,
+                    child: SizedBox(
+                      width: 240,
+                      height: 220,
+                      child: SvgPicture.string(_quizResultBackdropSvg),
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
+                  children: [
+                    _buildResultHeroCard(
+                      headline: headline,
+                      description: description,
+                      drift: drift,
+                      oppositeDrift: oppositeDrift,
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Colors.white, Color(0xFFFCFBF7)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: detailsColor1.withValues(alpha: 0.16),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: detailsColor2.withValues(alpha: 0.10),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                          BoxShadow(
+                            color: detailsColor1.withValues(alpha: 0.08),
+                            blurRadius: 24,
+                            spreadRadius: -10,
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                        child: Column(
+                          children: [
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(begin: 0, end: ratio),
+                              duration: const Duration(milliseconds: 950),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) {
+                                return SizedBox(
+                                  width: 154,
+                                  height: 154,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      SizedBox(
+                                        width: 154,
+                                        height: 154,
+                                        child: CircularProgressIndicator(
+                                          value: 1,
+                                          strokeWidth: 12,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                detailsColor2.withValues(
+                                                  alpha: 0.10,
+                                                ),
+                                              ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 154,
+                                        height: 154,
+                                        child: CircularProgressIndicator(
+                                          value: value,
+                                          strokeWidth: 12,
+                                          strokeCap: StrokeCap.round,
+                                          backgroundColor: Colors.transparent,
+                                          valueColor:
+                                              const AlwaysStoppedAnimation<
+                                                Color
+                                              >(detailsColor1),
+                                        ),
+                                      ),
+                                      Container(
+                                        width: 116,
+                                        height: 116,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: const LinearGradient(
+                                            colors: [
+                                              Color(0xFFFFFCF7),
+                                              Colors.white,
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: detailsColor2.withValues(
+                                                alpha: 0.08,
+                                              ),
+                                              blurRadius: 18,
+                                              offset: const Offset(0, 8),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '$percentage%',
+                                              style: const TextStyle(
+                                                color: detailsColor2,
+                                                fontSize: 30,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'de réussite',
+                                              style: TextStyle(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.60,
+                                                ),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              '$_score / $total',
+                              style: const TextStyle(
+                                color: detailsColor2,
+                                fontSize: 28,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              widget.title,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.black.withValues(alpha: 0.62),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: detailsColor2.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: detailsColor2.withValues(alpha: 0.10),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.schedule_rounded,
+                                    size: 18,
+                                    color: detailsColor2.withValues(
+                                      alpha: 0.82,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _formatElapsedTime(elapsed),
+                                    style: const TextStyle(
+                                      color: detailsColor2,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _QuizStatCard(
+                                    icon: Icons.check_circle_rounded,
+                                    label: 'Justes',
+                                    value: '$_score',
+                                    accent: const Color(0xFF159A62),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _QuizStatCard(
+                                    icon: Icons.close_rounded,
+                                    label: 'Erreurs',
+                                    value: '$wrongAnswers',
+                                    accent: const Color(0xFFD85B5B),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _QuizStatCard(
+                                    icon: Icons.layers_rounded,
+                                    label: 'Total',
+                                    value: '$total',
+                                    accent: detailsColor2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Détail des réponses',
+                                style: TextStyle(
+                                  color: Colors.black.withValues(alpha: 0.72),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children:
+                                  _results
+                                      .map(
+                                        (isCorrect) => _QuizResultDot(
+                                          isCorrect: isCorrect,
+                                        ),
+                                      )
+                                      .toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _QuizPrimaryButton(
+                      label: 'Retour à la leçon',
+                      icon: Icons.arrow_back_rounded,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildResultHeroCard({
+    required String headline,
+    required String description,
+    required double drift,
+    required double oppositeDrift,
+  }) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 186),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF33154E), Color(0xFF140A1E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: detailsColor1.withValues(alpha: 0.16)),
+        boxShadow: [
+          BoxShadow(
+            color: detailsColor2.withValues(alpha: 0.18),
+            blurRadius: 30,
+            offset: const Offset(0, 16),
+          ),
+          BoxShadow(
+            color: detailsColor1.withValues(alpha: 0.10),
+            blurRadius: 46,
+            spreadRadius: -12,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(
+          children: [
+            Positioned(
+              left: -12 + drift * 10,
+              top: -16,
+              child: _GlowOrb(
+                size: 118,
+                color: detailsColor1.withValues(alpha: 0.22),
+              ),
+            ),
+            Positioned(
+              right: -18 + oppositeDrift * 10,
+              bottom: -28,
+              child: _GlowOrb(
+                size: 134,
+                color: const Color(0xFFB88AD8).withValues(alpha: 0.16),
+              ),
+            ),
+            Positioned(
+              right: 4 + drift * 8,
+              top: 4 + oppositeDrift * 6,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0.28,
+                  child: Transform.rotate(
+                    angle: 0.05 * drift,
+                    child: SizedBox(
+                      width: 176,
+                      height: 168,
+                      child: SvgPicture.string(_quizResultBackdropSvg),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.14),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.emoji_events_rounded,
+                          size: 16,
+                          color: detailsColor1,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Quiz terminé',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    headline,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.76),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+
+class _QuizOptionCard extends StatelessWidget {
+  const _QuizOptionCard({
+    required this.indexLabel,
+    required this.text,
+    required this.isSelected,
+    required this.isValidated,
+    required this.isCorrect,
+    this.onTap,
+  });
+
+  final String indexLabel;
+  final String text;
+  final bool isSelected;
+  final bool isValidated;
+  final bool isCorrect;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isWrongSelection = isValidated && isSelected && !isCorrect;
+
+    Color borderColor = Colors.black.withValues(alpha: 0.08);
+    Color fillColor = Colors.white.withValues(alpha: 0.86);
+    Color labelBackground = detailsColor2.withValues(alpha: 0.08);
+    Color labelColor = detailsColor2;
+    Color optionTextColor = Colors.black.withValues(alpha: 0.82);
+    FontWeight fontWeight = FontWeight.w700;
+    IconData? trailingIcon;
+    Color trailingColor = detailsColor2;
+
+    if (isValidated && isCorrect) {
+      borderColor = const Color(0xFF159A62);
+      fillColor = const Color(0xFFEAF8F0);
+      labelBackground = const Color(0xFF159A62);
+      labelColor = Colors.white;
+      optionTextColor = const Color(0xFF116F47);
+      trailingIcon = Icons.check_circle_rounded;
+      trailingColor = const Color(0xFF159A62);
+    } else if (isWrongSelection) {
+      borderColor = const Color(0xFFD85B5B);
+      fillColor = const Color(0xFFFDEEEE);
+      labelBackground = const Color(0xFFD85B5B);
+      labelColor = Colors.white;
+      optionTextColor = const Color(0xFF8D2C2C);
+      trailingIcon = Icons.close_rounded;
+      trailingColor = const Color(0xFFD85B5B);
+    } else if (isSelected) {
+      borderColor = detailsColor2.withValues(alpha: 0.32);
+      fillColor = detailsColor2.withValues(alpha: 0.05);
+      labelBackground = detailsColor2;
+      labelColor = Colors.white;
+      optionTextColor = detailsColor2;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: fillColor,
+        border: Border.all(color: borderColor, width: 1.4),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: labelBackground,
+                    boxShadow:
+                        isSelected
+                            ? [
+                              BoxShadow(
+                                color: labelBackground.withValues(alpha: 0.24),
+                                blurRadius: 12,
+                                offset: const Offset(0, 6),
+                              ),
+                            ]
+                            : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      indexLabel,
+                      style: TextStyle(
+                        color: labelColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      text,
+                      style: TextStyle(
+                        color: optionTextColor,
+                        fontSize: 15,
+                        height: 1.36,
+                        fontWeight: fontWeight,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child:
+                      trailingIcon == null
+                          ? SizedBox(
+                            key: const ValueKey('empty-icon'),
+                            width: 22,
+                            height: 22,
+                            child: Icon(
+                              Icons.chevron_right_rounded,
+                              size: 20,
+                              color: detailsColor2.withValues(alpha: 0.36),
+                            ),
+                          )
+                          : Icon(
+                            trailingIcon,
+                            key: ValueKey(trailingIcon),
+                            size: 22,
+                            color: trailingColor,
+                          ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuizFeedbackBanner extends StatelessWidget {
+  const _QuizFeedbackBanner({
+    required this.isCorrect,
+    required this.correctLabel,
+  });
+
+  final bool isCorrect;
+  final String correctLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent =
+        isCorrect ? const Color(0xFF159A62) : const Color(0xFFD85B5B);
+    final background =
+        isCorrect ? const Color(0xFFEAF8F0) : const Color(0xFFFDEEEE);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: background,
+        border: Border.all(color: accent.withValues(alpha: 0.75)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isCorrect ? Icons.check_circle_rounded : Icons.info_rounded,
+            color: accent,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isCorrect
+                  ? 'Bonne réponse. Tu peux passer à la suite.'
+                  : 'Réponse attendue : $correctLabel. Passe à la suite ou refais le quiz plus tard.',
+              style: TextStyle(
+                color: accent,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuizPrimaryButton extends StatelessWidget {
+  const _QuizPrimaryButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 58,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            colors: [detailsColor1, detailsColor2],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuizStatCard extends StatelessWidget {
+  const _QuizStatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: accent),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.black.withValues(alpha: 0.60),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuizResultDot extends StatelessWidget {
+  const _QuizResultDot({required this.isCorrect});
+
+  final bool isCorrect;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent =
+        isCorrect ? const Color(0xFF159A62) : const Color(0xFFD85B5B);
+
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: accent.withValues(alpha: 0.12),
+        border: Border.all(color: accent.withValues(alpha: 0.26)),
+      ),
+      child: Icon(
+        isCorrect ? Icons.check_rounded : Icons.close_rounded,
+        size: 18,
+        color: accent,
+      ),
+    );
+  }
+}
+
+const String _quizQuestionBackdropSvg = '''
+<svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="quizFlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F4D06F" stop-opacity="0.96"/>
+      <stop offset="100%" stop-color="#B88AD8" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <path d="M18 148 C44 104, 68 132, 92 98 S136 52, 164 76 198 94, 202 52" fill="none" stroke="url(#quizFlow)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M26 172 C56 158, 92 182, 124 166 S172 132, 198 146" fill="none" stroke="#ffffff" stroke-opacity="0.24" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="92" cy="98" r="9" fill="#F4D06F" fill-opacity="0.94"/>
+  <circle cx="164" cy="76" r="9" fill="#B88AD8" fill-opacity="0.94"/>
+  <rect x="42" y="118" width="22" height="22" rx="11" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.24"/>
+  <rect x="74" y="144" width="22" height="22" rx="11" fill="#ffffff" fill-opacity="0.10" stroke="#ffffff" stroke-opacity="0.20"/>
+  <rect x="110" y="124" width="22" height="22" rx="11" fill="#ffffff" fill-opacity="0.14" stroke="#ffffff" stroke-opacity="0.24"/>
+  <rect x="148" y="106" width="22" height="22" rx="11" fill="#ffffff" fill-opacity="0.10" stroke="#ffffff" stroke-opacity="0.20"/>
+</svg>
+''';
+
+const String _quizResultBackdropSvg = '''
+<svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="resultArc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F4D06F" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#B88AD8" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+  <path d="M36 150 C46 96, 86 48, 130 48 164 48, 188 72, 194 108" fill="none" stroke="url(#resultArc)" stroke-width="8" stroke-linecap="round"/>
+  <path d="M54 172 L166 172" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="88" cy="86" r="10" fill="#F4D06F" fill-opacity="0.94"/>
+  <circle cx="152" cy="92" r="10" fill="#B88AD8" fill-opacity="0.92"/>
+  <path d="M110 72 L119 90 L139 92 L124 106 L128 126 L110 116 L92 126 L96 106 L81 92 L101 90 Z" fill="#ffffff" fill-opacity="0.12" stroke="#ffffff" stroke-opacity="0.22" stroke-width="2"/>
+</svg>
+''';

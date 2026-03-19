@@ -159,7 +159,7 @@
         },
         {
           "lesson_id": "chapter_2_l4",
-          "lesson_title": "Autre indicateur de rentabilité : les marges",
+          "lesson_title": "Autre indicateur de rentabilité : Les marges",
           "questions": [
             {
               "question": "À quoi servent principalement les marges ?",
@@ -208,6 +208,52 @@
                 "Sans tenir compte du secteur d’activité",
                 "En les comparant dans le temps et avec celles du même secteur",
                 "Seulement lorsque l’entreprise est cotée en bourse"
+              ],
+              "correct_answer_index": 2
+            }
+          ]
+        },
+        {
+          "lesson_id": "chapter_2_l6_pbr",
+          "lesson_title": "La valeur comptable (book value) et le Price-to-Book (PBR)",
+          "questions": [
+            {
+              "question": "Que représente la valeur comptable (Book Value) d’une entreprise ?",
+              "options": [
+                "Le chiffre d’affaires annuel de l’entreprise",
+                "Les capitaux restant après règlement des dettes et engagements",
+                "Le bénéfice net par action",
+                "La valeur de marché totale des actions"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Comment obtient-on la valeur comptable par action (BVPS) ?",
+              "options": [
+                "En divisant le Book Value par le nombre d’actions",
+                "En multipliant le bénéfice net par le nombre d’actions",
+                "En divisant le cours de l’action par les capitaux propres",
+                "En additionnant les dettes et les provisions"
+              ],
+              "correct_answer_index": 0
+            },
+            {
+              "question": "Que mesure le ratio Price-to-Book (PBR) ?",
+              "options": [
+                "Le rapport entre le dividende et le prix de l’action",
+                "Le rapport entre le prix de l’action et la BVPS",
+                "Le rapport entre les dettes et les capitaux propres",
+                "Le rapport entre le résultat net et le chiffre d’affaires"
+              ],
+              "correct_answer_index": 1
+            },
+            {
+              "question": "Que suggère généralement un PBR inférieur à 1 ?",
+              "options": [
+                "Le marché surévalue l’entreprise",
+                "L’entreprise est forcément en faillite",
+                "Le marché sous-évalue potentiellement les actifs de l’entreprise",
+                "Le dividende est trop élevé"
               ],
               "correct_answer_index": 2
             }
@@ -443,7 +489,7 @@
         },
         {
           "lesson_id": "chapter_2_l8",
-          "lesson_title": "ROA (Return On Assets) et ROE (Return On Equity)",
+          "lesson_title": "ROA(Return On Assets) et ROE(Return On Equity)",
           "questions": [
             {
               "question": "Que mesure le ROA (Return On Assets) ?",

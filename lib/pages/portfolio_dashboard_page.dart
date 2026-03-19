@@ -585,12 +585,9 @@ class _PortfolioDashboardPageState extends State<PortfolioDashboardPage> {
   }
 
   Future<void> _openPortfolioDetail(_PortfolioSummary summary) async {
-    await showModalBottomSheet<void>(
+    await showCupertinoModalBottomSheet<void>(
       context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      expand: true,
       builder: (context) => _PortfolioDetailSheet(summary: summary),
     );
   }
@@ -718,109 +715,103 @@ class _PortfolioCard extends StatelessWidget {
   Widget build(BuildContext context) {
     String subtitle;
     if (summary.positionsCount == 0) {
-      subtitle = 'Aucune action pour le moment';
+      subtitle = 'Aucune ligne pour le moment';
     } else if (summary.positionsCount == 1) {
-      subtitle = '1 action suivie';
+      subtitle = '1 ligne de simulation';
     } else {
-      subtitle = '${summary.positionsCount} actions suivies';
-    }
-
-    String? updatedText;
-    if (summary.updatedAt != null) {
-      final day = summary.updatedAt!.day.toString().padLeft(2, '0');
-      final month = summary.updatedAt!.month.toString().padLeft(2, '0');
-      updatedText = 'Mis à jour le $day/$month/${summary.updatedAt!.year}';
+      subtitle = '${summary.positionsCount} lignes de simulation';
     }
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE6E8EB)),
+          gradient: const LinearGradient(
+            colors: [Colors.white, Color(0xFFFCFBF7)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: detailsColor1.withValues(alpha: 0.28)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+              color: detailsColor2.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  colors: [detailsColor1, detailsColor2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
               ),
               alignment: Alignment.center,
               child: Text(
                 summary.name
                     .substring(
                       0,
-                      summary.name.length >= 3 ? 3 : summary.name.length,
+                      summary.name.length >= 2 ? 2 : summary.name.length,
                     )
                     .toUpperCase(),
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.1,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     summary.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: textColor,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.black.withValues(alpha: 0.6),
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (updatedText != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      updatedText,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.black45,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
             if (onDelete != null)
               IconButton(
                 onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Colors.black38,
-                ),
+                icon: const Icon(Icons.delete_outline_rounded, color: Colors.black38),
                 tooltip: 'Supprimer',
-              ),
-            if (onDelete == null)
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Colors.black38,
-                size: 26,
+              )
+            else
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: detailsColor1.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.chevron_right_rounded, color: detailsColor1, size: 20),
               ),
           ],
         ),
@@ -840,6 +831,14 @@ typedef _OpenPositionCallback =
 
 typedef _DeletePositionCallback =
     Future<bool> Function(String positionId, String symbol);
+
+typedef _EditPositionCallback =
+    Future<bool> Function(
+      String positionId,
+      String symbol,
+      double currentQty,
+      double? currentPru,
+    );
 
 class _GamePortfolioShortcut extends StatefulWidget {
   const _GamePortfolioShortcut({required this.uid});
@@ -1388,48 +1387,220 @@ class _PortfolioDetailSheetState extends State<_PortfolioDetailSheet> {
             .collection('positions')
             .orderBy('addedAt', descending: true)
             .snapshots();
-    final maxHeight = MediaQuery.of(context).size.height * 0.88;
 
-    return SafeArea(
-      top: false,
-      child: SizedBox(
-        height: maxHeight,
-        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: stream,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const _PortfolioDetailSkeleton();
-            }
-            if (snapshot.hasError) {
-              return _PortfolioAnalyticsError(
-                message: 'Impossible de charger les positions.',
-                onRetry: () => setState(() {}),
-              );
-            }
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 10, bottom: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                child: Row(
+                  children: [
+                    _VirtualCircleButton(
+                      icon: Icons.close_rounded,
+                      onTap: () => Navigator.of(context).maybePop(),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.summary.name,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: textColor,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          const Text(
+                            'Portefeuille de simulation',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _VirtualCircleButton(
+                      icon: Icons.refresh_rounded,
+                      onTap: () => setState(() {}),
+                    ),
+                  ],
+                ),
+              ),
+              // Content
+              Expanded(
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: stream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting &&
+                        !snapshot.hasData) {
+                      return const _PortfolioDetailSkeleton();
+                    }
+                    if (snapshot.hasError) {
+                      return _PortfolioAnalyticsError(
+                        message: 'Impossible de charger les positions.',
+                        onRetry: () => setState(() {}),
+                      );
+                    }
 
-            final docs =
-                snapshot.data?.docs ??
-                <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-            final positions =
-                docs
-                    .map(_PortfolioPositionSnapshot.fromDoc)
-                    .where((p) => p.symbol.isNotEmpty)
-                    .toList();
+                    final docs =
+                        snapshot.data?.docs ??
+                        <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+                    final positions =
+                        docs
+                            .map(_PortfolioPositionSnapshot.fromDoc)
+                            .where((p) => p.symbol.isNotEmpty)
+                            .toList();
 
-            if (positions.isEmpty) {
-              return const _PortfolioPositionsEmpty();
-            }
+                    if (positions.isEmpty) {
+                      return const _PortfolioPositionsEmpty();
+                    }
 
-            return _PortfolioPositionsView(
-              summary: widget.summary,
-              positions: positions,
-              onOpenPosition: _openInfo,
-              onDeletePosition: _deletePosition,
-            );
-          },
+                    return _PortfolioPositionsView(
+                      summary: widget.summary,
+                      positions: positions,
+                      onOpenPosition: _openInfo,
+                      onDeletePosition: _deletePosition,
+                      onEditPosition: _editPosition,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<bool> _editPosition(
+    String positionId,
+    String symbol,
+    double currentQty,
+    double? currentPru,
+  ) async {
+    final qtyController = TextEditingController(
+      text: currentQty.toString().replaceAll(RegExp(r'\.?0+$'), ''),
+    );
+    final pruController = TextEditingController(
+      text: currentPru != null
+          ? currentPru.toStringAsFixed(2)
+          : '',
+    );
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Modifier $symbol',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: qtyController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'Quantité',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.numbers_rounded),
+              ),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: pruController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'PRU (Prix de Revient Unitaire)',
+                hintText: 'Optionnel',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.euro_rounded),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler', style: TextStyle(color: Colors.black54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: detailsColor2,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Enregistrer', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true) return false;
+
+    final newQty = double.tryParse(qtyController.text.replaceAll(',', '.'));
+    final newPru = pruController.text.trim().isEmpty
+        ? null
+        : double.tryParse(pruController.text.trim().replaceAll(',', '.'));
+
+    if (newQty == null || newQty <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Quantité invalide.')),
+        );
+      }
+      return false;
+    }
+
+    try {
+      final updates = <String, dynamic>{
+        'quantity': newQty,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (newPru != null) updates['costBasis'] = newPru;
+
+      await widget.summary.ref.collection('positions').doc(positionId).update(updates);
+      await widget.summary.ref.update({'updatedAt': FieldValue.serverTimestamp()});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Position $symbol mise à jour.')),
+        );
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors de la modification.')),
+        );
+      }
+      return false;
+    }
   }
 
   Future<void> _openInfo(
@@ -1538,12 +1709,14 @@ class _PortfolioPositionsView extends StatefulWidget {
     required this.positions,
     required this.onOpenPosition,
     required this.onDeletePosition,
+    required this.onEditPosition,
   });
 
   final _PortfolioSummary summary;
   final List<_PortfolioPositionSnapshot> positions;
   final _OpenPositionCallback onOpenPosition;
   final _DeletePositionCallback onDeletePosition;
+  final _EditPositionCallback onEditPosition;
 
   @override
   State<_PortfolioPositionsView> createState() =>
@@ -1617,6 +1790,7 @@ class _PortfolioPositionsViewState extends State<_PortfolioPositionsView> {
           analytics: analytics,
           onOpenPosition: widget.onOpenPosition,
           onDeletePosition: widget.onDeletePosition,
+          onEditPosition: widget.onEditPosition,
           onRefreshRequested: _scheduleComputation,
         );
       },
@@ -1630,6 +1804,7 @@ class _PortfolioAnalyticsView extends StatelessWidget {
     required this.analytics,
     required this.onOpenPosition,
     required this.onDeletePosition,
+    required this.onEditPosition,
     required this.onRefreshRequested,
   });
 
@@ -1637,152 +1812,121 @@ class _PortfolioAnalyticsView extends StatelessWidget {
   final _PortfolioAnalytics analytics;
   final _OpenPositionCallback onOpenPosition;
   final _DeletePositionCallback onDeletePosition;
+  final _EditPositionCallback onEditPosition;
   final VoidCallback onRefreshRequested;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            automaticallyImplyLeading: false,
-            pinned: true,
-            backgroundColor: Colors.white.withValues(alpha: 0.92),
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            toolbarHeight: 72,
-            flexibleSpace: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            summary.name,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          if (summary.updatedAt != null)
-                            Text(
-                              'Mis à jour ${_relativeDate(summary.updatedAt!)}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.black54,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Actualiser',
-                      onPressed: onRefreshRequested,
-                      icon: const Icon(Icons.refresh_rounded),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      tooltip: 'Fermer',
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(child: _OverviewSection(analytics: analytics)),
-          if (analytics.history.points.length > 1)
-            SliverToBoxAdapter(
-              child: _PerformanceSection(analytics: analytics),
-            ),
-          SliverToBoxAdapter(
-            child: _InsightsSection(
-              analytics: analytics,
-              onOpenPosition: onOpenPosition,
-            ),
-          ),
-          SliverToBoxAdapter(child: _PortfolioCoachCard(analytics: analytics)),
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text(
-                'Positions',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              child: _VirtualHeroCard(analytics: analytics),
+            ),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _VirtualTabHeaderDelegate(
+              child: const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 10),
+                child: _VirtualTabStrip(),
               ),
             ),
           ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                final position = analytics.positions[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index == analytics.positions.length - 1 ? 0 : 12,
-                  ),
-                  child: Dismissible(
-                    key: Key(position.snapshot.id),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 24),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Icon(
-                        Icons.delete_outline_rounded,
-                        color: Colors.red.shade700,
-                      ),
-                    ),
-                    confirmDismiss:
-                        (_) => onDeletePosition(
-                          position.snapshot.id,
-                          position.snapshot.symbol,
-                        ),
-                    child: _PositionTile(
-                      analytics: position,
-                      onTap: () {
-                        final fallbackName =
-                            position.snapshot.displayName.isNotEmpty
-                                ? position.snapshot.displayName
-                                : position.snapshot.symbol;
-                        final rawType = position.snapshot.quoteType;
-                        final type =
-                            rawType.isEmpty ||
-                                    rawType.toUpperCase() == 'UNKNOWN'
-                                ? null
-                                : rawType;
-                        onOpenPosition(
-                          position.snapshot.symbol,
-                          fallbackName,
-                          position.snapshot.exchange,
-                          position.snapshot.currency,
-                          type,
-                        );
-                      },
-                    ),
-                  ),
-                );
-              }, childCount: analytics.positions.length),
-            ),
-          ),
+        ];
+      },
+      body: TabBarView(
+        children: [
+          // Tab 0: Vue
+          _buildVueTab(context),
+          // Tab 1: Analyse
+          _buildAnalyseTab(context),
+          // Tab 2: Positions
+          _buildPositionsTab(context),
         ],
       ),
+    );
+  }
+
+  Widget _buildVueTab(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 32),
+      children: [
+        _OverviewSection(analytics: analytics),
+        _PortfolioCoachCard(analytics: analytics),
+      ],
+    );
+  }
+
+  Widget _buildAnalyseTab(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 32),
+      children: [
+        _PnLTableSection(analytics: analytics),
+        if (analytics.history.points.length > 1)
+          _PerformanceSection(analytics: analytics),
+        _InsightsSection(
+          analytics: analytics,
+          onOpenPosition: onOpenPosition,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPositionsTab(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      itemCount: analytics.positions.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final position = analytics.positions[index];
+        return Dismissible(
+          key: Key(position.snapshot.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 24),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(Icons.delete_outline_rounded, color: Colors.red.shade700),
+          ),
+          confirmDismiss: (_) => onDeletePosition(
+            position.snapshot.id,
+            position.snapshot.symbol,
+          ),
+          child: _PositionTile(
+            analytics: position,
+            onTap: () {
+              final fallbackName =
+                  position.snapshot.displayName.isNotEmpty
+                      ? position.snapshot.displayName
+                      : position.snapshot.symbol;
+              final rawType = position.snapshot.quoteType;
+              final type =
+                  rawType.isEmpty || rawType.toUpperCase() == 'UNKNOWN'
+                      ? null
+                      : rawType;
+              onOpenPosition(
+                position.snapshot.symbol,
+                fallbackName,
+                position.snapshot.exchange,
+                position.snapshot.currency,
+                type,
+              );
+            },
+            onEdit: () => onEditPosition(
+              position.snapshot.id,
+              position.snapshot.symbol,
+              position.snapshot.quantity,
+              position.snapshot.costBasis,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1968,6 +2112,343 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                   onSelected: (_) => setState(() => _scenarioPercent = percent),
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PnLTableSection extends StatelessWidget {
+  const _PnLTableSection({required this.analytics});
+
+  final _PortfolioAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    final positions = analytics.positions;
+    if (positions.isEmpty) return const SizedBox.shrink();
+
+    double totalInvested = 0;
+    double totalCurrent = 0;
+    bool hasAnyPru = false;
+
+    for (final p in positions) {
+      final pru = p.snapshot.costBasis;
+      final price = p.snapshot.price;
+      final qty = p.snapshot.quantity;
+      if (pru != null) {
+        totalInvested += pru * qty;
+        hasAnyPru = true;
+      }
+      if (price != null) totalCurrent += price * qty;
+    }
+
+    final totalLatent = hasAnyPru ? totalCurrent - totalInvested : null;
+    final totalLatentPct =
+        hasAnyPru && totalInvested > 0
+            ? (totalLatent! / totalInvested) * 100
+            : null;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Plus-values latentes',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Colors.black54,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE6E8EB)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Row(
+                    children: const [
+                      Expanded(
+                        flex: 5,
+                        child: Text(
+                          'Titre',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black38,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          'PRU → Cours',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black38,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          'Latent',
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black38,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                // Position rows
+                ...positions.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final p = entry.value;
+                  final pru = p.snapshot.costBasis;
+                  final price = p.snapshot.price;
+                  final qty = p.snapshot.quantity;
+                  final currency = p.snapshot.currency;
+
+                  double? latentVal;
+                  double? latentPct;
+                  if (pru != null && price != null) {
+                    latentVal = (price - pru) * qty;
+                    latentPct = ((price - pru) / pru) * 100;
+                  }
+
+                  final isLast = i == positions.length - 1;
+                  final color =
+                      latentVal == null
+                          ? Colors.black54
+                          : latentVal >= 0
+                          ? Colors.green.shade600
+                          : Colors.red.shade600;
+
+                  final symbol =
+                      p.snapshot.symbol.isNotEmpty
+                          ? p.snapshot.symbol.toUpperCase()
+                          : '?';
+
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    symbol,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${qty % 1 == 0 ? qty.toInt() : qty} titre${qty > 1 ? 's' : ''}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.black38,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  if (pru != null)
+                                    Text(
+                                      _formatCurrency(pru, currency),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.black54,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  if (price != null)
+                                    Text(
+                                      _formatCurrency(price, currency),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                  if (pru == null && price == null)
+                                    const Text(
+                                      '—',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.black38),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  if (latentVal != null)
+                                    Text(
+                                      _formatCurrency(
+                                        latentVal,
+                                        currency,
+                                        signed: true,
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: color,
+                                      ),
+                                    ),
+                                  if (latentPct != null)
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: color.withValues(alpha: 0.10),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        _formatSignedPercent(latentPct),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: color,
+                                        ),
+                                      ),
+                                    ),
+                                  if (latentVal == null)
+                                    const Text(
+                                      '—',
+                                      style: TextStyle(color: Colors.black38),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!isLast)
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                    ],
+                  );
+                }),
+                // Total row
+                if (totalLatent != null) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(18),
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          flex: 5,
+                          child: Text(
+                            'Total',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            _formatCurrency(
+                              totalCurrent,
+                              analytics.singleCurrency ?? '',
+                            ),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                _formatCurrency(
+                                  totalLatent,
+                                  analytics.singleCurrency ?? '',
+                                  signed: true,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color:
+                                      totalLatent >= 0
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
+                                ),
+                              ),
+                              if (totalLatentPct != null)
+                                Text(
+                                  _formatSignedPercent(totalLatentPct),
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color:
+                                        totalLatentPct >= 0
+                                            ? Colors.green.shade600
+                                            : Colors.red.shade600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -2310,10 +2791,15 @@ class _FocusPosition extends StatelessWidget {
 }
 
 class _PositionTile extends StatelessWidget {
-  const _PositionTile({required this.analytics, required this.onTap});
+  const _PositionTile({
+    required this.analytics,
+    required this.onTap,
+    this.onEdit,
+  });
 
   final _PositionAnalytics analytics;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -2372,7 +2858,7 @@ class _PositionTile extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
         child: Row(
           children: [
             Container(
@@ -2434,10 +2920,293 @@ class _PositionTile extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                if (analytics.snapshot.costBasis != null)
+                  Text(
+                    'PRU ${_formatCurrency(analytics.snapshot.costBasis!, analytics.snapshot.currency)}',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: Colors.black38,
+                      fontSize: 10,
+                    ),
+                  ),
               ],
+            ),
+            if (onEdit != null)
+              GestureDetector(
+                onTap: onEdit,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  margin: const EdgeInsets.only(left: 4),
+                  decoration: BoxDecoration(
+                    color: detailsColor1.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: detailsColor1,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Virtual portfolio helpers (design matching game portfolio) ─────────────
+
+class _VirtualCircleButton extends StatelessWidget {
+  const _VirtualCircleButton({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFE6E8EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
+        child: Icon(icon, size: 20, color: textColor),
+      ),
+    );
+  }
+}
+
+class _VirtualTabStrip extends StatelessWidget {
+  const _VirtualTabStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: TabBar(
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [detailsColor1, detailsColor2],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        labelColor: Colors.white,
+        unselectedLabelColor: textColor,
+        labelStyle: const TextStyle(
+          fontWeight: FontWeight.w900,
+          fontSize: 13,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
+        tabs: const [
+          Tab(text: 'Vue'),
+          Tab(text: 'Analyse'),
+          Tab(text: 'Positions'),
+        ],
+      ),
+    );
+  }
+}
+
+class _VirtualTabHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _VirtualTabHeaderDelegate({required this.child});
+
+  final Widget child;
+
+  @override
+  double get minExtent => 76;
+
+  @override
+  double get maxExtent => 76;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return ColoredBox(color: backgroundColor, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _VirtualTabHeaderDelegate old) =>
+      old.child != child;
+}
+
+class _VirtualHeroCard extends StatelessWidget {
+  const _VirtualHeroCard({required this.analytics});
+
+  final _PortfolioAnalytics analytics;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalValue = analytics.totalValue;
+    final totalChange = analytics.totalChangeValue;
+    final totalChangePct = analytics.totalChangePercent;
+    final positive = totalChange == null || totalChange >= 0;
+
+    final valueText = totalValue != null
+        ? _formatCurrency(totalValue, analytics.singleCurrency)
+        : 'Multi-devises';
+    final changeText = totalChange != null
+        ? _formatCurrency(totalChange, analytics.singleCurrency, signed: true)
+        : null;
+    final pctText = totalChangePct != null
+        ? _formatSignedPercent(totalChangePct)
+        : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF4CC), Color(0xFFFFFBF1)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE9D8A0)),
+        boxShadow: [
+          BoxShadow(
+            color: detailsColor1.withValues(alpha: 0.10),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Valeur simulée',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  valueText,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                  ),
+                ),
+                if (changeText != null || pctText != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      if (changeText != null)
+                        Text(
+                          changeText,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: positive
+                                ? Colors.green.shade600
+                                : Colors.red.shade600,
+                          ),
+                        ),
+                      if (changeText != null && pctText != null)
+                        const SizedBox(width: 8),
+                      if (pctText != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: positive
+                                ? Colors.green.shade50
+                                : Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            pctText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: positive
+                                  ? Colors.green.shade700
+                                  : Colors.red.shade700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [detailsColor1, detailsColor2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${analytics.positions.length} ligne${analytics.positions.length > 1 ? 's' : ''}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Simulation',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black45,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

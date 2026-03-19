@@ -1199,8 +1199,7 @@ class _DashboardOverviewTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final participant = payload.participant;
     final metrics = payload.metrics;
-    final totalDelta = metrics.totalCapital - participant.startingTotalCapital;
-    final holdingsDelta =
+    final investedDelta =
         metrics.holdingsValue - participant.startingHoldingsValue;
     final reserveDelta =
         metrics.reserveCoins - participant.startingReserveCoins;
@@ -1264,7 +1263,7 @@ class _DashboardOverviewTab extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Ton score suit la performance pure, la structure du portefeuille et le risque de concentration.',
+                'Ton score suit uniquement la performance de la partie investie, puis les bonus de structure et le risque de concentration.',
                 style: const TextStyle(
                   color: Colors.black54,
                   height: 1.4,
@@ -1299,10 +1298,10 @@ class _DashboardOverviewTab extends StatelessWidget {
           children: [
             Expanded(
               child: _StatMiniCard(
-                label: 'Capital duel',
-                value: _formatCoins(metrics.totalCapital),
+                label: 'Valeur investie',
+                value: _formatCoins(metrics.holdingsValue),
                 caption:
-                    '${_formatSignedDelta(totalDelta, suffix: ' coins')} depuis le départ',
+                    '${_formatSignedDelta(investedDelta, suffix: ' coins')} depuis le départ',
               ),
             ),
             const SizedBox(width: 10),
@@ -1323,7 +1322,7 @@ class _DashboardOverviewTab extends StatelessWidget {
               child: _StatMiniCard(
                 label: 'Portefeuille',
                 value: _formatCoins(metrics.holdingsValue),
-                caption: _formatSignedDelta(holdingsDelta, suffix: ' coins'),
+                caption: _formatSignedDelta(investedDelta, suffix: ' coins'),
               ),
             ),
             const SizedBox(width: 10),
@@ -1331,7 +1330,8 @@ class _DashboardOverviewTab extends StatelessWidget {
               child: _StatMiniCard(
                 label: 'Réserve',
                 value: _formatCoins(metrics.reserveCoins),
-                caption: _formatSignedDelta(reserveDelta, suffix: ' coins'),
+                caption:
+                    '${_formatSignedDelta(reserveDelta, suffix: ' coins')} · hors score',
               ),
             ),
           ],
@@ -1340,7 +1340,7 @@ class _DashboardOverviewTab extends StatelessWidget {
         const _SectionLabel(
           title: 'Lecture du score',
           subtitle:
-              'Ton dashboard sépare la vue synthèse, les variations réelles depuis le début du duel et le radar adverse.',
+              'Ton dashboard sépare la vue synthèse, les variations réelles de la partie investie depuis le début du duel et le radar adverse.',
         ),
         const SizedBox(height: 12),
         _ScoreBreakdownCard(metrics: metrics, participant: participant),
@@ -1407,7 +1407,7 @@ class _DashboardVariationsTab extends StatelessWidget {
         hasSavedSnapshot
             ? participant.startingHoldingsValue
             : metrics.holdingsValue;
-    final totalDelta = metrics.totalCapital - participant.startingTotalCapital;
+    final investedDelta = metrics.holdingsValue - effectiveStartingHoldingsValue;
     final variations = _buildHoldingVariations(
       starting: effectiveStartingHoldings,
       current: metrics.holdings,
@@ -1420,25 +1420,25 @@ class _DashboardVariationsTab extends StatelessWidget {
         const _SectionLabel(
           title: 'Variations depuis le départ',
           subtitle:
-              'Cette vue compare ton portefeuille actuel à la photo prise au démarrage du défi.',
+              'Cette vue compare uniquement la partie investie de ton portefeuille actuel à la photo prise au démarrage du défi.',
         ),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: _StatMiniCard(
-                label: 'Capital initial',
-                value: _formatCoins(participant.startingTotalCapital),
+                label: 'Valeur investie initiale',
+                value: _formatCoins(effectiveStartingHoldingsValue),
                 caption: 'Base du duel',
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _StatMiniCard(
-                label: 'Capital actuel',
-                value: _formatCoins(metrics.totalCapital),
+                label: 'Valeur investie actuelle',
+                value: _formatCoins(metrics.holdingsValue),
                 caption:
-                    '${_formatSignedDelta(totalDelta, suffix: ' coins')} · perf duel ${_formatSignedDelta(metrics.returnPct, suffix: '%', digits: 2)}',
+                    '${_formatSignedDelta(investedDelta, suffix: ' coins')} · perf duel ${_formatSignedDelta(metrics.returnPct, suffix: '%', digits: 2)}',
               ),
             ),
           ],
@@ -1465,7 +1465,7 @@ class _DashboardVariationsTab extends StatelessWidget {
                 child: _VariationMetric(
                   label: 'Réserve coins',
                   value:
-                      '${_formatCoins(metrics.reserveCoins)} · ${_formatSignedDelta(metrics.reserveCoins - participant.startingReserveCoins, suffix: ' coins')}',
+                      '${_formatCoins(metrics.reserveCoins)} · ${_formatSignedDelta(metrics.reserveCoins - participant.startingReserveCoins, suffix: ' coins')} · hors score',
                 ),
               ),
             ],
@@ -1616,7 +1616,7 @@ class _ScoreBreakdownCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Le score hybride additionne la performance pure, le bonus de structure et les malus de concentration.',
+            'Le score hybride additionne la performance de la seule partie investie, le bonus de structure et les malus de concentration.',
             style: TextStyle(color: Colors.black54, height: 1.4),
           ),
           const SizedBox(height: 14),
@@ -1701,13 +1701,13 @@ class _CapitalSparklineCard extends StatelessWidget {
       if (participant.capitalTimeline.isEmpty)
         DuelCapitalPoint(
           at: duel.acceptedAt ?? DateTime.now(),
-          totalCapital: participant.startingTotalCapital,
+          totalCapital: participant.startingHoldingsValue,
           score: 0,
           returnPct: 0,
         ),
       DuelCapitalPoint(
         at: participant.currentUpdatedAt ?? DateTime.now(),
-        totalCapital: metrics.totalCapital,
+        totalCapital: metrics.holdingsValue,
         score: metrics.score,
         returnPct: metrics.returnPct,
       ),
@@ -1724,7 +1724,7 @@ class _CapitalSparklineCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Trajectoire du capital duel',
+            'Trajectoire de la valeur investie',
             style: TextStyle(
               color: textColor,
               fontWeight: FontWeight.w900,
@@ -1748,14 +1748,14 @@ class _CapitalSparklineCard extends StatelessWidget {
               Expanded(
                 child: _VariationMetric(
                   label: 'Départ',
-                  value: _formatCoins(participant.startingTotalCapital),
+                  value: _formatCoins(participant.startingHoldingsValue),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: _VariationMetric(
                   label: 'Actuel',
-                  value: _formatCoins(metrics.totalCapital),
+                  value: _formatCoins(metrics.holdingsValue),
                 ),
               ),
             ],
@@ -1833,7 +1833,7 @@ class _DuelJournalCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Score actuel ${metrics.score.toStringAsFixed(2)} · perf ${_formatSignedDelta(metrics.returnPct, suffix: '%', digits: 2)}',
+            'Score actuel ${metrics.score.toStringAsFixed(2)} · perf investie ${_formatSignedDelta(metrics.returnPct, suffix: '%', digits: 2)}',
             style: const TextStyle(color: Colors.black54, height: 1.4),
           ),
           const SizedBox(height: 14),

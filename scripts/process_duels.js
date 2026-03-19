@@ -740,12 +740,14 @@ async function loadPortfolio(uid, {audit = false, auditLabel = ''} = {}) {
 }
 
 function computeMetrics(portfolio, {startingTotalCapital, startingHoldingsValue}) {
-  const totalCapitalBaseline =
-    startingTotalCapital > 0 ? startingTotalCapital : Math.max(portfolio.totalCapital, 1);
-  const engagedCapitalBaseline =
-    startingHoldingsValue > 0 ? startingHoldingsValue : totalCapitalBaseline;
-  const pnl = portfolio.totalCapital - totalCapitalBaseline;
-  const returnPct = (pnl / Math.max(engagedCapitalBaseline, 1)) * 100;
+  const investedCapitalBaseline =
+    startingHoldingsValue > 0
+      ? startingHoldingsValue
+      : startingTotalCapital > 0
+        ? startingTotalCapital
+        : Math.max(portfolio.holdingsValue, 1);
+  const pnl = portfolio.holdingsValue - investedCapitalBaseline;
+  const returnPct = (pnl / Math.max(investedCapitalBaseline, 1)) * 100;
   const bonus = structureBonus(portfolio.holdings, portfolio.holdingsValue);
   const penalty = concentrationPenalty(portfolio.holdings, portfolio.holdingsValue);
   return {
@@ -1082,7 +1084,7 @@ async function refreshSingleActiveDuelSnapshot(doc) {
         persistentPenalty;
       const capitalTimeline = appendCapitalTimeline(state.capitalTimeline, {
         now,
-        totalCapital: portfolio.totalCapital,
+        totalCapital: portfolio.holdingsValue,
         score: adjustedScore,
         returnPct: metrics.returnPct,
       });
@@ -1093,7 +1095,7 @@ async function refreshSingleActiveDuelSnapshot(doc) {
         currentScoreCache: adjustedScore,
         currentHoldingsValueCache: portfolio.holdingsValue,
         currentReserveCoinsCache: portfolio.reserveCoins,
-        currentTotalCapitalCache: portfolio.totalCapital,
+        currentTotalCapitalCache: portfolio.holdingsValue,
         currentPositionsCountCache: portfolio.positionsCount,
         currentUpdatedAt: FieldValue.serverTimestamp(),
         teaserLine: teaserHolding || null,
@@ -1263,7 +1265,7 @@ async function settleDuel(doc) {
         persistentConcentrationPenalty: metrics.persistentConcentrationPenalty,
         currentHoldingsValueCache: portfolio.holdingsValue,
         currentReserveCoinsCache: portfolio.reserveCoins,
-        currentTotalCapitalCache: portfolio.totalCapital,
+        currentTotalCapitalCache: portfolio.holdingsValue,
         result: uid === winnerUid ? 'win' : 'lose',
         rewardPosition: uid === winnerUid ? rewardPosition : null,
         lossPosition: uid === loserUid ? lossPosition : null,
@@ -1330,7 +1332,7 @@ async function settleDuel(doc) {
     const metrics = resultByUid[uid];
     const portfolio = portfolioByUid[uid];
     console.log(
-      `[duels] Score ${doc.id} uid=${uid} startHoldings=${asNumber(state.startingHoldingsValue, 0).toFixed(2)} startTotal=${asNumber(state.startingTotalCapital, 0).toFixed(2)} currentHoldings=${portfolio.holdingsValue.toFixed(2)} currentTotal=${portfolio.totalCapital.toFixed(2)} returnPct=${metrics.returnPct.toFixed(4)} bonus=${metrics.structureBonus.toFixed(2)} concentration=${metrics.concentrationPenalty.toFixed(2)} persistent=${metrics.persistentConcentrationPenalty.toFixed(2)} finalScore=${metrics.finalScore.toFixed(4)}`,
+      `[duels] Score ${doc.id} uid=${uid} startInvested=${asNumber(state.startingHoldingsValue, 0).toFixed(2)} currentInvested=${portfolio.holdingsValue.toFixed(2)} reserve=${portfolio.reserveCoins.toFixed(2)} returnPct=${metrics.returnPct.toFixed(4)} bonus=${metrics.structureBonus.toFixed(2)} concentration=${metrics.concentrationPenalty.toFixed(2)} persistent=${metrics.persistentConcentrationPenalty.toFixed(2)} finalScore=${metrics.finalScore.toFixed(4)}`,
     );
     for (const holding of portfolio.holdings) {
       console.log(

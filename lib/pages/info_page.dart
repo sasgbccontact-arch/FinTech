@@ -6,9 +6,11 @@ import 'package:fintech/core/constants.dart';
 import 'package:fintech/features/duel/duel_models.dart';
 import 'package:fintech/features/duel/duel_service.dart';
 import 'package:fintech/models/chart_models.dart';
+import 'package:fintech/models/dividend_event.dart';
 import 'package:fintech/models/financial_snapshot.dart';
 import 'package:fintech/models/fundamental_game_models.dart';
 import 'package:fintech/models/news_models.dart';
+import 'package:fintech/services/activity_tracking_service.dart';
 import 'package:fintech/services/fundamental_game_engine.dart';
 import 'package:fintech/services/portfolio_service.dart';
 import 'package:fintech/services/yahoo_finance_service.dart';
@@ -22,6 +24,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 /// InfoPage
 /// Affiche les informations clés d'une action sélectionnée dans la recherche.
+enum _ChartDisplayMode { price, performance }
+
+enum _NewsFilter { all, ticker, favorites, macro }
+
 class InfoPage extends StatefulWidget {
   const InfoPage({
     super.key,
@@ -66,8 +72,9 @@ class _InfoPageState extends State<InfoPage> {
   bool _fundamentalLoading = true;
   String? _fundamentalError;
   int _fundamentalRequestId = 0;
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
+  DividendEvent? _dividendEvent;
+  bool _dividendLoading = true;
+  String? _dividendError;
   List<FinanceNewsItem> _newsItems = const <FinanceNewsItem>[];
   bool _newsLoading = true;
   String? _newsError;
@@ -75,6 +82,8 @@ class _InfoPageState extends State<InfoPage> {
   Set<String> _newsFavoriteMatches = const <String>{};
   Set<String> _newsTickerMatches = const <String>{};
   _PeriodDelta? _periodDelta;
+  _ChartDisplayMode _chartDisplayMode = _ChartDisplayMode.price;
+  _NewsFilter _newsFilter = _NewsFilter.all;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
   _favoriteSubscription;
   bool _favoriteStatusReady = false;
@@ -123,7 +132,6 @@ class _InfoPageState extends State<InfoPage> {
 
   Widget _buildEssentialPage({
     required ThemeData theme,
-    required String? priceText,
     required String? changeText,
     required String? percentText,
     required bool changePositive,
@@ -131,6 +139,7 @@ class _InfoPageState extends State<InfoPage> {
     required String? lastUpdate,
     required List<_MetricEntry> essentialMetrics,
     required List<_InsightHighlight> highlights,
+    required _DataCoverageSummary coverage,
   }) {
     final variationTexts = <String>[
       if (changeText != null) changeText,
@@ -142,105 +151,85 @@ class _InfoPageState extends State<InfoPage> {
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        _InfoSectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Text(
-                    _displayName ?? _ticker ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  _ContextPill(
+                    icon: Icons.timeline_rounded,
+                    label: periodLabel,
+                    foreground: _wine,
+                    background: _wine.withValues(alpha: 0.10),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _exchange ?? '—',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.textTheme.bodySmall?.color,
-                    ),
+                  _ContextPill(
+                    icon: coverage.icon,
+                    label: coverage.label,
+                    foreground: coverage.accent,
+                    background: coverage.soft,
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildPortfolioButton(theme),
-                const SizedBox(width: 8),
-                _buildFavoriteButton(theme),
-                if (variationTexts.isNotEmpty) ...[
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          changePositive
-                              ? Colors.green.shade100
-                              : Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          periodLabel,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          variationTexts.join(' · '),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color:
-                                changePositive
-                                    ? Colors.green.shade800
-                                    : Colors.red.shade800,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
+              const SizedBox(height: 14),
+              Text(
+                'Vue d’ensemble',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Lecture rapide du comportement récent, de la qualité des données et des principaux repères de marché.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  _OverviewStatCard(
+                    label: 'Variation',
+                    value:
+                        variationTexts.isEmpty
+                            ? '—'
+                            : variationTexts.join(' · '),
+                    accent:
+                        changePositive
+                            ? Colors.green.shade700
+                            : Colors.red.shade700,
+                    soft:
+                        changePositive
+                            ? Colors.green.withValues(alpha: 0.10)
+                            : Colors.red.withValues(alpha: 0.10),
+                  ),
+                  _OverviewStatCard(
+                    label: 'Dernière mise à jour',
+                    value: lastUpdate ?? 'Indisponible',
+                    accent: textColor,
+                    soft: _chipBg,
+                  ),
+                  _OverviewStatCard(
+                    label: 'Couverture',
+                    value: coverage.ratioLabel,
+                    accent: coverage.accent,
+                    soft: coverage.soft,
                   ),
                 ],
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Center(
-          child: Text(
-            priceText ?? '—',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 16),
-        _buildFundamentalHeroCard(),
-        const SizedBox(height: 16),
-        Center(child: _buildTradeButtons(theme)),
         if (highlights.isNotEmpty) ...[
           const SizedBox(height: 14),
           _InsightHighlightRow(highlights: highlights),
-        ],
-        if (lastUpdate != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            'Dernière mise à jour: $lastUpdate',
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
-          ),
         ],
         const SizedBox(height: 24),
         _QuoteChartSection(
@@ -249,28 +238,25 @@ class _InfoPageState extends State<InfoPage> {
           error: _chartError,
           interval: _selectedInterval,
           onIntervalSelected: (value) => _loadChartData(interval: value),
+          displayMode: _chartDisplayMode,
+          onDisplayModeChanged:
+              (mode) => setState(() => _chartDisplayMode = mode),
           labelBuilder: _formatChartTick,
           currencyFormatter: _formatCurrency,
+          percentFormatter: _formatPercent,
+          annotations: _buildChartAnnotations(),
         ),
         if (essentialMetrics.isNotEmpty) ...[
           const SizedBox(height: 28),
-          _SectionHeader(label: 'Indicateurs essentiels'),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children:
-                essentialMetrics
-                    .map(
-                      (metric) => _MetricCard(
-                        title: metric.title,
-                        value: metric.value,
-                        subtitle: metric.subtitle,
-                      ),
-                    )
-                    .toList(),
+          _MetricGroupCard(
+            title: 'Indicateurs essentiels',
+            subtitle:
+                'Repères immédiats pour situer l’actif avant d’ouvrir les blocs plus détaillés.',
+            metrics: essentialMetrics,
           ),
         ],
+        const SizedBox(height: 16),
+        _buildDividendOverviewCard(theme),
       ],
     );
   }
@@ -330,7 +316,6 @@ class _InfoPageState extends State<InfoPage> {
     _favoriteSubscription?.cancel();
     _userSubscription?.cancel();
     _portfolioSubscription?.cancel();
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -1619,6 +1604,7 @@ class _InfoPageState extends State<InfoPage> {
         .collection('positions')
         .doc(_ticker);
     String? duelBlockReason;
+    var wasProfitableSale = false;
 
     if (!isBuy) {
       final portfolioDoc = await portfolioRef.get();
@@ -1655,6 +1641,13 @@ class _InfoPageState extends State<InfoPage> {
             (portfolioDoc.data()?['quantity'] as num?)?.toInt() ?? 0;
         final double currentAvgPrice =
             (portfolioDoc.data()?['averagePrice'] as num?)?.toDouble() ?? 0.0;
+        final int currentSellStreak =
+            (userDoc.data()?['game_profitable_sell_streak'] as num?)?.toInt() ??
+            0;
+        final int bestSellStreak =
+            (userDoc.data()?['game_best_profitable_sell_streak'] as num?)
+                ?.toInt() ??
+            0;
         final duelProfile = DuelProfile.fromDoc(
           duelProfileDoc,
           fallbackUid: uid,
@@ -1674,6 +1667,11 @@ class _InfoPageState extends State<InfoPage> {
           transaction.update(userRef, {
             'coins': currentCoins - totalAmount.toInt(),
           });
+          if (userDoc.data()?['game_first_trade_at'] == null) {
+            transaction.set(userRef, {
+              'game_first_trade_at': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+          }
           transaction.set(portfolioRef, {
             'symbol': _ticker,
             'quantity': currentQty + qty,
@@ -1690,8 +1688,14 @@ class _InfoPageState extends State<InfoPage> {
               duelBlockReason != null) {
             throw Exception(duelBlockReason);
           }
+          wasProfitableSale = currentAvgPrice > 0 && price > currentAvgPrice;
+          final nextSellStreak = wasProfitableSale ? currentSellStreak + 1 : 0;
           transaction.update(userRef, {
             'coins': currentCoins + totalAmount.toInt(),
+            'last_game_sell_at': FieldValue.serverTimestamp(),
+            'game_profitable_sell_streak': nextSellStreak,
+            if (wasProfitableSale && nextSellStreak > bestSellStreak)
+              'game_best_profitable_sell_streak': nextSellStreak,
           });
 
           if (currentQty - qty == 0) {
@@ -1703,6 +1707,31 @@ class _InfoPageState extends State<InfoPage> {
       });
 
       await DuelService.syncCurrentUserProfile(uid: uid, bumpActivity: false);
+
+      unawaited(
+        ActivityTrackingService.trackForUser(
+          uid: uid,
+          type:
+              isBuy
+                  ? 'game_portfolio_buy'
+                  : wasProfitableSale
+                  ? 'game_portfolio_sell_profit'
+                  : 'game_portfolio_sell',
+          label: _ticker,
+          points:
+              isBuy
+                  ? 20
+                  : wasProfitableSale
+                  ? 30
+                  : 18,
+          counters: <String, int>{
+            'portfolio_trades': 1,
+            if (isBuy) 'game_portfolio_buys': 1,
+            if (!isBuy) 'portfolio_positions_sold': 1,
+            if (!isBuy && wasProfitableSale) 'portfolio_profitable_sells': 1,
+          },
+        ),
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1764,11 +1793,7 @@ class _InfoPageState extends State<InfoPage> {
         _exchange = _resolveExchange(quote);
         _currency = _resolveCurrency(quote);
         _quoteType = quote.quoteType ?? _quoteType;
-        _currentPage = 0;
       });
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(0);
-      }
       _loadChartData();
       _loadFundamentalData();
       _loadNews();
@@ -1856,6 +1881,8 @@ class _InfoPageState extends State<InfoPage> {
     setState(() {
       _fundamentalLoading = true;
       _fundamentalError = null;
+      _dividendLoading = true;
+      _dividendError = null;
     });
 
     try {
@@ -1869,6 +1896,17 @@ class _InfoPageState extends State<InfoPage> {
           gameData.isEquity
               ? FundamentalGameEngine.analyze(data: gameData, config: config)
               : null;
+      DividendEvent? dividendEvent;
+      String? dividendError;
+      try {
+        dividendEvent = await YahooFinanceService.fetchDividendEvent(symbol);
+      } on FinanceRequestException catch (e) {
+        if (e.message != 'consent_required') {
+          dividendError = e.message;
+        }
+      } catch (_) {
+        dividendError = 'Calendrier de dividendes indisponible.';
+      }
       if (!mounted || requestId != _fundamentalRequestId) return;
       setState(() {
         _fundamentalGameData = gameData;
@@ -1876,6 +1914,9 @@ class _InfoPageState extends State<InfoPage> {
         _financialSnapshot = gameData.snapshot;
         _fundamentalLoading = false;
         _fundamentalError = null;
+        _dividendEvent = dividendEvent;
+        _dividendLoading = false;
+        _dividendError = dividendError;
       });
     } on FinanceRequestException catch (e) {
       if (!mounted || requestId != _fundamentalRequestId) return;
@@ -1885,6 +1926,9 @@ class _InfoPageState extends State<InfoPage> {
         _fundamentalGameData = null;
         _fundamentalAnalysis = null;
         _financialSnapshot = null;
+        _dividendEvent = null;
+        _dividendLoading = false;
+        _dividendError = null;
       });
     } catch (e) {
       if (!mounted || requestId != _fundamentalRequestId) return;
@@ -1894,6 +1938,9 @@ class _InfoPageState extends State<InfoPage> {
         _fundamentalGameData = null;
         _fundamentalAnalysis = null;
         _financialSnapshot = null;
+        _dividendEvent = null;
+        _dividendLoading = false;
+        _dividendError = null;
       });
     }
   }
@@ -2139,13 +2186,17 @@ class _InfoPageState extends State<InfoPage> {
     );
   }
 
-  Future<void> _openNewsLink(String url) async {
+  Future<void> _openExternalUrl(
+    String url, {
+    String invalidMessage = 'Lien invalide.',
+    String failureMessage = 'Impossible d’ouvrir le lien.',
+  }) async {
     final uri = Uri.tryParse(url);
     if (uri == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Lien invalide.')));
+      ).showSnackBar(SnackBar(content: Text(invalidMessage)));
       return;
     }
     try {
@@ -2154,22 +2205,36 @@ class _InfoPageState extends State<InfoPage> {
         mode: LaunchMode.externalApplication,
       );
       if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d\'ouvrir la news.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(failureMessage)));
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossible d\'ouvrir la news.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failureMessage)));
     }
+  }
+
+  Future<void> _openNewsLink(String url) {
+    return _openExternalUrl(
+      url,
+      failureMessage: 'Impossible d\'ouvrir la news.',
+    );
+  }
+
+  bool _isEtfQuote(QuoteDetail? quote) {
+    return (_quoteType ?? quote?.quoteType)?.toUpperCase() == 'ETF';
   }
 
   Widget _buildQuoteView(ThemeData theme) {
     final quote = _quote;
     final priceText = _formatCurrency(quote?.regularMarketPrice);
-    final delta = _periodDelta;
+    // For 1D, always use Yahoo's official values (vs previous close).
+    // The chart delta computes % from today's open, which gives a wrong result.
+    final delta =
+        _selectedInterval == ChartInterval.oneDay ? null : _periodDelta;
     final changeValue = delta?.change ?? quote?.regularMarketChange;
     final changePercentValue =
         delta?.percent ?? quote?.regularMarketChangePercent;
@@ -2183,7 +2248,7 @@ class _InfoPageState extends State<InfoPage> {
     final lastUpdate = _formatDateTime(quote?.regularMarketTime);
 
     final metrics = quote == null ? <_MetricEntry>[] : _buildMetrics(quote);
-    final isEtf = (_quoteType ?? quote?.quoteType)?.toUpperCase() == 'ETF';
+    final isEtf = _isEtfQuote(quote);
     final essentialTitles = <String>{
       'Devise',
       if (isEtf) 'Actifs nets' else 'Capitalisation',
@@ -2210,10 +2275,15 @@ class _InfoPageState extends State<InfoPage> {
     );
 
     final highlights = _buildHighlights(quote);
+    final coverage = _buildDataCoverageSummary(
+      quote,
+      _financialSnapshot,
+      isEtf,
+    );
+    final fundamentalGroups = _buildFundamentalMetricGroups(quote, isEtf);
 
     final overview = _buildEssentialPage(
       theme: theme,
-      priceText: priceText,
       changeText: changeText,
       percentText: percentText,
       changePositive: changePositive,
@@ -2221,40 +2291,83 @@ class _InfoPageState extends State<InfoPage> {
       lastUpdate: lastUpdate,
       essentialMetrics: essentialMetrics,
       highlights: highlights,
+      coverage: coverage,
     );
 
-    final extraPage = _buildExtraIndicatorsPage(
-      theme,
-      complementaryMetrics,
-      decisionIndicators,
+    final heroCard = _AssetHeroCard(
+      title: _displayName ?? _ticker ?? 'Actif',
+      ticker: _ticker ?? '—',
+      quoteType: isEtf ? 'ETF' : 'Action',
+      exchange: _exchange ?? 'Marché indisponible',
+      currency: _currency ?? '—',
+      sectorOrCategory:
+          isEtf
+              ? (_financialSnapshot?.fundCategory ??
+                  _financialSnapshot?.fundFamily)
+              : (_financialSnapshot?.sector ?? _financialSnapshot?.industry),
+      priceText: priceText ?? '—',
+      changeText: [
+        if (changeText != null) changeText,
+        if (percentText != null) percentText,
+      ].join(' · '),
+      changePositive: changePositive,
+      lastUpdate: lastUpdate,
+      portfolioButton: _buildPortfolioButton(theme),
+      favoriteButton: _buildFavoriteButton(theme),
+      tradeButtons: _buildTradeButtons(theme),
     );
 
-    return Column(
-      children: [
-        Expanded(
-          child: PageView(
-            controller: _pageController,
-            physics: const PageScrollPhysics(),
-            onPageChanged: (index) {
-              if (_currentPage != index && mounted) {
-                setState(() => _currentPage = index);
-              }
-            },
-            children: [overview, extraPage, _buildNewsPage(theme)],
+    return DefaultTabController(
+      length: 4,
+      child: NestedScrollView(
+        physics: const BouncingScrollPhysics(),
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: heroCard,
+            ),
           ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyTabBarDelegate(
+              child: ColoredBox(
+                color: backgroundColor,
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: _InfoTabStrip(),
+                ),
+              ),
+            ),
+          ),
+        ],
+        body: TabBarView(
+          children: [
+            overview,
+            _buildFundamentalsTab(
+              theme: theme,
+              complementaryMetrics: complementaryMetrics,
+              decisionIndicators: decisionIndicators,
+              groups: fundamentalGroups,
+            ),
+            _buildProfileTab(
+              theme: theme,
+              quote: quote,
+              coverage: coverage,
+            ),
+            _buildNewsPage(theme),
+          ],
         ),
-        const SizedBox(height: 12),
-        _PageIndicator(count: 3, currentIndex: _currentPage),
-        const SizedBox(height: 12),
-      ],
+      ),
     );
   }
 
-  Widget _buildExtraIndicatorsPage(
-    ThemeData theme,
-    List<_MetricEntry> complementaryMetrics,
-    List<DecisionIndicator> decisionIndicators,
-  ) {
+  Widget _buildFundamentalsTab({
+    required ThemeData theme,
+    required List<_MetricEntry> complementaryMetrics,
+    required List<DecisionIndicator> decisionIndicators,
+    required List<_MetricGroupData> groups,
+  }) {
     final showDecisionLoading =
         _fundamentalLoading && _financialSnapshot == null;
     final showDecisionError =
@@ -2264,31 +2377,50 @@ class _InfoPageState extends State<InfoPage> {
 
     final children = <Widget>[];
 
-    if (complementaryMetrics.isNotEmpty) {
+    children.add(_buildFundamentalHeroCard());
+
+    final historyCards = _buildHistoryCards();
+    if (historyCards.isNotEmpty) {
       children
-        ..add(_SectionHeader(label: 'Indicateurs complémentaires'))
+        ..add(const SizedBox(height: 16))
+        ..add(_SectionHeader(label: 'Historique synthétique'))
         ..add(const SizedBox(height: 12))
-        ..add(
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children:
-                complementaryMetrics
-                    .map(
-                      (metric) => _MetricCard(
-                        title: metric.title,
-                        value: metric.value,
-                        subtitle: metric.subtitle,
-                      ),
-                    )
-                    .toList(),
-          ),
-        )
-        ..add(const SizedBox(height: 24));
+        ..addAll(historyCards);
     }
 
-    children.add(_SectionHeader(label: 'Indicateurs décisionnels'));
-    children.add(const SizedBox(height: 12));
+    children
+      ..add(const SizedBox(height: 16))
+      ..add(_buildDividendOverviewCard(theme, compact: false));
+
+    for (final group in groups) {
+      children
+        ..add(const SizedBox(height: 16))
+        ..add(
+          _MetricGroupCard(
+            title: group.title,
+            subtitle: group.subtitle,
+            metrics: group.metrics,
+          ),
+        );
+    }
+
+    if (complementaryMetrics.isNotEmpty) {
+      children
+        ..add(const SizedBox(height: 16))
+        ..add(
+          _MetricGroupCard(
+            title: 'Marché & liquidité',
+            subtitle:
+                'Repères complémentaires liés au cours, aux volumes et au comportement de marché.',
+            metrics: complementaryMetrics,
+          ),
+        );
+    }
+
+    children
+      ..add(const SizedBox(height: 16))
+      ..add(_SectionHeader(label: 'Indicateurs pédagogiques'))
+      ..add(const SizedBox(height: 12));
 
     if (showDecisionLoading) {
       children.add(const Center(child: CircularProgressIndicator()));
@@ -2326,10 +2458,753 @@ class _InfoPageState extends State<InfoPage> {
     }
 
     return ListView(
-      key: const PageStorageKey<String>('extra_page'),
+      key: const PageStorageKey<String>('fundamentals_page'),
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: children,
+    );
+  }
+
+  Widget _buildProfileTab({
+    required ThemeData theme,
+    required QuoteDetail? quote,
+    required _DataCoverageSummary coverage,
+  }) {
+    final isEtf = _isEtfQuote(quote);
+    final snapshot = _financialSnapshot;
+    final profileSummary =
+        isEtf ? snapshot?.fundSummary : snapshot?.longBusinessSummary;
+    final facts = <_MetricEntry>[
+      if (isEtf && snapshot?.fundCategory != null)
+        _MetricEntry('Catégorie', snapshot!.fundCategory),
+      if (isEtf && snapshot?.fundFamily != null)
+        _MetricEntry('Famille', snapshot!.fundFamily),
+      if (isEtf && snapshot?.fundLegalType != null)
+        _MetricEntry('Structure', snapshot!.fundLegalType),
+      if (isEtf && snapshot?.fundInceptionDate != null)
+        _MetricEntry('Création', _formatDate(snapshot!.fundInceptionDate)),
+      if (!isEtf && snapshot?.sector != null)
+        _MetricEntry('Secteur', snapshot!.sector),
+      if (!isEtf && snapshot?.industry != null)
+        _MetricEntry('Industrie', snapshot!.industry),
+      if (_exchange != null && _exchange!.trim().isNotEmpty)
+        _MetricEntry('Marché', _exchange),
+      if (_currency != null && _currency!.trim().isNotEmpty)
+        _MetricEntry('Devise', _currency),
+      if (snapshot?.website != null)
+        _MetricEntry('Site web', snapshot!.website),
+    ];
+
+    return ListView(
+      key: const PageStorageKey<String>('profile_page'),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildDataCoverageCard(theme, coverage),
+        const SizedBox(height: 16),
+        _InfoSectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isEtf ? 'Profil du fonds' : 'Profil de l’entreprise',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                profileSummary ??
+                    'Les informations de profil détaillées ne sont pas encore disponibles pour cet actif.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+              if (snapshot?.website != null) ...[
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        () => _openExternalUrl(
+                          snapshot!.website!,
+                          failureMessage: 'Impossible d’ouvrir le site.',
+                        ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _wine,
+                      side: BorderSide(color: _wine.withValues(alpha: 0.24)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                    label: const Text('Ouvrir le site'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (facts.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _MetricGroupCard(
+            title: isEtf ? 'Identité du fonds' : 'Identité de l’actif',
+            subtitle:
+                'Faits descriptifs utiles pour contextualiser la lecture des données financières.',
+            metrics: facts,
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildHistoryCards() {
+    final data = _fundamentalGameData;
+    if (data == null) return const <Widget>[];
+
+    final cards = <Widget>[];
+    if (data.revenueHistory.isNotEmpty) {
+      cards.add(
+        _HistorySeriesCard(
+          title: 'Chiffre d’affaires',
+          subtitle: 'Dernières années disponibles',
+          values: data.revenueHistory,
+          formatter: (value) => _formatLargeNumber(value) ?? '—',
+        ),
+      );
+    }
+    if (data.epsHistory.isNotEmpty) {
+      cards.add(
+        _HistorySeriesCard(
+          title: 'BPA',
+          subtitle: 'Bénéfice par action',
+          values: data.epsHistory,
+          formatter: (value) => _formatCurrency(value) ?? '—',
+        ),
+      );
+    }
+    final dividendHistory =
+        data.dividendPerYear.entries
+            .map(
+              (entry) => YearlyMetricValue(year: entry.key, value: entry.value),
+            )
+            .toList()
+          ..sort((a, b) => b.year.compareTo(a.year));
+    if (dividendHistory.isNotEmpty) {
+      cards.add(
+        _HistorySeriesCard(
+          title: 'Dividendes annuels',
+          subtitle: 'Montants observés par année',
+          values: dividendHistory,
+          formatter: (value) => _formatCurrency(value) ?? '—',
+        ),
+      );
+    }
+
+    if (cards.isEmpty) return const <Widget>[];
+    return cards
+        .expand((card) => <Widget>[card, const SizedBox(height: 12)])
+        .toList()
+      ..removeLast();
+  }
+
+  Widget _buildDividendOverviewCard(ThemeData theme, {bool compact = true}) {
+    final data = _fundamentalGameData;
+    final history = data?.dividendPerYear.entries.toList() ?? [];
+    history.sort((a, b) => b.key.compareTo(a.key));
+    final recentHistory = history.take(compact ? 3 : 5).toList();
+    final hasDividendData =
+        _dividendLoading ||
+        _dividendEvent != null ||
+        recentHistory.isNotEmpty ||
+        (_financialSnapshot?.dividendYield != null);
+
+    if (!hasDividendData) {
+      return _InfoSectionCard(
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: _chipBg,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(Icons.payments_outlined, color: _wine),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dividendes',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Aucune donnée de distribution exploitable n’a été trouvée pour cet actif.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _InfoSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Dividendes',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            compact
+                ? 'Calendrier et historique récent de distribution quand les données sont disponibles.'
+                : 'Calendrier, fréquence et historique annuel de distribution, à titre purement descriptif.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_dividendLoading)
+            const Center(child: CircularProgressIndicator())
+          else ...[
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                if (_financialSnapshot?.dividendYield != null)
+                  _OverviewStatCard(
+                    label: 'Rendement',
+                    value:
+                        _formatPercent(
+                          _financialSnapshot!.dividendYield! * 100,
+                        ) ??
+                        '—',
+                    accent: Colors.orange.shade800,
+                    soft: Colors.orange.withValues(alpha: 0.10),
+                  ),
+                if (_dividendEvent?.amount != null)
+                  _OverviewStatCard(
+                    label: 'Montant',
+                    value:
+                        _formatCurrency(_dividendEvent!.amount) ??
+                        _dividendEvent!.amount!.toStringAsFixed(2),
+                    accent: _wine,
+                    soft: _wine.withValues(alpha: 0.10),
+                  ),
+                if (_dividendEvent?.frequency != null)
+                  _OverviewStatCard(
+                    label: 'Fréquence',
+                    value: _dividendEvent!.frequency!,
+                    accent: textColor,
+                    soft: _chipBg,
+                  ),
+              ],
+            ),
+            if (_dividendEvent != null || _dividendError != null) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  if (_dividendEvent?.exDate != null)
+                    _ContextPill(
+                      icon: Icons.event_available_rounded,
+                      label: 'Ex-date ${_formatDate(_dividendEvent!.exDate)}',
+                      foreground: _wine,
+                      background: _wine.withValues(alpha: 0.10),
+                    ),
+                  if (_dividendEvent?.paymentDate != null)
+                    _ContextPill(
+                      icon: Icons.calendar_month_rounded,
+                      label:
+                          'Paiement ${_formatDate(_dividendEvent!.paymentDate)}',
+                      foreground: Colors.green.shade700,
+                      background: Colors.green.withValues(alpha: 0.10),
+                    ),
+                  if (_dividendError != null)
+                    _ContextPill(
+                      icon: Icons.info_outline_rounded,
+                      label: _dividendError!,
+                      foreground: Colors.black54,
+                      background: _chipBg,
+                    ),
+                ],
+              ),
+            ],
+            if (recentHistory.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(
+                compact ? 'Historique récent' : 'Historique annuel',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children:
+                    recentHistory
+                        .map(
+                          (entry) => _YearValueChip(
+                            year: entry.key,
+                            value: _formatCurrency(entry.value) ?? '—',
+                          ),
+                        )
+                        .toList(),
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<_ChartAnnotationData> _buildChartAnnotations() {
+    final quote = _quote;
+    final annotations = <_ChartAnnotationData>[];
+    if (quote?.fiftyTwoWeekHigh != null && quote?.fiftyTwoWeekLow != null) {
+      annotations.add(
+        _ChartAnnotationData(
+          label:
+              '52 sem. ${_formatCurrency(quote!.fiftyTwoWeekLow)} → ${_formatCurrency(quote.fiftyTwoWeekHigh)}',
+          icon: Icons.unfold_more_rounded,
+          tint: _chipBg,
+          foreground: Colors.black87,
+        ),
+      );
+    }
+    if (_periodDelta != null && _selectedInterval != ChartInterval.oneDay) {
+      annotations.add(
+        _ChartAnnotationData(
+          label:
+              'Période ${_formatSignedCurrency(_periodDelta!.change)} · ${_formatPercent(_periodDelta!.percent) ?? '—'}',
+          icon: Icons.show_chart_rounded,
+          tint:
+              _periodDelta!.change >= 0
+                  ? Colors.green.withValues(alpha: 0.10)
+                  : Colors.red.withValues(alpha: 0.10),
+          foreground:
+              _periodDelta!.change >= 0
+                  ? Colors.green.shade700
+                  : Colors.red.shade700,
+        ),
+      );
+    }
+    if (_dividendEvent?.exDate != null) {
+      annotations.add(
+        _ChartAnnotationData(
+          label: 'Ex-div. ${_formatDate(_dividendEvent!.exDate)}',
+          icon: Icons.payments_outlined,
+          tint: Colors.orange.withValues(alpha: 0.10),
+          foreground: Colors.orange.shade800,
+        ),
+      );
+    }
+    return annotations;
+  }
+
+  _DataCoverageSummary _buildDataCoverageSummary(
+    QuoteDetail? quote,
+    FinancialSnapshot? snapshot,
+    bool isEtf,
+  ) {
+    final checks = <MapEntry<String, bool>>[
+      MapEntry('prix', quote?.regularMarketPrice != null),
+      MapEntry('graphique', _chartPoints.isNotEmpty),
+      MapEntry(
+        'devise',
+        ((_currency ?? quote?.currency)?.trim().isNotEmpty) ?? false,
+      ),
+      MapEntry(
+        'marché',
+        ((_exchange ?? quote?.fullExchangeName)?.trim().isNotEmpty) ?? false,
+      ),
+      MapEntry('variation', _periodDelta != null),
+      if (isEtf) ...[
+        MapEntry('catégorie', snapshot?.fundCategory != null),
+        MapEntry('frais', snapshot?.expenseRatio != null),
+        MapEntry('encours', snapshot?.netAssets != null),
+        MapEntry('perf. YTD', snapshot?.ytdReturn != null),
+        MapEntry('profil', snapshot?.fundSummary != null),
+      ] else ...[
+        MapEntry('secteur', snapshot?.sector != null),
+        MapEntry('industrie', snapshot?.industry != null),
+        MapEntry('résumé', snapshot?.longBusinessSummary != null),
+        MapEntry('croissance', snapshot?.revenueGrowth != null),
+        MapEntry('cash-flow', snapshot?.freeCashflow != null),
+      ],
+    ];
+    final total = checks.length;
+    final available = checks.where((entry) => entry.value).length;
+    final ratio = total == 0 ? 0.0 : available / total;
+    final missing =
+        checks
+            .where((entry) => !entry.value)
+            .map((entry) => entry.key)
+            .take(4)
+            .toList();
+    if (ratio >= 0.75) {
+      return _DataCoverageSummary(
+        label: 'Couverture élevée',
+        ratioLabel: '$available/$total champs',
+        accent: Colors.green.shade700,
+        soft: Colors.green.withValues(alpha: 0.10),
+        icon: Icons.verified_rounded,
+        missing: missing,
+      );
+    }
+    if (ratio >= 0.45) {
+      return _DataCoverageSummary(
+        label: 'Couverture intermédiaire',
+        ratioLabel: '$available/$total champs',
+        accent: Colors.orange.shade800,
+        soft: Colors.orange.withValues(alpha: 0.10),
+        icon: Icons.rule_folder_outlined,
+        missing: missing,
+      );
+    }
+    return _DataCoverageSummary(
+      label: 'Couverture partielle',
+      ratioLabel: '$available/$total champs',
+      accent: Colors.black54,
+      soft: _chipBg,
+      icon: Icons.info_outline_rounded,
+      missing: missing,
+    );
+  }
+
+  List<_MetricGroupData> _buildFundamentalMetricGroups(
+    QuoteDetail? quote,
+    bool isEtf,
+  ) {
+    final snapshot = _financialSnapshot;
+    if (snapshot == null) return const <_MetricGroupData>[];
+
+    List<_MetricEntry> entries(List<_MetricEntry?> values) =>
+        values.whereType<_MetricEntry>().toList();
+
+    if (isEtf) {
+      return [
+        _MetricGroupData(
+          title: 'Structure du fonds',
+          subtitle: 'Nature du véhicule, frais et encours.',
+          metrics: entries([
+            if (snapshot.fundCategory != null)
+              _MetricEntry('Catégorie', snapshot.fundCategory),
+            if (snapshot.fundFamily != null)
+              _MetricEntry('Famille', snapshot.fundFamily),
+            if (snapshot.fundLegalType != null)
+              _MetricEntry('Structure', snapshot.fundLegalType),
+            if (snapshot.netAssets != null)
+              _MetricEntry(
+                'Actifs nets',
+                _formatLargeNumber(snapshot.netAssets),
+                _formatCurrency(snapshot.netAssets, withSeparators: true),
+              ),
+            if (snapshot.expenseRatio != null)
+              _MetricEntry(
+                'Frais annuels',
+                _formatPercent(snapshot.expenseRatio! * 100),
+              ),
+          ]),
+        ),
+        _MetricGroupData(
+          title: 'Performance & risque',
+          subtitle: 'Mesures descriptives disponibles pour situer le fonds.',
+          metrics: entries([
+            if (snapshot.ytdReturn != null)
+              _MetricEntry(
+                'Perf. YTD',
+                _formatPercent(snapshot.ytdReturn! * 100),
+              ),
+            if (snapshot.threeYearAverageReturn != null)
+              _MetricEntry(
+                'Perf. 3 ans',
+                _formatPercent(snapshot.threeYearAverageReturn! * 100),
+              ),
+            if (snapshot.betaThreeYear != null)
+              _MetricEntry(
+                'Bêta 3 ans',
+                _formatNumber(snapshot.betaThreeYear, fractionDigits: 2),
+              ),
+            if (quote?.dividendYield != null)
+              _MetricEntry(
+                'Rdt dividende',
+                _formatPercent(quote!.dividendYield! * 100),
+              ),
+          ]),
+        ),
+      ].where((group) => group.metrics.isNotEmpty).toList();
+    }
+
+    return [
+      _MetricGroupData(
+        title: 'Valorisation',
+        subtitle:
+            'Repères de prix relatifs au résultat, à l’activité et aux capitaux.',
+        metrics: entries([
+          if (quote?.trailingPE != null ||
+              _fundamentalGameData?.trailingPe != null)
+            _MetricEntry(
+              'PER (TTM)',
+              _formatNumber(
+                quote?.trailingPE ?? _fundamentalGameData?.trailingPe,
+                fractionDigits: 2,
+              ),
+            ),
+          if (quote?.forwardPE != null)
+            _MetricEntry(
+              'PER (forward)',
+              _formatNumber(quote?.forwardPE, fractionDigits: 2),
+            ),
+          if (snapshot.pegRatio != null)
+            _MetricEntry(
+              'PEG',
+              _formatNumber(snapshot.pegRatio, fractionDigits: 2),
+            ),
+          if (snapshot.enterpriseToEbitda != null)
+            _MetricEntry(
+              'EV/EBITDA',
+              _formatNumber(snapshot.enterpriseToEbitda, fractionDigits: 2),
+            ),
+          if (snapshot.enterpriseToRevenue != null)
+            _MetricEntry(
+              'EV/CA',
+              _formatNumber(snapshot.enterpriseToRevenue, fractionDigits: 2),
+            ),
+          if (snapshot.priceToBook != null)
+            _MetricEntry(
+              'Price to book',
+              _formatNumber(snapshot.priceToBook, fractionDigits: 2),
+            ),
+        ]),
+      ),
+      _MetricGroupData(
+        title: 'Croissance',
+        subtitle: 'Évolution récente de l’activité et du bénéfice par action.',
+        metrics: entries([
+          if (snapshot.revenueGrowth != null)
+            _MetricEntry(
+              'Croissance CA',
+              _formatPercent(snapshot.revenueGrowth! * 100),
+            ),
+          if (snapshot.earningsGrowth != null)
+            _MetricEntry(
+              'Croissance BPA',
+              _formatPercent(snapshot.earningsGrowth! * 100),
+            ),
+          if (snapshot.revenue != null)
+            _MetricEntry(
+              'Chiffre d’affaires',
+              _formatLargeNumber(snapshot.revenue),
+            ),
+          if (snapshot.eps != null)
+            _MetricEntry('BPA', _formatCurrency(snapshot.eps)),
+        ]),
+      ),
+      _MetricGroupData(
+        title: 'Rentabilité',
+        subtitle:
+            'Capacité à convertir l’activité en marge et rendement des fonds.',
+        metrics: entries([
+          if (snapshot.returnOnEquity != null)
+            _MetricEntry('ROE', _formatPercent(snapshot.returnOnEquity! * 100)),
+          if (snapshot.returnOnAssets != null)
+            _MetricEntry('ROA', _formatPercent(snapshot.returnOnAssets! * 100)),
+          if (snapshot.operatingMargin != null)
+            _MetricEntry(
+              'Marge op.',
+              _formatPercent(snapshot.operatingMargin! * 100),
+            ),
+          if (snapshot.netMargin != null)
+            _MetricEntry(
+              'Marge nette',
+              _formatPercent(snapshot.netMargin! * 100),
+            ),
+          if (snapshot.netIncome != null)
+            _MetricEntry(
+              'Résultat net',
+              _formatLargeNumber(snapshot.netIncome),
+            ),
+        ]),
+      ),
+      _MetricGroupData(
+        title: 'Bilan',
+        subtitle:
+            'Structure de financement, liquidité et niveau d’endettement.',
+        metrics: entries([
+          if (snapshot.totalCash != null)
+            _MetricEntry('Cash total', _formatLargeNumber(snapshot.totalCash)),
+          if (snapshot.totalDebt != null)
+            _MetricEntry(
+              'Dette totale',
+              _formatLargeNumber(snapshot.totalDebt),
+            ),
+          if (snapshot.debtToEbitda != null)
+            _MetricEntry(
+              'Dette/EBITDA',
+              _formatNumber(snapshot.debtToEbitda, fractionDigits: 2),
+            ),
+          if (snapshot.equity != null)
+            _MetricEntry(
+              'Capitaux propres',
+              _formatLargeNumber(snapshot.equity),
+            ),
+          if (snapshot.bookValue != null)
+            _MetricEntry('Book value', _formatLargeNumber(snapshot.bookValue)),
+        ]),
+      ),
+      _MetricGroupData(
+        title: 'Cash-flow',
+        subtitle: 'Génération de trésorerie et intensité d’investissement.',
+        metrics: entries([
+          if (snapshot.operatingCashflow != null)
+            _MetricEntry(
+              'Cash-flow op.',
+              _formatLargeNumber(snapshot.operatingCashflow),
+            ),
+          if (snapshot.capitalExpenditures != null)
+            _MetricEntry(
+              'Capex',
+              _formatLargeNumber(snapshot.capitalExpenditures),
+            ),
+          if (snapshot.freeCashflow != null)
+            _MetricEntry(
+              'Free cash-flow',
+              _formatLargeNumber(snapshot.freeCashflow),
+            ),
+          if (snapshot.freeCashflowYield != null)
+            _MetricEntry(
+              'FCF yield',
+              _formatPercent(snapshot.freeCashflowYield! * 100),
+            ),
+          if (snapshot.capexToRevenue != null)
+            _MetricEntry(
+              'Capex/CA',
+              _formatPercent(snapshot.capexToRevenue! * 100),
+            ),
+        ]),
+      ),
+      _MetricGroupData(
+        title: 'Distribution',
+        subtitle:
+            'Politique de distribution observée à partir des données publiques.',
+        metrics: entries([
+          if (snapshot.dividendYield != null)
+            _MetricEntry(
+              'Rdt dividende',
+              _formatPercent(snapshot.dividendYield! * 100),
+            ),
+          if (snapshot.payoutRatio != null)
+            _MetricEntry(
+              'Payout ratio',
+              _formatPercent(snapshot.payoutRatio! * 100),
+            ),
+          if (snapshot.trailingAnnualDividendRate != null)
+            _MetricEntry(
+              'Dividende annuel',
+              _formatCurrency(snapshot.trailingAnnualDividendRate),
+            ),
+          if (snapshot.trailingAnnualDividendYield != null)
+            _MetricEntry(
+              'Yield annuel',
+              _formatPercent(snapshot.trailingAnnualDividendYield! * 100),
+            ),
+        ]),
+      ),
+    ].where((group) => group.metrics.isNotEmpty).toList();
+  }
+
+  Widget _buildDataCoverageCard(
+    ThemeData theme,
+    _DataCoverageSummary coverage,
+  ) {
+    return _InfoSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Complétude des données',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                  ),
+                ),
+              ),
+              _ContextPill(
+                icon: coverage.icon,
+                label: coverage.label,
+                foreground: coverage.accent,
+                background: coverage.soft,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Cette jauge indique combien de champs utiles sont actuellement exploitables pour cet actif.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: coverage.progress,
+              minHeight: 10,
+              backgroundColor: const Color(0xFFE8EBEF),
+              valueColor: AlwaysStoppedAnimation<Color>(coverage.accent),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            coverage.ratioLabel,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: coverage.accent,
+            ),
+          ),
+          if (coverage.missing.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Champs encore partiels : ${coverage.missing.join(', ')}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -2715,27 +3590,126 @@ class _InfoPageState extends State<InfoPage> {
       );
     }
 
-    return ListView.separated(
+    final filteredItems = _filteredNewsItems();
+
+    return ListView(
       key: const PageStorageKey<String>('news_page'),
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      itemCount: _newsItems.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final item = _newsItems[index];
-        final published = _formatDateTime(item.publishedAt);
-        return _NewsArticleCard(
-          article: item,
-          subtitle:
-              published == null
-                  ? item.publisher
-                  : '${item.publisher} • $published',
-          onTap: () => _openNewsLink(item.url),
-          highlightPrimary: _newsTickerMatches.contains(item.id),
-          highlightFavorite: _newsFavoriteMatches.contains(item.id),
-        );
-      },
+      children: [
+        _InfoSectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Actualités',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Filtre les news directement liées au ticker, à tes favoris ou plus larges de marché.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children:
+                    _NewsFilter.values
+                        .map(
+                          (filter) => _SelectablePill(
+                            label: _newsFilterLabel(filter),
+                            selected: _newsFilter == filter,
+                            onTap: () => setState(() => _newsFilter = filter),
+                          ),
+                        )
+                        .toList(),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '${filteredItems.length} article(s) affiché(s)',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: _wine,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (filteredItems.isEmpty)
+          _InfoSectionCard(
+            child: Text(
+              'Aucune actualité ne correspond au filtre sélectionné.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        else
+          ...filteredItems.expand((item) {
+              final published = _formatDateTime(item.publishedAt);
+              return <Widget>[
+                _NewsArticleCard(
+                  article: item,
+                  subtitle:
+                      published == null
+                          ? item.publisher
+                          : '${item.publisher} • $published',
+                  onTap: () => _openNewsLink(item.url),
+                  highlightPrimary: _newsTickerMatches.contains(item.id),
+                  highlightFavorite: _newsFavoriteMatches.contains(item.id),
+                  macroContext: _isMacroNews(item),
+                ),
+                const SizedBox(height: 12),
+              ];
+            }).toList()
+            ..removeLast(),
+      ],
     );
+  }
+
+  List<FinanceNewsItem> _filteredNewsItems() {
+    switch (_newsFilter) {
+      case _NewsFilter.all:
+        return _newsItems;
+      case _NewsFilter.ticker:
+        return _newsItems
+            .where((item) => _newsTickerMatches.contains(item.id))
+            .toList();
+      case _NewsFilter.favorites:
+        return _newsItems
+            .where((item) => _newsFavoriteMatches.contains(item.id))
+            .toList();
+      case _NewsFilter.macro:
+        return _newsItems.where(_isMacroNews).toList();
+    }
+  }
+
+  bool _isMacroNews(FinanceNewsItem item) {
+    return !_newsTickerMatches.contains(item.id) &&
+        !_newsFavoriteMatches.contains(item.id);
+  }
+
+  String _newsFilterLabel(_NewsFilter filter) {
+    switch (filter) {
+      case _NewsFilter.all:
+        return 'Toutes';
+      case _NewsFilter.ticker:
+        return 'Ticker';
+      case _NewsFilter.favorites:
+        return 'Favoris';
+      case _NewsFilter.macro:
+        return 'Macro';
+    }
   }
 
   String _resolveDisplayName(QuoteDetail quote) {
@@ -2978,7 +3952,7 @@ class _InfoPageState extends State<InfoPage> {
       highlights.add(
         _InsightHighlight(
           label: 'Dividende',
-          value: _formatPercent(quote.dividendYield!) ?? '—',
+          value: _formatPercent(quote.dividendYield! * 100) ?? '—',
           icon: Icons.savings_rounded,
           color: Colors.orange.shade700,
         ),
@@ -3106,6 +4080,13 @@ class _InfoPageState extends State<InfoPage> {
     return buffer.toString();
   }
 
+  String? _formatDate(DateTime? dt) {
+    if (dt == null) return null;
+    final local = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(local.day)}/${two(local.month)}/${local.year}';
+  }
+
   String? _formatDateTime(DateTime? dt) {
     if (dt == null) return null;
     final local = dt.toLocal();
@@ -3140,8 +4121,12 @@ class _QuoteChartSection extends StatelessWidget {
     required this.error,
     required this.interval,
     required this.onIntervalSelected,
+    required this.displayMode,
+    required this.onDisplayModeChanged,
     required this.labelBuilder,
     required this.currencyFormatter,
+    required this.percentFormatter,
+    this.annotations = const <_ChartAnnotationData>[],
   });
 
   final List<HistoricalPoint> points;
@@ -3149,8 +4134,12 @@ class _QuoteChartSection extends StatelessWidget {
   final String? error;
   final ChartInterval interval;
   final ValueChanged<ChartInterval> onIntervalSelected;
+  final _ChartDisplayMode displayMode;
+  final ValueChanged<_ChartDisplayMode> onDisplayModeChanged;
   final String Function(DateTime, ChartInterval) labelBuilder;
   final String? Function(double?) currencyFormatter;
+  final String? Function(double?) percentFormatter;
+  final List<_ChartAnnotationData> annotations;
 
   static const List<ChartInterval> _intervals = <ChartInterval>[
     ChartInterval.oneDay,
@@ -3166,8 +4155,9 @@ class _QuoteChartSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasData = points.isNotEmpty;
-    final startPoint = hasData ? points.first : null;
-    final endPoint = hasData ? points.last : null;
+    final displayPoints = _displayPoints();
+    final startPoint = hasData ? displayPoints.first : null;
+    final endPoint = hasData ? displayPoints.last : null;
     final rising = hasData && endPoint!.close >= startPoint!.close;
     final lineColor =
         hasData
@@ -3179,9 +4169,8 @@ class _QuoteChartSection extends StatelessWidget {
     final endLabel =
         endPoint != null ? labelBuilder(endPoint.time, interval) : '—';
     final startPrice =
-        startPoint != null ? (currencyFormatter(startPoint.close) ?? '—') : '—';
-    final endPrice =
-        endPoint != null ? (currencyFormatter(endPoint.close) ?? '—') : '—';
+        startPoint != null ? _formatValue(startPoint.close) : '—';
+    final endPrice = endPoint != null ? _formatValue(endPoint.close) : '—';
 
     return Container(
       decoration: BoxDecoration(
@@ -3205,6 +4194,24 @@ class _QuoteChartSection extends StatelessWidget {
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children:
+                _ChartDisplayMode.values
+                    .map(
+                      (mode) => _SelectablePill(
+                        label:
+                            mode == _ChartDisplayMode.price
+                                ? 'Prix'
+                                : 'Perf. %',
+                        selected: displayMode == mode,
+                        onTap: () => onDisplayModeChanged(mode),
+                      ),
+                    )
+                    .toList(),
           ),
           const SizedBox(height: 12),
           Align(
@@ -3242,6 +4249,24 @@ class _QuoteChartSection extends StatelessWidget {
                   }).toList(),
             ),
           ),
+          if (annotations.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children:
+                  annotations
+                      .map(
+                        (annotation) => _ContextPill(
+                          icon: annotation.icon,
+                          label: annotation.label,
+                          foreground: annotation.foreground,
+                          background: annotation.tint,
+                        ),
+                      )
+                      .toList(),
+            ),
+          ],
           const SizedBox(height: 18),
           SizedBox(
             height: 220,
@@ -3266,10 +4291,10 @@ class _QuoteChartSection extends StatelessWidget {
                     ? Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: _InteractiveLineChart(
-                        points: points,
+                        points: displayPoints,
                         lineColor: lineColor,
                         fillColor: fillColor,
-                        currencyFormatter: currencyFormatter,
+                        valueFormatter: _formatValue,
                         labelBuilder: labelBuilder,
                         interval: interval,
                       ),
@@ -3302,6 +4327,30 @@ class _QuoteChartSection extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<HistoricalPoint> _displayPoints() {
+    if (displayMode == _ChartDisplayMode.price || points.isEmpty) {
+      return points;
+    }
+    final base = points.first.close;
+    if (base.abs() < 1e-9) return points;
+    return points
+        .map(
+          (point) => HistoricalPoint(
+            time: point.time,
+            close: ((point.close / base) - 1) * 100,
+          ),
+        )
+        .toList();
+  }
+
+  String _formatValue(double value) {
+    if (displayMode == _ChartDisplayMode.performance) {
+      final formatted = percentFormatter(value);
+      return formatted ?? '${value.toStringAsFixed(2)} %';
+    }
+    return currencyFormatter(value) ?? '—';
   }
 }
 
@@ -3351,22 +4400,27 @@ class _InsightHighlightRow extends StatelessWidget {
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(highlight.icon, color: highlight.color, size: 20),
-                const SizedBox(height: 6),
+                Icon(highlight.icon, color: highlight.color, size: 18),
+                const SizedBox(height: 4),
                 Text(
                   highlight.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: _infoScaledFont(context, 12),
+                    fontSize: _infoScaledFont(context, 11),
                     color: Colors.black54,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   highlight.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: _infoScaledFont(context, 15),
+                    fontSize: _infoScaledFont(context, 14),
                     fontWeight: FontWeight.w700,
                     color: highlight.color,
                   ),
@@ -3429,7 +4483,7 @@ class _InteractiveLineChart extends StatefulWidget {
     required this.points,
     required this.lineColor,
     required this.fillColor,
-    required this.currencyFormatter,
+    required this.valueFormatter,
     required this.labelBuilder,
     required this.interval,
   });
@@ -3437,7 +4491,7 @@ class _InteractiveLineChart extends StatefulWidget {
   final List<HistoricalPoint> points;
   final Color lineColor;
   final Color fillColor;
-  final String? Function(double?) currencyFormatter;
+  final String Function(double value) valueFormatter;
   final String Function(DateTime, ChartInterval) labelBuilder;
   final ChartInterval interval;
 
@@ -3474,7 +4528,7 @@ class _InteractiveLineChartState extends State<_InteractiveLineChart> {
               child: _TooltipOverlay(
                 point: widget.points[_hoverIndex!],
                 x: _xForIndex(_hoverIndex!),
-                currencyFormatter: widget.currencyFormatter,
+                valueFormatter: widget.valueFormatter,
                 labelBuilder: widget.labelBuilder,
                 interval: widget.interval,
               ),
@@ -3506,7 +4560,7 @@ class _TooltipOverlay extends StatelessWidget {
   const _TooltipOverlay({
     required this.point,
     required this.x,
-    required this.currencyFormatter,
+    required this.valueFormatter,
     required this.labelBuilder,
     required this.interval,
   });
@@ -3515,14 +4569,13 @@ class _TooltipOverlay extends StatelessWidget {
 
   /// x fraction [0,1] of the chart width.
   final double x;
-  final String? Function(double?) currencyFormatter;
+  final String Function(double value) valueFormatter;
   final String Function(DateTime, ChartInterval) labelBuilder;
   final ChartInterval interval;
 
   @override
   Widget build(BuildContext context) {
-    final price =
-        currencyFormatter(point.close) ?? point.close.toStringAsFixed(2);
+    final price = valueFormatter(point.close);
     final dateLabel = labelBuilder(point.time, interval);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -3760,30 +4813,648 @@ class _MinimalLineChartPainter extends CustomPainter {
   }
 }
 
-class _PageIndicator extends StatelessWidget {
-  const _PageIndicator({required this.count, required this.currentIndex});
+class _MetricGroupData {
+  const _MetricGroupData({
+    required this.title,
+    required this.subtitle,
+    required this.metrics,
+  });
 
-  final int count;
-  final int currentIndex;
+  final String title;
+  final String subtitle;
+  final List<_MetricEntry> metrics;
+}
+
+class _DataCoverageSummary {
+  const _DataCoverageSummary({
+    required this.label,
+    required this.ratioLabel,
+    required this.accent,
+    required this.soft,
+    required this.icon,
+    required this.missing,
+  });
+
+  final String label;
+  final String ratioLabel;
+  final Color accent;
+  final Color soft;
+  final IconData icon;
+  final List<String> missing;
+
+  double get progress {
+    final parts = ratioLabel.split('/');
+    if (parts.length != 2) return 0;
+    final available = int.tryParse(parts.first) ?? 0;
+    final total = int.tryParse(parts.last.split(' ').first) ?? 0;
+    if (total <= 0) return 0;
+    return available / total;
+  }
+}
+
+class _ChartAnnotationData {
+  const _ChartAnnotationData({
+    required this.label,
+    required this.icon,
+    required this.tint,
+    required this.foreground,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color tint;
+  final Color foreground;
+}
+
+class _InfoSectionCard extends StatelessWidget {
+  const _InfoSectionCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE7EAF0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _InfoTabStrip extends StatelessWidget {
+  const _InfoTabStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE7EAF0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: TabBar(
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        indicator: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+            colors: [detailsColor1, detailsColor2],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        labelColor: Colors.white,
+        unselectedLabelColor: textColor,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
+        tabs: const [
+          Tab(text: 'Vue'),
+          Tab(text: 'Fondamentaux'),
+          Tab(text: 'Profil'),
+          Tab(text: 'News'),
+        ],
+      ),
+    );
+  }
+}
+
+class _StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
+  _StickyTabBarDelegate({required this.child});
+  final Widget child;
+
+  // TabBar ~46px + top padding 4 + bottom padding 12 = 62
+  static const double _height = 62.0;
+
+  @override
+  double get minExtent => _height;
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) =>
+      SizedBox.expand(child: child);
+
+  @override
+  bool shouldRebuild(_StickyTabBarDelegate old) => old.child != child;
+}
+
+class _AssetHeroCard extends StatelessWidget {
+  const _AssetHeroCard({
+    required this.title,
+    required this.ticker,
+    required this.quoteType,
+    required this.exchange,
+    required this.currency,
+    required this.sectorOrCategory,
+    required this.priceText,
+    required this.changeText,
+    required this.changePositive,
+    required this.lastUpdate,
+    required this.portfolioButton,
+    required this.favoriteButton,
+    required this.tradeButtons,
+  });
+
+  final String title;
+  final String ticker;
+  final String quoteType;
+  final String exchange;
+  final String currency;
+  final String? sectorOrCategory;
+  final String priceText;
+  final String changeText;
+  final bool changePositive;
+  final String? lastUpdate;
+  final Widget portfolioButton;
+  final Widget favoriteButton;
+  final Widget tradeButtons;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(count, (index) {
-        final bool active = index == currentIndex;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          height: 8,
-          width: active ? 20 : 8,
-          decoration: BoxDecoration(
-            color: active ? theme.colorScheme.primary : Colors.black26,
-            borderRadius: BorderRadius.circular(999),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            detailsColor2.withValues(alpha: 0.96),
+            detailsColor1.withValues(alpha: 0.92),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: detailsColor2.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
-        );
-      }),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HeroChip(label: quoteType, icon: Icons.pie_chart_rounded),
+              _HeroChip(label: exchange, icon: Icons.public_rounded),
+              _HeroChip(label: currency, icon: Icons.payments_rounded),
+              if (sectorOrCategory != null &&
+                  sectorOrCategory!.trim().isNotEmpty)
+                _HeroChip(label: sectorOrCategory!, icon: Icons.layers_rounded),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            ticker,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.82),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 16,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                priceText,
+                style: theme.textTheme.displaySmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              if (changeText.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        changePositive
+                            ? Colors.green.withValues(alpha: 0.20)
+                            : Colors.red.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color:
+                          changePositive
+                              ? Colors.green.withValues(alpha: 0.26)
+                              : Colors.red.withValues(alpha: 0.26),
+                    ),
+                  ),
+                  child: Text(
+                    changeText,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          if (lastUpdate != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Dernière mise à jour : $lastUpdate',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.white.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+          const SizedBox(height: 18),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Actions de portefeuille',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.84),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [portfolioButton, favoriteButton, tradeButtons],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectablePill extends StatelessWidget {
+  const _SelectablePill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? detailsColor2 : const Color(0xFFF0F1F3),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : textColor,
+            fontWeight: FontWeight.w800,
+            fontSize: 12.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ContextPill extends StatelessWidget {
+  const _ContextPill({
+    required this.icon,
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverviewStatCard extends StatelessWidget {
+  const _OverviewStatCard({
+    required this.label,
+    required this.value,
+    required this.accent,
+    required this.soft,
+  });
+
+  final String label;
+  final String value;
+  final Color accent;
+  final Color soft;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 148),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: soft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              color: accent,
+              fontWeight: FontWeight.w800,
+              fontSize: 14.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricGroupCard extends StatelessWidget {
+  const _MetricGroupCard({
+    required this.title,
+    required this.subtitle,
+    required this.metrics,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<_MetricEntry> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    return _InfoSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children:
+                metrics
+                    .map(
+                      (metric) => _MetricCard(
+                        title: metric.title,
+                        value: metric.value,
+                        subtitle: metric.subtitle,
+                      ),
+                    )
+                    .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistorySeriesCard extends StatelessWidget {
+  const _HistorySeriesCard({
+    required this.title,
+    required this.subtitle,
+    required this.values,
+    required this.formatter,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<YearlyMetricValue> values;
+  final String Function(double value) formatter;
+
+  @override
+  Widget build(BuildContext context) {
+    final limited = values.take(4).toList();
+    return _InfoSectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: textColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...limited.map(
+            (entry) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Text(
+                    '${entry.year}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    formatter(entry.value),
+                    style: const TextStyle(
+                      color: textColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearValueChip extends StatelessWidget {
+  const _YearValueChip({required this.year, required this.value});
+
+  final int year;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE6EAF0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$year',
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3795,6 +5466,7 @@ class _NewsArticleCard extends StatelessWidget {
     required this.onTap,
     this.highlightPrimary = false,
     this.highlightFavorite = false,
+    this.macroContext = false,
   });
 
   final FinanceNewsItem article;
@@ -3802,6 +5474,7 @@ class _NewsArticleCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool highlightPrimary;
   final bool highlightFavorite;
+  final bool macroContext;
 
   @override
   Widget build(BuildContext context) {
@@ -3859,13 +5532,21 @@ class _NewsArticleCard extends StatelessWidget {
                     ),
                   ),
                   if (highlightPrimary)
-                    _NewsChip(label: 'Suivi', color: Colors.green.shade600),
+                    _NewsChip(label: 'Ticker', color: Colors.green.shade600),
                   if (highlightFavorite)
                     Padding(
                       padding: const EdgeInsets.only(left: 6),
                       child: _NewsChip(
                         label: 'Favori lié',
                         color: Colors.blueAccent,
+                      ),
+                    ),
+                  if (macroContext)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: _NewsChip(
+                        label: 'Macro',
+                        color: Colors.deepPurple.shade400,
                       ),
                     ),
                 ],

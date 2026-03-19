@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fintech/core/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 enum _ShopCurrency { gems, coins }
 
@@ -1071,6 +1072,26 @@ class _ShopPageState extends State<ShopPage> {
       'type': 'avatar',
       'successMsg': 'Code valide ! Avatar Syd débloqué.',
     },
+    'STARQUINT': {
+      'itemId': '_quintprime',
+      'type': 'avatar',
+      'successMsg': 'Code valide ! Avatar Quint. Prime débloqué.',
+    },
+    'BEYONDBIG': {
+      'itemId': '_beyondbig',
+      'type': 'avatar',
+      'successMsg': 'Code valide ! C\'est gros !',
+    },
+    'GAY': {
+      'itemId': '_gay',
+      'type': 'avatar',
+      'successMsg': 'Code valide ! C\'est gay !',
+    },
+    'GROSELINE': {
+      'itemId': '_groseline',
+      'type': 'avatar',
+      'successMsg': 'Code valide ! Attention à l\'IMC.',
+    },
     'MONEY': {
       'itemId': 'money_cheat',
       'type': 'coins',
@@ -1623,6 +1644,7 @@ class _ShopPageState extends State<ShopPage> {
             .map((id) => _catalogById[id])
             .whereType<_ShopProduct>()
             .where((product) => product.isAvatar)
+            .where((product) => !viewData.ownsProduct(product))
             .toList();
     final cosmetics =
         _cosmeticProductIds
@@ -1640,43 +1662,44 @@ class _ShopPageState extends State<ShopPage> {
             .whereType<_ShopProduct>()
             .where((product) => product.kind == _ShopProductKind.collection)
             .toList();
-    final secretAvatars = _ownedSecretAvatarProducts(viewData.avatarInventory);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
-        const _SectionHeader(
-          title: 'Avatars',
-          subtitle:
-              'Personnalise ton profil de joueur et équipe ton avatar favori.',
-          icon: Icons.face_retouching_natural_rounded,
-        ),
-        const SizedBox(height: 10),
-        ...[...avatars, ...secretAvatars].map(
-          (product) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _ShopProductCard(
-              product: product,
-              viewData: viewData,
-              offer: _offerForProduct(product.id, offers),
-              onPrimaryAction:
-                  _canEquipProduct(product, viewData)
-                      ? () => _equipProduct(
-                        context: context,
-                        uid: uid,
-                        product: product,
-                      )
-                      : () => _handleProductTap(
-                        context: context,
-                        uid: uid,
-                        product: product,
-                        viewData: viewData,
-                        offers: offers,
-                      ),
+        if (avatars.isNotEmpty) ...[
+          const _SectionHeader(
+            title: 'Avatars',
+            subtitle:
+                'Personnalise ton profil de joueur et équipe ton avatar favori.',
+            icon: Icons.face_retouching_natural_rounded,
+          ),
+          const SizedBox(height: 10),
+          ...avatars.map(
+            (product) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _ShopProductCard(
+                product: product,
+                viewData: viewData,
+                offer: _offerForProduct(product.id, offers),
+                onPrimaryAction:
+                    _canEquipProduct(product, viewData)
+                        ? () => _equipProduct(
+                          context: context,
+                          uid: uid,
+                          product: product,
+                        )
+                        : () => _handleProductTap(
+                          context: context,
+                          uid: uid,
+                          product: product,
+                          viewData: viewData,
+                          offers: offers,
+                        ),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 6),
+          const SizedBox(height: 6),
+        ],
         const _SectionHeader(
           title: 'Cosmétiques du hub',
           subtitle: 'Cadres, badges, skins et thèmes à équiper.',
@@ -2089,6 +2112,7 @@ class _ShopPageState extends State<ShopPage> {
     }
 
     final rewardData = _redeemableCodes[inputCode];
+    debugPrint('[Redeem] code="$inputCode" found=${rewardData != null}');
     if (rewardData == null) {
       _showSnackBar(
         context,
@@ -2100,6 +2124,7 @@ class _ShopPageState extends State<ShopPage> {
 
     final itemId = rewardData['itemId'] as String;
     final type = rewardData['type'] as String? ?? 'avatar';
+    debugPrint('[Redeem] itemId=$itemId type=$type inventorySize=${inventory.length} alreadyOwned=${inventory.contains(itemId)}');
     if (type == 'avatar' && inventory.contains(itemId)) {
       _showSnackBar(context, 'Vous possédez déjà cette récompense.');
       _codeController.clear();
@@ -2110,10 +2135,12 @@ class _ShopPageState extends State<ShopPage> {
     try {
       final userDocRef = _userRef(uid);
       final progressRef = _progressRef(uid);
+      debugPrint('[Redeem] writing to Firestore path=${progressRef.path}');
       if (type == 'avatar') {
         await progressRef.set({
           'inventory': FieldValue.arrayUnion([itemId]),
         }, SetOptions(merge: true));
+        debugPrint('[Redeem] avatar write SUCCESS');
       } else if (type == 'coins') {
         await userDocRef.set({
           'coins': FieldValue.increment((rewardData['amount'] as int?) ?? 0),
@@ -2124,6 +2151,7 @@ class _ShopPageState extends State<ShopPage> {
         }, SetOptions(merge: true));
       }
 
+      debugPrint('[Redeem] context.mounted=${context.mounted}');
       if (!context.mounted) return;
       _showSnackBar(
         context,
@@ -2131,7 +2159,8 @@ class _ShopPageState extends State<ShopPage> {
         backgroundColor: Colors.green,
       );
       _codeController.clear();
-    } catch (error) {
+    } catch (error, st) {
+      debugPrint('[Redeem] ERROR: $error\n$st');
       if (context.mounted) {
         _showSnackBar(
           context,
@@ -2736,53 +2765,6 @@ class _ShopPageState extends State<ShopPage> {
   int _effectivePrice(_ShopProduct product, List<_ShopDailyOffer> offers) {
     return _offerForProduct(product.id, offers)?.discountedPrice ??
         product.price;
-  }
-
-  List<_ShopProduct> _ownedSecretAvatarProducts(Set<String> inventory) {
-    final secretProducts = <_ShopProduct>[];
-    if (inventory.contains('_easteregg')) {
-      secretProducts.add(
-        const _ShopProduct(
-          id: '_easteregg',
-          name: 'Avatar Easter Egg',
-          description: 'Avatar secret débloqué via code.',
-          price: 0,
-          currency: _ShopCurrency.coins,
-          kind: _ShopProductKind.cosmetic,
-          rarity: _ShopRarity.legendary,
-          gameLabel: 'Secret',
-          usage: 'Avatar secret',
-          immediateImpact: 'Déjà débloqué et équipable.',
-          useLocation: 'Visible sur le hub et les surfaces sociales.',
-          primaryTab: _ShopTabKey.cosmetics,
-          assetPath: 'assets/avatars/easteregg.png',
-          gradient: <Color>[Color(0xFFFFCC80), Color(0xFF6A1B9A)],
-          slotKey: 'avatar',
-        ),
-      );
-    }
-    if (inventory.contains('_sydsteregg')) {
-      secretProducts.add(
-        const _ShopProduct(
-          id: '_sydsteregg',
-          name: 'Avatar Syd',
-          description: 'Avatar secret collector débloqué via code.',
-          price: 0,
-          currency: _ShopCurrency.coins,
-          kind: _ShopProductKind.cosmetic,
-          rarity: _ShopRarity.legendary,
-          gameLabel: 'Secret',
-          usage: 'Avatar secret',
-          immediateImpact: 'Déjà débloqué et équipable.',
-          useLocation: 'Visible sur le hub et les surfaces sociales.',
-          primaryTab: _ShopTabKey.cosmetics,
-          assetPath: 'assets/avatars/sydsteregg.png',
-          gradient: <Color>[Color(0xFFEF9A9A), Color(0xFF4A148C)],
-          slotKey: 'avatar',
-        ),
-      );
-    }
-    return secretProducts;
   }
 
   void _showSnackBar(
@@ -4709,7 +4691,12 @@ class _GradientButton extends StatelessWidget {
     final enabled = onTap != null && !loading;
 
     return InkWell(
-      onTap: enabled ? onTap : null,
+      onTap: enabled
+          ? () {
+            HapticFeedback.mediumImpact();
+            onTap!();
+          }
+          : null,
       borderRadius: BorderRadius.circular(14),
       child: Opacity(
         opacity: enabled ? 1 : 0.55,
