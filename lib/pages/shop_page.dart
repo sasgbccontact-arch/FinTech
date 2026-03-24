@@ -428,6 +428,24 @@ const List<_ShopProduct> _shopCatalog = <_ShopProduct>[
     slotKey: 'avatar',
   ),
   _ShopProduct(
+    id: '_javataimertoutelavie',
+    name: 'Avatar Java t’aimer toute la vie',
+    description:
+        'Un avatar secret uniquement déblocable via le code cadeau associé.',
+    price: 0,
+    currency: _ShopCurrency.coins,
+    kind: _ShopProductKind.cosmetic,
+    rarity: _ShopRarity.legendary,
+    gameLabel: 'Game Hub',
+    usage: 'Avatar de profil',
+    immediateImpact: 'Débloque un avatar secret directement équipable.',
+    useLocation: 'Visible sur le hub Game, Home et les cartes sociales.',
+    primaryTab: _ShopTabKey.cosmetics,
+    assetPath: 'assets/avatars/javataimertoutelavie.png',
+    gradient: <Color>[Color(0xFFF9A825), Color(0xFFD84315)],
+    slotKey: 'avatar',
+  ),
+  _ShopProduct(
     id: 'coins_pack',
     name: 'Sac de pièces',
     description: 'Renforce votre trésorerie de jeu avec un apport immédiat.',
@@ -1066,6 +1084,11 @@ class _ShopPageState extends State<ShopPage> {
       'itemId': '_easteregg',
       'type': 'avatar',
       'successMsg': 'Code valide ! Avatar Easter Egg débloqué.',
+    },
+    'JAVATAIMER': {
+      'itemId': '_javataimertoutelavie',
+      'type': 'avatar',
+      'successMsg': 'Code valide ! SNEE ! SNEE ! SNEE !',
     },
     'SEXTOYSBOY': {
       'itemId': '_sydsteregg',
@@ -2124,7 +2147,9 @@ class _ShopPageState extends State<ShopPage> {
 
     final itemId = rewardData['itemId'] as String;
     final type = rewardData['type'] as String? ?? 'avatar';
-    debugPrint('[Redeem] itemId=$itemId type=$type inventorySize=${inventory.length} alreadyOwned=${inventory.contains(itemId)}');
+    debugPrint(
+      '[Redeem] itemId=$itemId type=$type inventorySize=${inventory.length} alreadyOwned=${inventory.contains(itemId)}',
+    );
     if (type == 'avatar' && inventory.contains(itemId)) {
       _showSnackBar(context, 'Vous possédez déjà cette récompense.');
       _codeController.clear();
@@ -4691,12 +4716,13 @@ class _GradientButton extends StatelessWidget {
     final enabled = onTap != null && !loading;
 
     return InkWell(
-      onTap: enabled
-          ? () {
-            HapticFeedback.mediumImpact();
-            onTap!();
-          }
-          : null,
+      onTap:
+          enabled
+              ? () {
+                HapticFeedback.mediumImpact();
+                onTap!();
+              }
+              : null,
       borderRadius: BorderRadius.circular(14),
       child: Opacity(
         opacity: enabled ? 1 : 0.55,

@@ -122,8 +122,9 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final userRef =
-        FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
     final progressRef = userRef.collection('games').doc('progress');
 
     final userSnap = await userRef.get();
@@ -146,32 +147,33 @@ class _AppSettingsSheetState extends State<AppSettingsSheet> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => AvatarPickerSheet(
-        currentAvatarId: currentAvatarId,
-        unlockedAvatars: inventory,
-        onSelect: (id) async {
-          try {
-            await userRef.set({'avatar_id': id}, SetOptions(merge: true));
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Avatar modifié avec succès.'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          } catch (_) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Erreur lors du changement d\'avatar.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          }
-        },
-      ),
+      builder:
+          (_) => AvatarPickerSheet(
+            currentAvatarId: currentAvatarId,
+            unlockedAvatars: inventory,
+            onSelect: (id) async {
+              try {
+                await userRef.set({'avatar_id': id}, SetOptions(merge: true));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Avatar modifié avec succès.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (_) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Erreur lors du changement d\'avatar.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
     );
   }
 
@@ -678,6 +680,7 @@ class AvatarPickerSheet extends StatelessWidget {
     '_beyondbig',
     '_groseline',
     '_gay',
+    '_javataimertoutelavie',
   ];
 
   static const Set<String> _secretAvatarIds = {
@@ -687,6 +690,7 @@ class AvatarPickerSheet extends StatelessWidget {
     '_beyondbig',
     '_groseline',
     '_gay',
+    '_javataimertoutelavie',
   };
 
   static String _assetPath(String id) {
@@ -703,6 +707,8 @@ class AvatarPickerSheet extends StatelessWidget {
         return 'assets/avatars/groseline.png';
       case '_gay':
         return 'assets/avatars/gay.png';
+      case '_javataimertoutelavie':
+        return 'assets/avatars/javataimertoutelavie.png';
       case '_student':
         return 'assets/avatars/avatar_student.png';
       case '_expert':
@@ -733,10 +739,12 @@ class AvatarPickerSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Filtrer : les avatars secrets n'apparaissent que s'ils sont débloqués
-    final visible = _allAvatarIds.where((id) {
-      if (_secretAvatarIds.contains(id)) return unlockedAvatars.contains(id);
-      return true;
-    }).toList();
+    final visible =
+        _allAvatarIds.where((id) {
+          if (_secretAvatarIds.contains(id))
+            return unlockedAvatars.contains(id);
+          return true;
+        }).toList();
 
     return SafeArea(
       child: Padding(
@@ -778,10 +786,7 @@ class AvatarPickerSheet extends StatelessWidget {
                       ),
                       Text(
                         'Gratuit — parmi vos avatars débloqués.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black45,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.black45),
                       ),
                     ],
                   ),
@@ -801,56 +806,74 @@ class AvatarPickerSheet extends StatelessWidget {
               itemBuilder: (context, index) {
                 final id = visible[index];
                 final isSelected = id == currentAvatarId;
-                final isUnlocked =
-                    id == '1' || unlockedAvatars.contains(id);
+                final isUnlocked = id == '1' || unlockedAvatars.contains(id);
 
                 return GestureDetector(
-                  onTap: isUnlocked
-                      ? () async {
-                          Navigator.of(context).pop();
-                          await onSelect(id);
-                        }
-                      : null,
+                  onTap:
+                      isUnlocked
+                          ? () async {
+                            Navigator.of(context).pop();
+                            await onSelect(id);
+                          }
+                          : null,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      border: isSelected
-                          ? Border.all(color: detailsColor2, width: 3)
-                          : Border.all(
-                              color: const Color(0xFFE6E8EB),
-                            ),
-                      boxShadow: isSelected
-                          ? [
-                              BoxShadow(
-                                color: detailsColor2.withValues(alpha: 0.25),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
+                      border:
+                          isSelected
+                              ? Border.all(color: detailsColor2, width: 3)
+                              : Border.all(color: const Color(0xFFE6E8EB)),
+                      boxShadow:
+                          isSelected
+                              ? [
+                                BoxShadow(
+                                  color: detailsColor2.withValues(alpha: 0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ]
+                              : null,
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(11),
                       child: ColorFiltered(
-                        colorFilter: isUnlocked
-                            ? const ColorFilter.mode(
-                                Colors.transparent,
-                                BlendMode.color,
-                              )
-                            : const ColorFilter.matrix(<double>[
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0,      0,      0,      1, 0,
-                              ]),
+                        colorFilter:
+                            isUnlocked
+                                ? const ColorFilter.mode(
+                                  Colors.transparent,
+                                  BlendMode.color,
+                                )
+                                : const ColorFilter.matrix(<double>[
+                                  0.2126,
+                                  0.7152,
+                                  0.0722,
+                                  0,
+                                  0,
+                                  0.2126,
+                                  0.7152,
+                                  0.0722,
+                                  0,
+                                  0,
+                                  0.2126,
+                                  0.7152,
+                                  0.0722,
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  0,
+                                  1,
+                                  0,
+                                ]),
                         child: Image.asset(
                           _assetPath(id),
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.person,
-                            color: Colors.black26,
-                          ),
+                          errorBuilder:
+                              (_, __, ___) => const Icon(
+                                Icons.person,
+                                color: Colors.black26,
+                              ),
                         ),
                       ),
                     ),

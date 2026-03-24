@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -38,6 +37,22 @@ const List<String> _forumTagOptions = <String>[
   'Long terme',
 ];
 
+const List<String> _convictionSides = <String>['long', 'short'];
+const List<String> _convictionStatuses = <String>[
+  'open',
+  'monitoring',
+  'hit_target',
+  'invalidated',
+  'closed',
+];
+
+const List<String> _convictionOutcomes = <String>[
+  'pending',
+  'win',
+  'loss',
+  'flat',
+];
+
 const String _composerFabSvg = '''
 <svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -68,15 +83,17 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
     with TickerProviderStateMixin {
   final User? _user = FirebaseAuth.instance.currentUser;
   final TextEditingController _searchController = TextEditingController();
+  late final TabController _tabController;
 
   // Feed state
   String _searchQuery = '';
   String? _activeTagFilter;
+  String? _activeTickerFilter;
+  String? _activeThemeFilterId;
   bool _bookmarksOnly = false;
-  bool _sortByTop = true;
-  bool _filtersCollapsed = false;
   bool _canModerate = false;
   String? _expandedMessageId;
+  String? _highlightedMessageId;
   // 5.1 — posts négatifs dont l'user a forcé l'affichage
   final Set<String> _forceExpandedNegative = {};
 
@@ -98,6 +115,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadModeratorStatus();
     _fabCtrl = AnimationController(
       vsync: this,
@@ -110,6 +128,7 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
   @override
   void dispose() {
     _searchController.dispose();
+    _tabController.dispose();
     _fabCtrl.dispose();
     _followedThemesSub?.cancel();
     _notifSub?.cancel();
@@ -127,9 +146,11 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
         .collection('followed_themes')
         .snapshots()
         .listen((snap) {
-      if (!mounted) return;
-      setState(() => _followedThemeIds = snap.docs.map((d) => d.id).toSet());
-    });
+          if (!mounted) return;
+          setState(
+            () => _followedThemeIds = snap.docs.map((d) => d.id).toSet(),
+          );
+        });
   }
 
   Future<void> _toggleFollowTheme(String themeId, String themeName) async {
@@ -168,9 +189,9 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
         .where('read', isEqualTo: false)
         .snapshots()
         .listen((snap) {
-      if (!mounted) return;
-      setState(() => _unreadNotifCount = snap.docs.length);
-    });
+          if (!mounted) return;
+          setState(() => _unreadNotifCount = snap.docs.length);
+        });
   }
 
   Future<void> _writeNotification({
@@ -187,14 +208,14 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
           .doc(targetUid)
           .collection('forum_notifications')
           .add({
-        'type': type,
-        'postId': postId,
-        'fromUid': user.uid,
-        'fromName': _authorName(user),
-        'createdAt': Timestamp.now(),
-        'read': false,
-        if (score != null) 'score': score,
-      });
+            'type': type,
+            'postId': postId,
+            'fromUid': user.uid,
+            'fromName': _authorName(user),
+            'createdAt': Timestamp.now(),
+            'read': false,
+            if (score != null) 'score': score,
+          });
     } catch (_) {}
   }
 
@@ -202,12 +223,13 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
     final user = _user;
     if (user == null) return;
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('forum_notifications')
-          .where('read', isEqualTo: false)
-          .get();
+      final snap =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('forum_notifications')
+              .where('read', isEqualTo: false)
+              .get();
       final batch = FirebaseFirestore.instance.batch();
       for (final doc in snap.docs) {
         batch.update(doc.reference, {'read': true});
@@ -221,7 +243,35 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
     showCupertinoModalBottomSheet<void>(
       context: context,
       expand: false,
-      builder: (_) => _NotificationsSheet(uid: _user!.uid),
+      builder:
+          (_) => _NotificationsSheet(
+            uid: _user!.uid,
+            onOpenPost: (postId) {
+              Navigator.of(context).pop();
+              _focusPost(postId);
+            },
+          ),
+    );
+  }
+
+  void _focusPost(String postId) {
+    _searchController.clear();
+    setState(() {
+      _queryLimit = math.max(_queryLimit, 90);
+      _searchQuery = '';
+      _activeTagFilter = null;
+      _activeTickerFilter = null;
+      _activeThemeFilterId = null;
+      _bookmarksOnly = false;
+      _expandedMessageId = postId;
+      _highlightedMessageId = postId;
+    });
+    _tabController.animateTo(0);
+    unawaited(
+      Future<void>.delayed(const Duration(seconds: 6), () {
+        if (!mounted || _highlightedMessageId != postId) return;
+        setState(() => _highlightedMessageId = null);
+      }),
     );
   }
 
@@ -244,24 +294,23 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
     showCupertinoModalBottomSheet<void>(
       context: context,
       expand: false,
-      builder: (_) => _ComposerBottomSheet(
-        user: _user,
-        themesQuery: _themesQuery(),
-      ),
+      builder:
+          (_) => _ComposerBottomSheet(user: _user, themesQuery: _themesQuery()),
     );
   }
 
   // ── Hot score ────────────────────────────────────────────────────────────
 
   double _hotScore(_ForumMessage m) {
-    final ageHours = m.createdAt != null
-        ? DateTime.now()
-                .difference(m.createdAt!.toDate())
-                .inMinutes
-                .toDouble() /
-            60.0
-        : 0.0;
-    return m.score / math.pow(ageHours + 2.0, 1.5);
+    final ageHours =
+        m.createdAt != null
+            ? DateTime.now()
+                    .difference(m.createdAt!.toDate())
+                    .inMinutes
+                    .toDouble() /
+                60.0
+            : 0.0;
+    return _messageQualityScore(m) / math.pow(ageHours + 2.0, 1.45);
   }
 
   // ── Firestore queries ────────────────────────────────────────────────────
@@ -270,10 +319,11 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
     final user = _user;
     if (user == null) return;
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final snap =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
       if (!mounted) return;
       setState(() => _canModerate = snap.data()?['isAdmin'] == true);
     } catch (_) {}
@@ -286,16 +336,10 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
   }
 
   Query<Map<String, dynamic>> _messagesQuery() {
-    Query<Map<String, dynamic>> query =
-        FirebaseFirestore.instance.collection('forum_chat_messages');
-    if (_sortByTop) {
-      query = query
-          .orderBy('score', descending: true)
-          .orderBy('createdAt', descending: true);
-    } else {
-      query = query.orderBy('createdAt', descending: true);
-    }
-    return query.limit(_queryLimit);
+    return FirebaseFirestore.instance
+        .collection('forum_chat_messages')
+        .orderBy('createdAt', descending: true)
+        .limit(_queryLimit);
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>>? _bookmarksStream() {
@@ -312,8 +356,9 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _dismissKeyboard() {
@@ -335,10 +380,11 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
       String replyAuthorName = _authorName(user);
       String? replyAvatarId;
       try {
-        final snap = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+        final snap =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
         final d = snap.data() ?? {};
         final firestoreName = (d['Name'] as String?)?.trim() ?? '';
         if (firestoreName.isNotEmpty) replyAuthorName = firestoreName;
@@ -351,22 +397,24 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
           .doc(message.id)
           .collection('replies')
           .add({
-        'text': replyText,
-        'uid': user.uid,
-        'authorName': replyAuthorName,
-        'authorAvatarId': replyAvatarId,
-        'photoURL': user.photoURL,
-        'createdAt': now,
-        'upVotes': 0,
-        'downVotes': 0,
-        'score': 0,
-      });
+            'text': replyText,
+            'uid': user.uid,
+            'authorName': replyAuthorName,
+            'authorAvatarId': replyAvatarId,
+            'photoURL': user.photoURL,
+            'createdAt': now,
+            'upVotes': 0,
+            'downVotes': 0,
+            'score': 0,
+          });
       // 4.1 — notif reply → auteur du post
-      unawaited(_writeNotification(
-        targetUid: message.uid,
-        type: 'reply',
-        postId: message.id,
-      ));
+      unawaited(
+        _writeNotification(
+          targetUid: message.uid,
+          type: 'reply',
+          postId: message.id,
+        ),
+      );
       // 4.1 — notif mention → chaque @pseudo dans le texte
       final mentionRegex = RegExp(r'@(\w+)');
       for (final m in mentionRegex.allMatches(replyText)) {
@@ -374,22 +422,24 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
         if (mentionedName.isEmpty) continue;
         // Cherche l'uid dans les réponses existantes (best-effort)
         try {
-          final snap = await FirebaseFirestore.instance
-              .collection('forum_chat_messages')
-              .doc(message.id)
-              .collection('replies')
-              .where('authorName', isEqualTo: mentionedName)
-              .limit(1)
-              .get();
+          final snap =
+              await FirebaseFirestore.instance
+                  .collection('forum_chat_messages')
+                  .doc(message.id)
+                  .collection('replies')
+                  .where('authorName', isEqualTo: mentionedName)
+                  .limit(1)
+                  .get();
           if (snap.docs.isNotEmpty) {
-            final targetUid =
-                (snap.docs.first.data()['uid'] as String?) ?? '';
+            final targetUid = (snap.docs.first.data()['uid'] as String?) ?? '';
             if (targetUid.isNotEmpty) {
-              unawaited(_writeNotification(
-                targetUid: targetUid,
-                type: 'mention',
-                postId: message.id,
-              ));
+              unawaited(
+                _writeNotification(
+                  targetUid: targetUid,
+                  type: 'mention',
+                  postId: message.id,
+                ),
+              );
             }
           }
         } catch (_) {}
@@ -473,14 +523,6 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
           'score': FieldValue.increment(deltaScore),
           'lastVoteAt': now,
         });
-        // 3.3 — mise à jour karma de l'auteur (atomique)
-        if (deltaScore != 0) {
-          final authorUserRef = FirebaseFirestore.instance
-              .collection('users')
-              .doc(message.uid);
-          tx.set(authorUserRef, {'karma': FieldValue.increment(deltaScore)},
-              SetOptions(merge: true));
-        }
         if (next == 0) {
           if (voteSnap.exists) tx.delete(voteRef);
         } else {
@@ -494,12 +536,12 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
     // 4.1 — notification vote_milestone (best-effort, hors transaction)
     unawaited(() async {
       try {
-        final updatedSnap = await FirebaseFirestore.instance
-            .collection('forum_chat_messages')
-            .doc(message.id)
-            .get();
-        final newScore =
-            (updatedSnap.data()?['score'] as num?)?.toInt() ?? 0;
+        final updatedSnap =
+            await FirebaseFirestore.instance
+                .collection('forum_chat_messages')
+                .doc(message.id)
+                .get();
+        final newScore = (updatedSnap.data()?['score'] as num?)?.toInt() ?? 0;
         const milestones = [10, 25, 50, 100];
         if (milestones.contains(newScore)) {
           await _writeNotification(
@@ -540,26 +582,31 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
         final now = Timestamp.now();
         final rawReactions =
             messageSnap.data()?['reactions'] as Map<String, dynamic>? ??
-                const <String, dynamic>{};
+            const <String, dynamic>{};
         final nextReactions = <String, int>{
           'helpful': (rawReactions['helpful'] as num?)?.toInt() ?? 0,
           'clear': (rawReactions['clear'] as num?)?.toInt() ?? 0,
           'insightful': (rawReactions['insightful'] as num?)?.toInt() ?? 0,
         };
         if (previous.isNotEmpty) {
-          nextReactions[previous] =
-              ((nextReactions[previous] ?? 0) - 1).clamp(0, 999999);
+          nextReactions[previous] = ((nextReactions[previous] ?? 0) - 1).clamp(
+            0,
+            999999,
+          );
         }
         if (next.isNotEmpty) {
           nextReactions[next] = (nextReactions[next] ?? 0) + 1;
         }
-        tx.set(messageRef, {'reactions': nextReactions},
-            SetOptions(merge: true));
+        tx.set(messageRef, {
+          'reactions': nextReactions,
+        }, SetOptions(merge: true));
         if (next.isEmpty) {
           if (reactionSnap.exists) tx.delete(reactionRef);
         } else {
-          tx.set(reactionRef, {'key': next, 'updatedAt': now},
-              SetOptions(merge: true));
+          tx.set(reactionRef, {
+            'key': next,
+            'updatedAt': now,
+          }, SetOptions(merge: true));
         }
       });
     } catch (e) {
@@ -579,35 +626,44 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            const Text(
-              'Signaler ce message',
-              style: TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18),
+      builder:
+          (context) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                const Text(
+                  'Signaler ce message',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final option in const <MapEntry<String, String>>[
+                  MapEntry('spam', 'Spam ou hors sujet'),
+                  MapEntry('abuse', 'Contenu agressif'),
+                  MapEntry('misleading', 'Contenu trompeur'),
+                ])
+                  ListTile(
+                    leading: const Icon(
+                      Icons.flag_rounded,
+                      color: detailsColor2,
+                    ),
+                    title: Text(
+                      option.value,
+                      style: const TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    onTap: () => Navigator.of(context).pop(option.key),
+                  ),
+                const SizedBox(height: 8),
+              ],
             ),
-            const SizedBox(height: 10),
-            for (final option in const <MapEntry<String, String>>[
-              MapEntry('spam', 'Spam ou hors sujet'),
-              MapEntry('abuse', 'Contenu agressif'),
-              MapEntry('misleading', 'Contenu trompeur'),
-            ])
-              ListTile(
-                leading: const Icon(Icons.flag_rounded, color: detailsColor2),
-                title: Text(option.value,
-                    style: const TextStyle(
-                        color: textColor, fontWeight: FontWeight.w700)),
-                onTap: () => Navigator.of(context).pop(option.key),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+          ),
     );
     if (reason == null) return;
     try {
@@ -634,22 +690,23 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        title: const Text('Supprimer le message ?'),
-        content: const Text('Cette action est irréversible.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Annuler'),
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
+            title: const Text('Supprimer le message ?'),
+            content: const Text('Cette action est irréversible.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('Supprimer'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
     );
     if (confirmed != true) return;
 
@@ -681,6 +738,47 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
     }
   }
 
+  void _selectTickerFeed(String ticker) {
+    setState(() {
+      _activeTickerFilter =
+          _activeTickerFilter == ticker ? null : ticker.toUpperCase();
+      _activeThemeFilterId = null;
+    });
+    _tabController.animateTo(0);
+  }
+
+  void _selectThemeFeed(_ForumThemeLite theme) {
+    setState(() {
+      _activeThemeFilterId = _activeThemeFilterId == theme.id ? null : theme.id;
+      _activeTickerFilter = null;
+    });
+    _tabController.animateTo(0);
+  }
+
+  void _clearFeedFilters() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+      _activeTagFilter = null;
+      _activeTickerFilter = null;
+      _activeThemeFilterId = null;
+      _bookmarksOnly = false;
+    });
+  }
+
+  Future<void> _openPitchLifecycleEditor(_ForumMessage message) async {
+    if (_user == null ||
+        _user.uid != message.uid ||
+        message.postType != 'pitch') {
+      return;
+    }
+    await showCupertinoModalBottomSheet<void>(
+      context: context,
+      expand: false,
+      builder: (_) => _PitchLifecycleSheet(message: message),
+    );
+  }
+
   // ── Filtres / tri ────────────────────────────────────────────────────────
 
   List<_ForumMessage> _applyFilters(
@@ -693,34 +791,48 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
       if (_activeTagFilter != null && !m.tags.contains(_activeTagFilter)) {
         return false;
       }
+      if (_activeTickerFilter != null &&
+          !m.attachments.any(
+            (attachment) =>
+                attachment.symbol.toUpperCase() == _activeTickerFilter,
+          )) {
+        return false;
+      }
+      if (_activeThemeFilterId != null && m.themeId != _activeThemeFilterId) {
+        return false;
+      }
       if (query.isEmpty) return true;
-      final haystack = <String>[
-        m.text,
-        m.authorName,
-        m.themeName,
-        m.postTypeLabel,
-        ...m.tags,
-        for (final a in m.attachments) ...[a.symbol, a.displayName],
-      ].join(' ').toLowerCase();
+      final haystack =
+          <String>[
+            m.text,
+            m.authorName,
+            m.themeName,
+            m.postTypeLabel,
+            ...m.tags,
+            for (final a in m.attachments) ...[a.symbol, a.displayName],
+          ].join(' ').toLowerCase();
       return haystack.contains(query);
     }).toList();
   }
 
   List<_ForumMessage> _sortFil(List<_ForumMessage> messages) {
     return [...messages]..sort((a, b) {
-        if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
-        if (_sortByTop && a.score != b.score) return b.score.compareTo(a.score);
-        final aMs = a.createdAt?.millisecondsSinceEpoch ?? 0;
-        final bMs = b.createdAt?.millisecondsSinceEpoch ?? 0;
-        return bMs.compareTo(aMs);
-      });
+      if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
+      final aMs = a.createdAt?.millisecondsSinceEpoch ?? 0;
+      final bMs = b.createdAt?.millisecondsSinceEpoch ?? 0;
+      return bMs.compareTo(aMs);
+    });
   }
 
-  List<_ForumMessage> _sortHot(List<_ForumMessage> messages) {
+  List<_ForumMessage> _sortTop(List<_ForumMessage> messages) {
     return [...messages]..sort((a, b) {
-        if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
-        return _hotScore(b).compareTo(_hotScore(a));
-      });
+      if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
+      final qualityCompare = _messageQualityScore(
+        b,
+      ).compareTo(_messageQualityScore(a));
+      if (qualityCompare != 0) return qualityCompare;
+      return _hotScore(b).compareTo(_hotScore(a));
+    });
   }
 
   // ── Builders de liste ────────────────────────────────────────────────────
@@ -751,44 +863,66 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
           padding: const EdgeInsets.only(bottom: 12),
           child: _SwipeToReplyWrapper(
             messageId: message.id,
-            onSwipeRight: () => setState(
-              () => _expandedMessageId =
-                  _expandedMessageId == message.id ? null : message.id,
-            ),
+            onSwipeRight:
+                () => setState(
+                  () =>
+                      _expandedMessageId =
+                          _expandedMessageId == message.id ? null : message.id,
+                ),
             child: _ForumMessageCard(
               message: message,
               canModerate: _canModerate,
-              canDelete: _user != null && (_user.uid == message.uid || _canModerate),
+              canDelete:
+                  _user != null && (_user.uid == message.uid || _canModerate),
               canReport: _user != null && _user.uid != message.uid,
+              canManagePitch:
+                  _user != null &&
+                  _user.uid == message.uid &&
+                  message.postType == 'pitch',
               isBookmarked: bookmarkedIds.contains(message.id),
               isExpanded: _expandedMessageId == message.id,
               isFollowingTheme: _followedThemeIds.contains(message.themeId),
-              isForceExpandedNegative:
-                  _forceExpandedNegative.contains(message.id),
-              onForceExpandNegative: () => setState(
-                () => _forceExpandedNegative.add(message.id),
+              isHighlighted: _highlightedMessageId == message.id,
+              isForceExpandedNegative: _forceExpandedNegative.contains(
+                message.id,
               ),
-              onToggleExpanded: () => setState(
-                () => _expandedMessageId =
-                    _expandedMessageId == message.id ? null : message.id,
-              ),
+              onForceExpandNegative:
+                  () => setState(() => _forceExpandedNegative.add(message.id)),
+              onToggleExpanded:
+                  () => setState(
+                    () =>
+                        _expandedMessageId =
+                            _expandedMessageId == message.id
+                                ? null
+                                : message.id,
+                  ),
               onBookmark: () => _toggleBookmark(message),
               onVoteUp: () => _voteMessage(message: message, value: 1),
               onVoteDown: () => _voteMessage(message: message, value: -1),
-              onReact: (key) =>
-                  _reactToMessage(message: message, reactionKey: key),
+              onReact:
+                  (key) => _reactToMessage(message: message, reactionKey: key),
               onReport: () => _reportMessage(message),
               onTogglePinned: () => _togglePinned(message),
-              onFollowTheme: () =>
-                  _toggleFollowTheme(message.themeId, message.themeName),
+              onFollowTheme:
+                  () => _toggleFollowTheme(message.themeId, message.themeName),
+              onManagePitch: () => _openPitchLifecycleEditor(message),
+              onOpenTickerFeed: _selectTickerFeed,
+              onOpenThemeFeed:
+                  () => _selectThemeFeed(
+                    _ForumThemeLite(
+                      id: message.themeId,
+                      name: message.themeName,
+                    ),
+                  ),
               onDelete: () => _deleteMessage(message),
-              replies: _expandedMessageId == message.id
-                  ? _ForumRepliesSection(
-                      message: message,
-                      currentUser: _user,
-                      onSendReply: (text) => _sendReply(message, text),
-                    )
-                  : null,
+              replies:
+                  _expandedMessageId == message.id
+                      ? _ForumRepliesSection(
+                        message: message,
+                        currentUser: _user,
+                        onSendReply: (text) => _sendReply(message, text),
+                      )
+                      : null,
             ),
           ),
         );
@@ -803,23 +937,29 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
         width: double.infinity,
         child: OutlinedButton.icon(
           onPressed: _isLoadingMore ? null : _loadMore,
-          icon: _isLoadingMore
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: detailsColor2),
-                )
-              : const Icon(Icons.expand_more_rounded),
-          label: Text(_isLoadingMore
-              ? 'Chargement...'
-              : 'Charger 30 posts supplémentaires'),
+          icon:
+              _isLoadingMore
+                  ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: detailsColor2,
+                    ),
+                  )
+                  : const Icon(Icons.expand_more_rounded),
+          label: Text(
+            _isLoadingMore
+                ? 'Chargement...'
+                : 'Charger 30 posts supplémentaires',
+          ),
           style: OutlinedButton.styleFrom(
             foregroundColor: detailsColor2,
             side: BorderSide(color: detailsColor2.withValues(alpha: 0.22)),
             padding: const EdgeInsets.symmetric(vertical: 12),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
           ),
         ),
       ),
@@ -827,8 +967,10 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
   }
 
   Widget _buildSuiviTab(
-      List<_ForumMessage> allMessages, Set<String> bookmarkedIds,
-      {required bool hasMore}) {
+    List<_ForumMessage> allMessages,
+    Set<String> bookmarkedIds, {
+    required bool hasMore,
+  }) {
     if (_user == null) {
       return const Center(
         child: Padding(
@@ -859,16 +1001,20 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
                   ),
                   borderRadius: BorderRadius.circular(22),
                 ),
-                child: const Icon(Icons.explore_outlined,
-                    color: Colors.white, size: 32),
+                child: const Icon(
+                  Icons.explore_outlined,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Aucun thème suivi',
                 style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 17,
-                    color: textColor),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 17,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -881,10 +1027,14 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
         ),
       );
     }
-    final filtered = _sortFil(_applyFilters(
-      allMessages.where((m) => _followedThemeIds.contains(m.themeId)).toList(),
-      bookmarkedIds,
-    ));
+    final filtered = _sortFil(
+      _applyFilters(
+        allMessages
+            .where((m) => _followedThemeIds.contains(m.themeId))
+            .toList(),
+        bookmarkedIds,
+      ),
+    );
     return Column(
       children: [
         Expanded(child: _buildMessageList(filtered, bookmarkedIds)),
@@ -897,278 +1047,210 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: backgroundColor,
+      resizeToAvoidBottomInset: false,
+      appBar: AppBar(
         backgroundColor: backgroundColor,
-        resizeToAvoidBottomInset: false,
-        appBar: AppBar(
-          backgroundColor: backgroundColor,
-          surfaceTintColor: backgroundColor,
-          elevation: 0,
-          title: const Text(
-            'Forum boursier',
-            style:
-                TextStyle(color: textColor, fontWeight: FontWeight.w900),
-          ),
-          actions: [
-            if (_user != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_rounded,
-                          color: textColor),
-                      onPressed: _openNotificationsSheet,
+        surfaceTintColor: backgroundColor,
+        elevation: 0,
+        title: const Text(
+          'Forum boursier',
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w900),
+        ),
+        actions: [
+          if (_user != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  IconButton(
+                    icon: const Icon(
+                      Icons.notifications_rounded,
+                      color: textColor,
                     ),
-                    if (_unreadNotifCount > 0)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          width: 16,
-                          height: 16,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE53935),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Text(
-                              _unreadNotifCount > 9
-                                  ? '9+'
-                                  : '$_unreadNotifCount',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900),
+                    onPressed: _openNotificationsSheet,
+                  ),
+                  if (_unreadNotifCount > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE53935),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            _unreadNotifCount > 9 ? '9+' : '$_unreadNotifCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-          ],
-          bottom: PreferredSize(
-            preferredSize: const Size.fromHeight(58),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: const _ForumTabStrip(),
             ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(58),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: _ForumTabStrip(controller: _tabController),
           ),
         ),
-        floatingActionButton: _AnimatedComposerFab(
-          ctrl: _fabCtrl,
-          onTap: _openComposer,
-        ),
-        body: SafeArea(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: _dismissKeyboard,
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _bookmarksStream(),
-              builder: (context, bookmarkSnapshot) {
-                final bookmarkedIds =
-                    (bookmarkSnapshot.data?.docs ?? const [])
-                        .map((doc) => doc.id)
-                        .toSet();
+      ),
+      floatingActionButton: _AnimatedComposerFab(
+        ctrl: _fabCtrl,
+        onTap: _openComposer,
+      ),
+      body: SafeArea(
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _dismissKeyboard,
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: _bookmarksStream(),
+            builder: (context, bookmarkSnapshot) {
+              final bookmarkedIds =
+                  (bookmarkSnapshot.data?.docs ?? const [])
+                      .map((doc) => doc.id)
+                      .toSet();
 
-                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: _messagesQuery().snapshots(),
-                  builder: (context, snapshot) {
-                    final allMessages = snapshot.hasData
-                        ? snapshot.data!.docs
-                            .map(_ForumMessage.fromDoc)
-                            .toList()
-                        : <_ForumMessage>[];
-                    final hasMore = allMessages.length >= _queryLimit;
-                    final isLoading =
-                        snapshot.connectionState == ConnectionState.waiting &&
-                            !snapshot.hasData;
+              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: _messagesQuery().snapshots(),
+                builder: (context, snapshot) {
+                  final allMessages =
+                      snapshot.hasData
+                          ? snapshot.data!.docs
+                              .map(_ForumMessage.fromDoc)
+                              .toList()
+                          : <_ForumMessage>[];
+                  final hasMore = allMessages.length >= _queryLimit;
+                  final isLoading =
+                      snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData;
 
-                    return Column(
-                      children: [
-                        // ── Zone repliable : bannière + recherche + filtres ──
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeInOut,
-                          child: _filtersCollapsed
-                              ? const SizedBox.shrink()
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // 3.7 — Bannière concours hebdo
-                                    StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                                      stream: FirebaseFirestore.instance
-                                          .collection('forum_weekly_winner')
-                                          .doc('current')
-                                          .snapshots(),
-                                      builder: (context, winnerSnap) {
-                                        final data = winnerSnap.data?.data();
-                                        if (data == null) return const SizedBox.shrink();
-                                        final weekOf = data['weekOf'] as Timestamp?;
-                                        if (weekOf == null) return const SizedBox.shrink();
-                                        final age = DateTime.now()
-                                            .difference(weekOf.toDate())
-                                            .inDays;
-                                        if (age > 7) return const SizedBox.shrink();
-                                        return _WeeklyWinnerBanner(data: data);
-                                      },
-                                    ),
-                                    // Barre de recherche
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                                      child: _ForumSearchBar(
-                                        controller: _searchController,
-                                        bookmarksOnly: _bookmarksOnly,
-                                        sortByTop: _sortByTop,
-                                        activeTagFilter: _activeTagFilter,
-                                        onChanged: (v) =>
-                                            setState(() => _searchQuery = v.trim()),
-                                        onToggleBookmarks: () => setState(
-                                            () => _bookmarksOnly = !_bookmarksOnly),
-                                        onToggleSort: () =>
-                                            setState(() => _sortByTop = !_sortByTop),
-                                        onClearTagFilter: () =>
-                                            setState(() => _activeTagFilter = null),
-                                      ),
-                                    ),
-                                    // Filtres tags
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                                      child: Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          children: _forumTagOptions.map((tag) {
-                                            final selected = _activeTagFilter == tag;
-                                            return FilterChip(
-                                              label: Text(tag),
-                                              selected: selected,
-                                              onSelected: (_) => setState(
-                                                () => _activeTagFilter =
-                                                    selected ? null : tag,
-                                              ),
-                                              selectedColor:
-                                                  detailsColor1.withValues(alpha: 0.16),
-                                              backgroundColor: Colors.white,
-                                              labelStyle: TextStyle(
-                                                color: selected ? detailsColor2 : textColor,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                              side: BorderSide(
-                                                color: selected
-                                                    ? detailsColor2.withValues(alpha: 0.18)
-                                                    : const Color(0xFFE6E8EB),
-                                              ),
-                                              showCheckmark: false,
-                                            );
-                                          }).toList(),
+                  return Column(
+                    children: [
+                      StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                        stream: _themesQuery().snapshots(),
+                        builder: (context, themesSnapshot) {
+                          final themes =
+                              (themesSnapshot.data?.docs ?? const [])
+                                  .map(_ForumThemeLite.fromDoc)
+                                  .toList();
+                          return _ForumFeedHeader(
+                            controller: _searchController,
+                            query: _searchQuery,
+                            activeTagFilter: _activeTagFilter,
+                            activeTickerFilter: _activeTickerFilter,
+                            activeThemeFilterId: _activeThemeFilterId,
+                            bookmarksOnly: _bookmarksOnly,
+                            themes: themes,
+                            messages: allMessages,
+                            onChanged:
+                                (value) =>
+                                    setState(() => _searchQuery = value.trim()),
+                            onToggleBookmarks:
+                                () => setState(
+                                  () => _bookmarksOnly = !_bookmarksOnly,
+                                ),
+                            onSelectTag:
+                                (tag) => setState(
+                                  () =>
+                                      _activeTagFilter =
+                                          _activeTagFilter == tag ? null : tag,
+                                ),
+                            onSelectTicker: _selectTickerFeed,
+                            onSelectTheme: _selectThemeFeed,
+                            onClearAll: _clearFeedFilters,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      // ── Contenu par onglet ──
+                      if (isLoading)
+                        const Expanded(
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: detailsColor1,
+                            ),
+                          ),
+                        )
+                      else if (snapshot.hasError)
+                        Expanded(
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Text(
+                                'Impossible de charger le forum.\n${snapshot.error}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: textColor),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              // ── Onglet Fil ──
+                              Column(
+                                children: [
+                                  Expanded(
+                                    child: _buildMessageList(
+                                      _sortFil(
+                                        _applyFilters(
+                                          allMessages,
+                                          bookmarkedIds,
                                         ),
                                       ),
+                                      bookmarkedIds,
                                     ),
-                                    const SizedBox(height: 6),
-                                  ],
-                                ),
-                        ),
-                        // ── Bouton toggle repli ──
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => setState(
-                              () => _filtersCollapsed = !_filtersCollapsed),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            decoration: BoxDecoration(
-                              color: backgroundColor,
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: const Color(0xFFE6E8EB),
-                                  width: 1,
-                                ),
+                                  ),
+                                  if (hasMore) _buildLoadMoreButton(),
+                                ],
                               ),
-                            ),
-                            child: Center(
-                              child: AnimatedRotation(
-                                turns: _filtersCollapsed ? 0.5 : 0,
-                                duration: const Duration(milliseconds: 250),
-                                child: const Icon(
-                                  Icons.expand_less_rounded,
-                                  size: 20,
-                                  color: Colors.black38,
-                                ),
+                              // ── Onglet Suivi ──
+                              _buildSuiviTab(
+                                allMessages,
+                                bookmarkedIds,
+                                hasMore: hasMore,
                               ),
-                            ),
+                              // ── Onglet Top 🔥 ──
+                              Column(
+                                children: [
+                                  Expanded(
+                                    child: _buildMessageList(
+                                      _sortTop(
+                                        _applyFilters(
+                                          allMessages,
+                                          bookmarkedIds,
+                                        ),
+                                      ),
+                                      bookmarkedIds,
+                                    ),
+                                  ),
+                                  if (hasMore) _buildLoadMoreButton(),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        // ── Contenu par onglet ──
-                        if (isLoading)
-                          const Expanded(
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                  color: detailsColor1),
-                            ),
-                          )
-                        else if (snapshot.hasError)
-                          Expanded(
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  'Impossible de charger le forum.\n${snapshot.error}',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: textColor),
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          Expanded(
-                            child: TabBarView(
-                              physics: const NeverScrollableScrollPhysics(),
-                              children: [
-                                // ── Onglet Fil ──
-                                Column(
-                                  children: [
-                                    Expanded(
-                                      child: _buildMessageList(
-                                        _sortFil(_applyFilters(
-                                            allMessages, bookmarkedIds)),
-                                        bookmarkedIds,
-                                      ),
-                                    ),
-                                    if (hasMore) _buildLoadMoreButton(),
-                                  ],
-                                ),
-                                // ── Onglet Suivi ──
-                                _buildSuiviTab(allMessages, bookmarkedIds,
-                                    hasMore: hasMore),
-                                // ── Onglet Top 🔥 ──
-                                Column(
-                                  children: [
-                                    Expanded(
-                                      child: _buildMessageList(
-                                        _sortHot(_applyFilters(
-                                            allMessages, bookmarkedIds)),
-                                        bookmarkedIds,
-                                      ),
-                                    ),
-                                    if (hasMore) _buildLoadMoreButton(),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
+                    ],
+                  );
+                },
+              );
+            },
           ),
         ),
       ),
@@ -1179,10 +1261,21 @@ class _ForumBoursierSheetState extends State<ForumBoursierSheet>
 // ─── Modèles de données ───────────────────────────────────────────────────────
 
 class _ForumThemeLite {
-  const _ForumThemeLite({required this.id, required this.name});
+  const _ForumThemeLite({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.relatedTickers = const <String>[],
+    this.isCurated = false,
+    this.iconKey = '',
+  });
 
   final String id;
   final String name;
+  final String description;
+  final List<String> relatedTickers;
+  final bool isCurated;
+  final String iconKey;
 
   factory _ForumThemeLite.fromDoc(
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
@@ -1190,9 +1283,18 @@ class _ForumThemeLite {
     final data = doc.data();
     return _ForumThemeLite(
       id: doc.id,
-      name: (data['name'] as String?)?.trim().isNotEmpty == true
-          ? (data['name'] as String).trim()
-          : 'Sans nom',
+      name:
+          (data['name'] as String?)?.trim().isNotEmpty == true
+              ? (data['name'] as String).trim()
+              : 'Sans nom',
+      description: (data['description'] as String?)?.trim() ?? '',
+      relatedTickers:
+          (data['relatedTickers'] as List<dynamic>? ?? const [])
+              .map((value) => value.toString().toUpperCase())
+              .where((value) => value.isNotEmpty)
+              .toList(),
+      isCurated: data['isCurated'] as bool? ?? false,
+      iconKey: (data['iconKey'] as String?)?.trim() ?? '',
     );
   }
 }
@@ -1213,12 +1315,12 @@ class _ForumTickerAttachment {
   final String quoteType;
 
   Map<String, dynamic> toMap() => {
-        'symbol': symbol,
-        'displayName': displayName,
-        'exchange': exchange,
-        'currency': currency,
-        'quoteType': quoteType,
-      };
+    'symbol': symbol,
+    'displayName': displayName,
+    'exchange': exchange,
+    'currency': currency,
+    'quoteType': quoteType,
+  };
 
   factory _ForumTickerAttachment.fromMap(Map<String, dynamic> data) =>
       _ForumTickerAttachment(
@@ -1263,8 +1365,23 @@ class _ForumMessage {
     this.portfolioSnapshot,
     // 3.3 — karma snapshot de l'auteur au moment de la publication
     this.authorKarma = 0,
+    this.authorQualityScore = 0,
+    this.authorConvictionScore = 0,
+    this.authorReputationScore = 0,
     // 5.2 — badge Vérifié Investisseur
     this.isVerifiedAuthor = false,
+    this.convictionSide,
+    this.convictionStatus,
+    this.convictionOutcome,
+    this.convictionHorizon,
+    this.convictionEntryPrice,
+    this.convictionTargetPrice,
+    this.convictionInvalidationPrice,
+    this.convictionReturnPct,
+    this.convictionOpenedAt,
+    this.convictionUpdatedAt,
+    this.convictionClosedAt,
+    this.convictionNote,
     this.authorAvatarId,
     required this.createdAt,
   });
@@ -1295,10 +1412,39 @@ class _ForumMessage {
   final Map<String, dynamic>? portfolioSnapshot;
   // 3.3 — karma snapshot de l'auteur
   final int authorKarma;
+  final int authorQualityScore;
+  final int authorConvictionScore;
+  final int authorReputationScore;
   // 5.2 — badge Vérifié Investisseur
   final bool isVerifiedAuthor;
+  final String? convictionSide;
+  final String? convictionStatus;
+  final String? convictionOutcome;
+  final String? convictionHorizon;
+  final double? convictionEntryPrice;
+  final double? convictionTargetPrice;
+  final double? convictionInvalidationPrice;
+  final double? convictionReturnPct;
+  final Timestamp? convictionOpenedAt;
+  final Timestamp? convictionUpdatedAt;
+  final Timestamp? convictionClosedAt;
+  final String? convictionNote;
   final String? authorAvatarId;
   final Timestamp? createdAt;
+
+  bool get hasStructuredPitch => postType == 'pitch';
+
+  String? get primaryTicker =>
+      attachments.isEmpty ? null : attachments.first.symbol.toUpperCase();
+
+  String get convictionStatusLabel =>
+      _convictionStatusLabel(convictionStatus ?? 'open');
+
+  String get convictionOutcomeLabel =>
+      _convictionOutcomeLabel(convictionOutcome ?? 'pending');
+
+  String get convictionSideLabel =>
+      _convictionSideLabel(convictionSide ?? 'long');
 
   String get postTypeLabel {
     switch (postType) {
@@ -1325,14 +1471,16 @@ class _ForumMessage {
     // Backward compat: `attachments` (liste, nouveau) ou `attachment` (map, ancien)
     List<_ForumTickerAttachment> attachments;
     if (data['attachments'] is List) {
-      attachments = (data['attachments'] as List)
-          .whereType<Map<String, dynamic>>()
-          .map(_ForumTickerAttachment.fromMap)
-          .toList();
+      attachments =
+          (data['attachments'] as List)
+              .whereType<Map<String, dynamic>>()
+              .map(_ForumTickerAttachment.fromMap)
+              .toList();
     } else if (data['attachment'] is Map<String, dynamic>) {
       attachments = [
         _ForumTickerAttachment.fromMap(
-            data['attachment'] as Map<String, dynamic>)
+          data['attachment'] as Map<String, dynamic>,
+        ),
       ];
     } else {
       attachments = const <_ForumTickerAttachment>[];
@@ -1348,18 +1496,19 @@ class _ForumMessage {
       score: (data['score'] as num?)?.toInt() ?? 0,
       upVotes: (data['upVotes'] as num?)?.toInt() ?? 0,
       downVotes: (data['downVotes'] as num?)?.toInt() ?? 0,
-      reactions: rawReactions is Map<String, dynamic>
-          ? rawReactions.map(
-              (key, value) =>
-                  MapEntry(key, value is num ? value.toInt() : 0),
-            )
-          : const <String, int>{},
+      reactions:
+          rawReactions is Map<String, dynamic>
+              ? rawReactions.map(
+                (key, value) => MapEntry(key, value is num ? value.toInt() : 0),
+              )
+              : const <String, int>{},
       isPinned: data['isPinned'] as bool? ?? false,
       postType: (data['postType'] as String?) ?? 'discussion',
-      tags: (data['tags'] as List<dynamic>? ?? const <dynamic>[])
-          .map((v) => v.toString())
-          .where((v) => v.isNotEmpty)
-          .toList(),
+      tags:
+          (data['tags'] as List<dynamic>? ?? const <dynamic>[])
+              .map((v) => v.toString())
+              .where((v) => v.isNotEmpty)
+              .toList(),
       attachments: attachments,
       chartAnnotationPng: data['chartAnnotationPng'] as String?,
       pitchTitle: data['pitchTitle'] as String?,
@@ -1368,20 +1517,244 @@ class _ForumMessage {
       pitchRisks: data['pitchRisks'] as String?,
       portfolioSnapshot: data['portfolioSnapshot'] as Map<String, dynamic>?,
       authorKarma: (data['authorKarma'] as num?)?.toInt() ?? 0,
+      authorQualityScore: (data['authorQualityScore'] as num?)?.toInt() ?? 0,
+      authorConvictionScore:
+          (data['authorConvictionScore'] as num?)?.toInt() ?? 0,
+      authorReputationScore:
+          (data['authorReputationScore'] as num?)?.toInt() ?? 0,
       isVerifiedAuthor: data['isVerifiedAuthor'] as bool? ?? false,
+      convictionSide: data['convictionSide'] as String?,
+      convictionStatus: data['convictionStatus'] as String?,
+      convictionOutcome: data['convictionOutcome'] as String?,
+      convictionHorizon: data['convictionHorizon'] as String?,
+      convictionEntryPrice: (data['convictionEntryPrice'] as num?)?.toDouble(),
+      convictionTargetPrice:
+          (data['convictionTargetPrice'] as num?)?.toDouble(),
+      convictionInvalidationPrice:
+          (data['convictionInvalidationPrice'] as num?)?.toDouble(),
+      convictionReturnPct: (data['convictionReturnPct'] as num?)?.toDouble(),
+      convictionOpenedAt: data['convictionOpenedAt'] as Timestamp?,
+      convictionUpdatedAt: data['convictionUpdatedAt'] as Timestamp?,
+      convictionClosedAt: data['convictionClosedAt'] as Timestamp?,
+      convictionNote: data['convictionNote'] as String?,
       authorAvatarId: data['authorAvatarId'] as String?,
       createdAt: data['createdAt'] as Timestamp?,
     );
   }
 }
 
+class _ReputationSnapshot {
+  const _ReputationSnapshot({
+    required this.qualityScore,
+    required this.convictionScore,
+    required this.reputationScore,
+  });
+
+  final int qualityScore;
+  final int convictionScore;
+  final int reputationScore;
+}
+
+String _convictionSideLabel(String side) {
+  switch (side) {
+    case 'short':
+      return 'Short';
+    case 'long':
+    default:
+      return 'Long';
+  }
+}
+
+String _convictionStatusLabel(String status) {
+  switch (status) {
+    case 'monitoring':
+      return 'Sous surveillance';
+    case 'hit_target':
+      return 'Objectif touché';
+    case 'invalidated':
+      return 'Invalidé';
+    case 'closed':
+      return 'Clôturé';
+    case 'open':
+    default:
+      return 'Ouvert';
+  }
+}
+
+String _convictionOutcomeLabel(String outcome) {
+  switch (outcome) {
+    case 'win':
+      return 'Gagnant';
+    case 'loss':
+      return 'Perdant';
+    case 'flat':
+      return 'Neutre';
+    case 'pending':
+    default:
+      return 'En suivi';
+  }
+}
+
+Color _convictionStatusColor(String status) {
+  switch (status) {
+    case 'hit_target':
+      return const Color(0xFF13804A);
+    case 'invalidated':
+      return const Color(0xFFB4533B);
+    case 'closed':
+      return detailsColor2;
+    case 'monitoring':
+      return const Color(0xFF175D94);
+    case 'open':
+    default:
+      return textColor;
+  }
+}
+
+Color _convictionOutcomeColor(String outcome) {
+  switch (outcome) {
+    case 'win':
+      return const Color(0xFF13804A);
+    case 'loss':
+      return const Color(0xFFB4533B);
+    case 'flat':
+      return const Color(0xFF7A5F00);
+    case 'pending':
+    default:
+      return detailsColor2;
+  }
+}
+
+double? _parseOptionalDouble(String raw) {
+  if (raw.trim().isEmpty) return null;
+  return double.tryParse(raw.replaceAll(',', '.'));
+}
+
+int _messageQualityScore(_ForumMessage message) {
+  final reactionBoost =
+      ((message.reactions['helpful'] ?? 0) * 3) +
+      ((message.reactions['clear'] ?? 0) * 3) +
+      ((message.reactions['insightful'] ?? 0) * 4);
+  final structureBoost =
+      (message.attachments.isNotEmpty ? 8 : 0) +
+      (message.chartAnnotationPng != null ? 8 : 0) +
+      (message.hasStructuredPitch ? 14 : 0) +
+      ((message.pitchThesis ?? '').trim().isNotEmpty ? 6 : 0) +
+      ((message.pitchCatalysts ?? '').trim().isNotEmpty ? 5 : 0) +
+      ((message.pitchRisks ?? '').trim().isNotEmpty ? 5 : 0) +
+      (message.convictionTargetPrice != null ? 3 : 0) +
+      (message.convictionInvalidationPrice != null ? 3 : 0);
+  final resultBoost = switch (message.convictionOutcome) {
+    'win' => 14,
+    'flat' => 6,
+    'loss' => -8,
+    _ => 0,
+  };
+  final rawScore =
+      28 + (message.score * 5) + reactionBoost + structureBoost + resultBoost;
+  return rawScore.clamp(0, 100).toInt();
+}
+
+_ReputationSnapshot _deriveAuthorReputationSnapshot(List<_ForumMessage> posts) {
+  if (posts.isEmpty) {
+    return const _ReputationSnapshot(
+      qualityScore: 0,
+      convictionScore: 0,
+      reputationScore: 0,
+    );
+  }
+  final qualityAverage =
+      posts.fold<int>(0, (total, post) => total + _messageQualityScore(post)) /
+      posts.length;
+  final pitchPosts = posts.where((post) => post.hasStructuredPitch).toList();
+  final settledPitches =
+      pitchPosts
+          .where(
+            (post) =>
+                post.convictionStatus == 'closed' &&
+                post.convictionOutcome != null &&
+                post.convictionOutcome != 'pending',
+          )
+          .toList();
+  final wins =
+      settledPitches.where((post) => post.convictionOutcome == 'win').length;
+  final avgReturn =
+      settledPitches.isEmpty
+          ? 0.0
+          : settledPitches.fold<double>(
+                0,
+                (total, post) => total + (post.convictionReturnPct ?? 0),
+              ) /
+              settledPitches.length;
+  final trackingRatio =
+      pitchPosts.isEmpty ? 0.0 : settledPitches.length / pitchPosts.length;
+  final winRate = settledPitches.isEmpty ? 0.0 : wins / settledPitches.length;
+  final convictionScore =
+      pitchPosts.isEmpty
+          ? qualityAverage * 0.55
+          : (28 + (trackingRatio * 28) + (winRate * 30) + (avgReturn * 0.3));
+  final reputationScore = ((qualityAverage * 0.62) + (convictionScore * 0.38))
+      .clamp(0, 100);
+  return _ReputationSnapshot(
+    qualityScore: qualityAverage.clamp(0, 100).round(),
+    convictionScore: convictionScore.clamp(0, 100).round(),
+    reputationScore: reputationScore.round(),
+  );
+}
+
+List<String> _topTickerCandidates(List<_ForumMessage> messages) {
+  final scores = <String, double>{};
+  for (final message in messages) {
+    for (final attachment in message.attachments) {
+      final symbol = attachment.symbol.toUpperCase();
+      if (symbol.isEmpty) continue;
+      scores.update(
+        symbol,
+        (value) => value + (_messageQualityScore(message) / 18),
+        ifAbsent: () => 1 + (_messageQualityScore(message) / 18),
+      );
+    }
+  }
+  final entries =
+      scores.entries.toList()
+        ..sort((left, right) => right.value.compareTo(left.value));
+  return entries.take(8).map((entry) => entry.key).toList();
+}
+
+List<_ForumThemeLite> _suggestedThemes(
+  List<_ForumThemeLite> themes,
+  List<_ForumMessage> messages,
+) {
+  final curated = themes
+      .where((theme) => theme.isCurated)
+      .take(6)
+      .toList(growable: false);
+  if (curated.isNotEmpty) return curated;
+
+  final messageWeights = <String, double>{};
+  for (final message in messages) {
+    if (message.themeId.isEmpty) continue;
+    messageWeights.update(
+      message.themeId,
+      (value) => value + (_messageQualityScore(message) / 20),
+      ifAbsent: () => 1 + (_messageQualityScore(message) / 20),
+    );
+  }
+  final themesById = {for (final theme in themes) theme.id: theme};
+  final orderedIds =
+      messageWeights.entries.toList()
+        ..sort((left, right) => right.value.compareTo(left.value));
+  return orderedIds
+      .map((entry) => themesById[entry.key])
+      .whereType<_ForumThemeLite>()
+      .take(6)
+      .toList();
+}
+
 // ─── Composer (Bottom Sheet) ──────────────────────────────────────────────────
 
 class _ComposerBottomSheet extends StatefulWidget {
-  const _ComposerBottomSheet({
-    required this.user,
-    required this.themesQuery,
-  });
+  const _ComposerBottomSheet({required this.user, required this.themesQuery});
 
   final User? user;
   final Query<Map<String, dynamic>> themesQuery;
@@ -1398,9 +1771,17 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
   final TextEditingController _pitchThesisCtrl = TextEditingController();
   final TextEditingController _pitchCatalystsCtrl = TextEditingController();
   final TextEditingController _pitchRisksCtrl = TextEditingController();
+  final TextEditingController _convictionHorizonCtrl = TextEditingController(
+    text: '3 mois',
+  );
+  final TextEditingController _convictionEntryCtrl = TextEditingController();
+  final TextEditingController _convictionTargetCtrl = TextEditingController();
+  final TextEditingController _convictionInvalidationCtrl =
+      TextEditingController();
 
   _ForumThemeLite? _selectedTheme;
   String _selectedPostType = _forumPostTypes.first;
+  String _selectedConvictionSide = _convictionSides.first;
   final Set<String> _selectedTags = <String>{};
   // 2.2 — multi-ticker (max 3)
   final List<_ForumTickerAttachment> _attachedTickers =
@@ -1437,6 +1818,10 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
     _pitchThesisCtrl.dispose();
     _pitchCatalystsCtrl.dispose();
     _pitchRisksCtrl.dispose();
+    _convictionHorizonCtrl.dispose();
+    _convictionEntryCtrl.dispose();
+    _convictionTargetCtrl.dispose();
+    _convictionInvalidationCtrl.dispose();
     super.dispose();
   }
 
@@ -1444,13 +1829,14 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
     final user = widget.user;
     if (user == null) return const [];
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('games')
-          .doc('portofolio')
-          .collection('positions')
-          .get();
+      final snap =
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('games')
+              .doc('portofolio')
+              .collection('positions')
+              .get();
       return snap.docs.map((doc) {
         final d = doc.data();
         return _ForumTickerAttachment(
@@ -1468,8 +1854,9 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _createThemeDialog() async {
@@ -1481,42 +1868,46 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
     final controller = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: backgroundColor,
-        title: const Text('Nouveau thème',
-            style: TextStyle(color: textColor, fontWeight: FontWeight.w800)),
-        content: TextField(
-          controller: controller,
-          maxLength: 40,
-          autofocus: true,
-          style: const TextStyle(color: textColor),
-          decoration: InputDecoration(
-            hintText: 'Ex: ETF Europe, Macro, Débutants',
-            hintStyle: TextStyle(color: textColor.withValues(alpha: 0.45)),
-            filled: true,
-            fillColor: Colors.white,
-            border: const OutlineInputBorder(),
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: backgroundColor,
+            title: const Text(
+              'Nouveau thème',
+              style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+            ),
+            content: TextField(
+              controller: controller,
+              maxLength: 40,
+              autofocus: true,
+              style: const TextStyle(color: textColor),
+              decoration: InputDecoration(
+                hintText: 'Ex: ETF Europe, Macro, Débutants',
+                hintStyle: TextStyle(color: textColor.withValues(alpha: 0.45)),
+                filled: true,
+                fillColor: Colors.white,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+                child: const Text('Créer'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Annuler')),
-          TextButton(
-              onPressed: () =>
-                  Navigator.of(ctx).pop(controller.text.trim()),
-              child: const Text('Créer')),
-        ],
-      ),
     );
     if (name == null || name.isEmpty) return;
-    final ref = await FirebaseFirestore.instance
-        .collection('forum_themes')
-        .add({
-      'name': name,
-      'createdAt': Timestamp.now(),
-      'createdByUid': widget.user!.uid,
-    });
+    final ref = await FirebaseFirestore.instance.collection('forum_themes').add(
+      {
+        'name': name,
+        'createdAt': Timestamp.now(),
+        'createdByUid': widget.user!.uid,
+      },
+    );
     if (!mounted) return;
     setState(() => _selectedTheme = _ForumThemeLite(id: ref.id, name: name));
     _snack('Thème "$name" créé.');
@@ -1542,12 +1933,21 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
 
   Future<void> _openAnnotationEditor() async {
     if (_attachedTickers.isEmpty) return;
+    final target =
+        _attachedTickers.length == 1
+            ? _attachedTickers.first
+            : await showCupertinoModalBottomSheet<_ForumTickerAttachment>(
+              context: context,
+              builder:
+                  (_) => _AnnotationTickerPickerSheet(
+                    attachments: _attachedTickers,
+                  ),
+            );
+    if (target == null || !mounted) return;
     final png = await showCupertinoModalBottomSheet<String>(
       context: context,
       expand: true,
-      builder: (_) => _ChartAnnotationEditor(
-        attachment: _attachedTickers.first,
-      ),
+      builder: (_) => _ChartAnnotationEditor(attachment: target),
     );
     if (png == null || !mounted) return;
     setState(() => _chartAnnotationPng = png);
@@ -1573,25 +1973,58 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
       return;
     }
     // Autorise la publication sans texte si une annotation ou un ticker est joint
-    final hasContent = text.isNotEmpty ||
+    final hasContent =
+        text.isNotEmpty ||
         _chartAnnotationPng != null ||
         _attachedTickers.isNotEmpty;
-    debugPrint('[Forum] hasContent=$hasContent postType=$_selectedPostType text="$text" annotation=${_chartAnnotationPng != null} tickers=${_attachedTickers.length}');
+    debugPrint(
+      '[Forum] hasContent=$hasContent postType=$_selectedPostType text="$text" annotation=${_chartAnnotationPng != null} tickers=${_attachedTickers.length}',
+    );
     if (_selectedPostType != 'pitch' && !hasContent) {
       debugPrint('[Forum] blocked: no content');
       _snack('Écris quelque chose ou joins un graphique annoté.');
       return;
     }
-    if (_selectedPostType == 'pitch' &&
-        _pitchTitleCtrl.text.trim().isEmpty) {
+    if (_selectedPostType == 'pitch' && _pitchTitleCtrl.text.trim().isEmpty) {
       debugPrint('[Forum] blocked: pitch missing title');
       _snack('Un titre est obligatoire pour un Pitch.');
       return;
     }
-    if (_selectedPostType == 'pitch' &&
-        _attachedTickers.isEmpty) {
+    if (_selectedPostType == 'pitch' && _attachedTickers.isEmpty) {
       debugPrint('[Forum] blocked: pitch missing ticker');
       _snack('Attache au moins un ticker pour un Pitch.');
+      return;
+    }
+    final convictionHorizon = _convictionHorizonCtrl.text.trim();
+    final convictionEntryPrice = _parseOptionalDouble(
+      _convictionEntryCtrl.text.trim(),
+    );
+    final convictionTargetPrice = _parseOptionalDouble(
+      _convictionTargetCtrl.text.trim(),
+    );
+    final convictionInvalidationPrice = _parseOptionalDouble(
+      _convictionInvalidationCtrl.text.trim(),
+    );
+    if (_selectedPostType == 'pitch' && convictionHorizon.isEmpty) {
+      _snack('Définis un horizon de conviction.');
+      return;
+    }
+    if (_selectedPostType == 'pitch' &&
+        _convictionEntryCtrl.text.trim().isNotEmpty &&
+        convictionEntryPrice == null) {
+      _snack('Le prix d’entrée du pitch est invalide.');
+      return;
+    }
+    if (_selectedPostType == 'pitch' &&
+        _convictionTargetCtrl.text.trim().isNotEmpty &&
+        convictionTargetPrice == null) {
+      _snack('Le prix cible du pitch est invalide.');
+      return;
+    }
+    if (_selectedPostType == 'pitch' &&
+        _convictionInvalidationCtrl.text.trim().isNotEmpty &&
+        convictionInvalidationPrice == null) {
+      _snack('Le niveau d’invalidation du pitch est invalide.');
       return;
     }
 
@@ -1601,14 +2034,18 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
       // 5.3 — anti-spam : max 5 posts / 24h (nécessite un index composite uid+createdAt)
       try {
         final yesterday = Timestamp.fromDate(
-            DateTime.now().subtract(const Duration(hours: 24)));
-        final recentSnap = await FirebaseFirestore.instance
-            .collection('forum_chat_messages')
-            .where('uid', isEqualTo: user.uid)
-            .where('createdAt', isGreaterThan: yesterday)
-            .limit(6)
-            .get();
-        debugPrint('[Forum] spam check: ${recentSnap.docs.length} posts in last 24h');
+          DateTime.now().subtract(const Duration(hours: 24)),
+        );
+        final recentSnap =
+            await FirebaseFirestore.instance
+                .collection('forum_chat_messages')
+                .where('uid', isEqualTo: user.uid)
+                .where('createdAt', isGreaterThan: yesterday)
+                .limit(6)
+                .get();
+        debugPrint(
+          '[Forum] spam check: ${recentSnap.docs.length} posts in last 24h',
+        );
         if (recentSnap.docs.length >= 5) {
           _snack('Limite de 5 posts par 24h atteinte. Réessaie demain !');
           if (mounted) setState(() => _sending = false);
@@ -1624,24 +2061,40 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
       bool isVerifiedAuthor = false;
       String authorName = _authorName(user);
       String? authorAvatarId;
+      _ReputationSnapshot authorReputation = const _ReputationSnapshot(
+        qualityScore: 0,
+        convictionScore: 0,
+        reputationScore: 0,
+      );
       try {
-        final userSnap = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+        final userSnap =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
         final d = userSnap.data() ?? {};
         authorKarma = (d['karma'] as num?)?.toInt() ?? 0;
         final level = (d['level'] as num?)?.toInt() ?? 0;
         final achievements =
             (d['achievements_claimed'] as List?)
-                    ?.map((e) => e.toString())
-                    .toList() ??
-                [];
-        isVerifiedAuthor =
-            level >= 10 || achievements.contains('investor_50k');
+                ?.map((e) => e.toString())
+                .toList() ??
+            [];
+        isVerifiedAuthor = level >= 10 || achievements.contains('investor_50k');
         final firestoreName = (d['Name'] as String?)?.trim() ?? '';
         if (firestoreName.isNotEmpty) authorName = firestoreName;
         authorAvatarId = d['avatar_id'] as String?;
+      } catch (_) {}
+      try {
+        final previousPostsSnap =
+            await FirebaseFirestore.instance
+                .collection('forum_chat_messages')
+                .where('uid', isEqualTo: user.uid)
+                .limit(80)
+                .get();
+        final previousPosts =
+            previousPostsSnap.docs.map(_ForumMessage.fromDoc).toList();
+        authorReputation = _deriveAuthorReputationSnapshot(previousPosts);
       } catch (_) {}
 
       final now = Timestamp.now();
@@ -1652,6 +2105,9 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
         'authorAvatarId': authorAvatarId,
         'photoURL': user.photoURL,
         'authorKarma': authorKarma,
+        'authorQualityScore': authorReputation.qualityScore,
+        'authorConvictionScore': authorReputation.convictionScore,
+        'authorReputationScore': authorReputation.reputationScore,
         'isVerifiedAuthor': isVerifiedAuthor,
         'themeId': _selectedTheme!.id,
         'themeName': _selectedTheme!.name,
@@ -1674,15 +2130,33 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
         doc['pitchThesis'] = _pitchThesisCtrl.text.trim();
         doc['pitchCatalysts'] = _pitchCatalystsCtrl.text.trim();
         doc['pitchRisks'] = _pitchRisksCtrl.text.trim();
+        doc['convictionSide'] = _selectedConvictionSide;
+        doc['convictionStatus'] = 'open';
+        doc['convictionOutcome'] = 'pending';
+        doc['convictionHorizon'] = convictionHorizon;
+        doc['convictionOpenedAt'] = now;
+        doc['convictionUpdatedAt'] = now;
+        if (convictionEntryPrice != null) {
+          doc['convictionEntryPrice'] = convictionEntryPrice;
+        }
+        if (convictionTargetPrice != null) {
+          doc['convictionTargetPrice'] = convictionTargetPrice;
+        }
+        if (convictionInvalidationPrice != null) {
+          doc['convictionInvalidationPrice'] = convictionInvalidationPrice;
+        }
       }
-      debugPrint('[Forum] doc ready, writing to Firestore: ${doc.keys.toList()}');
+      debugPrint(
+        '[Forum] doc ready, writing to Firestore: ${doc.keys.toList()}',
+      );
       await FirebaseFirestore.instance
           .collection('forum_chat_messages')
           .add(doc);
       debugPrint('[Forum] Firestore write SUCCESS');
       // 4.2 — effacer le brouillon sauvegardé
-      unawaited(SharedPreferences.getInstance()
-          .then((p) => p.remove('forum_draft')));
+      unawaited(
+        SharedPreferences.getInstance().then((p) => p.remove('forum_draft')),
+      );
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e, st) {
@@ -1747,14 +2221,14 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                         Text(
                           'Nouveau post',
                           style: TextStyle(
-                              color: textColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900),
+                            color: textColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                         Text(
                           'Partage ton analyse, ta question ou ton alerte.',
-                          style:
-                              TextStyle(color: Colors.black54, fontSize: 13),
+                          style: TextStyle(color: Colors.black54, fontSize: 13),
                         ),
                       ],
                     ),
@@ -1769,9 +2243,18 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                     child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                       stream: widget.themesQuery.snapshots(),
                       builder: (context, snapshot) {
-                        final themes = (snapshot.data?.docs ?? [])
-                            .map(_ForumThemeLite.fromDoc)
-                            .toList();
+                        final themes =
+                            (snapshot.data?.docs ?? [])
+                                .map(_ForumThemeLite.fromDoc)
+                                .toList()
+                              ..sort((left, right) {
+                                if (left.isCurated != right.isCurated) {
+                                  return left.isCurated ? -1 : 1;
+                                }
+                                return left.name.toLowerCase().compareTo(
+                                  right.name.toLowerCase(),
+                                );
+                              });
                         _ForumThemeLite? resolved = _selectedTheme;
                         final resolvedId = resolved?.id;
                         if (resolvedId != null) {
@@ -1788,17 +2271,21 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                               value: resolved,
                               isExpanded: true,
                               hint: const Text('Choisir un thème'),
-                              items: themes
-                                  .map(
-                                    (t) => DropdownMenuItem<_ForumThemeLite>(
-                                      value: t,
-                                      child: Text(t.name,
-                                          overflow: TextOverflow.ellipsis),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (t) =>
-                                  setState(() => _selectedTheme = t),
+                              items:
+                                  themes
+                                      .map(
+                                        (t) =>
+                                            DropdownMenuItem<_ForumThemeLite>(
+                                              value: t,
+                                              child: Text(
+                                                t.name,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                      )
+                                      .toList(),
+                              onChanged:
+                                  (t) => setState(() => _selectedTheme = t),
                             ),
                           ),
                         );
@@ -1819,14 +2306,15 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                   child: DropdownButton<String>(
                     value: _selectedPostType,
                     isExpanded: true,
-                    items: _forumPostTypes
-                        .map(
-                          (t) => DropdownMenuItem<String>(
-                            value: t,
-                            child: Text(_postTypeLabel(t)),
-                          ),
-                        )
-                        .toList(),
+                    items:
+                        _forumPostTypes
+                            .map(
+                              (t) => DropdownMenuItem<String>(
+                                value: t,
+                                child: Text(_postTypeLabel(t)),
+                              ),
+                            )
+                            .toList(),
                     onChanged: (v) {
                       if (v != null) setState(() => _selectedPostType = v);
                     },
@@ -1838,42 +2326,75 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _forumTagOptions.map((tag) {
-                  final selected = _selectedTags.contains(tag);
-                  return FilterChip(
-                    label: Text(tag),
-                    selected: selected,
-                    onSelected: (_) => setState(() {
-                      if (_selectedTags.contains(tag)) {
-                        _selectedTags.remove(tag);
-                      } else if (_selectedTags.length < 4) {
-                        _selectedTags.add(tag);
-                      }
-                    }),
-                    selectedColor: detailsColor1.withValues(alpha: 0.16),
-                    backgroundColor: const Color(0xFFF7F8FA),
-                    showCheckmark: false,
-                    labelStyle: TextStyle(
-                      color: selected ? detailsColor2 : textColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    side: BorderSide(
-                      color: selected
-                          ? detailsColor2.withValues(alpha: 0.18)
-                          : const Color(0xFFE6E8EB),
-                    ),
-                  );
-                }).toList(),
+                children:
+                    _forumTagOptions.map((tag) {
+                      final selected = _selectedTags.contains(tag);
+                      return FilterChip(
+                        label: Text(tag),
+                        selected: selected,
+                        onSelected:
+                            (_) => setState(() {
+                              if (_selectedTags.contains(tag)) {
+                                _selectedTags.remove(tag);
+                              } else if (_selectedTags.length < 4) {
+                                _selectedTags.add(tag);
+                              }
+                            }),
+                        selectedColor: detailsColor1.withValues(alpha: 0.16),
+                        backgroundColor: const Color(0xFFF7F8FA),
+                        showCheckmark: false,
+                        labelStyle: TextStyle(
+                          color: selected ? detailsColor2 : textColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        side: BorderSide(
+                          color:
+                              selected
+                                  ? detailsColor2.withValues(alpha: 0.18)
+                                  : const Color(0xFFE6E8EB),
+                        ),
+                      );
+                    }).toList(),
               ),
               const SizedBox(height: 12),
               // ── 2.4 — champs pitch ──
               if (_selectedPostType == 'pitch') ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children:
+                      _convictionSides.map((side) {
+                        final selected = _selectedConvictionSide == side;
+                        return ChoiceChip(
+                          label: Text(_convictionSideLabel(side)),
+                          selected: selected,
+                          onSelected:
+                              (_) => setState(
+                                () => _selectedConvictionSide = side,
+                              ),
+                          selectedColor: detailsColor1.withValues(alpha: 0.16),
+                          backgroundColor: const Color(0xFFF7F8FA),
+                          showCheckmark: false,
+                          labelStyle: TextStyle(
+                            color: selected ? detailsColor2 : textColor,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          side: BorderSide(
+                            color:
+                                selected
+                                    ? detailsColor2.withValues(alpha: 0.18)
+                                    : const Color(0xFFE6E8EB),
+                          ),
+                        );
+                      }).toList(),
+                ),
+                const SizedBox(height: 10),
                 _WhiteInputBox(
                   child: TextField(
                     controller: _pitchTitleCtrl,
                     enabled: user != null && !_sending,
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onTapOutside:
+                        (_) => FocusManager.instance.primaryFocus?.unfocus(),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       hintText: 'Titre du pitch (ex: Long LVMH)',
@@ -1881,12 +2402,93 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                   ),
                 ),
                 const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _WhiteInputBox(
+                        child: TextField(
+                          controller: _convictionHorizonCtrl,
+                          enabled: user != null && !_sending,
+                          onTapOutside:
+                              (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Horizon (ex: 3 mois)',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _WhiteInputBox(
+                        child: TextField(
+                          controller: _convictionEntryCtrl,
+                          enabled: user != null && !_sending,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onTapOutside:
+                              (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Entrée',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _WhiteInputBox(
+                        child: TextField(
+                          controller: _convictionTargetCtrl,
+                          enabled: user != null && !_sending,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onTapOutside:
+                              (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Cible',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _WhiteInputBox(
+                        child: TextField(
+                          controller: _convictionInvalidationCtrl,
+                          enabled: user != null && !_sending,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onTapOutside:
+                              (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Invalidation',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
                 _WhiteInputBox(
                   child: TextField(
                     controller: _pitchThesisCtrl,
                     enabled: user != null && !_sending,
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onTapOutside:
+                        (_) => FocusManager.instance.primaryFocus?.unfocus(),
                     minLines: 2,
                     maxLines: 4,
                     decoration: const InputDecoration(
@@ -1900,8 +2502,8 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                   child: TextField(
                     controller: _pitchCatalystsCtrl,
                     enabled: user != null && !_sending,
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onTapOutside:
+                        (_) => FocusManager.instance.primaryFocus?.unfocus(),
                     minLines: 2,
                     maxLines: 4,
                     decoration: const InputDecoration(
@@ -1915,8 +2517,8 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                   child: TextField(
                     controller: _pitchRisksCtrl,
                     enabled: user != null && !_sending,
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onTapOutside:
+                        (_) => FocusManager.instance.primaryFocus?.unfocus(),
                     minLines: 2,
                     maxLines: 4,
                     decoration: const InputDecoration(
@@ -1936,9 +2538,10 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                     if (holdings.isEmpty) return const SizedBox.shrink();
                     final alreadyAttached =
                         _attachedTickers.map((t) => t.symbol).toSet();
-                    final available = holdings
-                        .where((h) => !alreadyAttached.contains(h.symbol))
-                        .toList();
+                    final available =
+                        holdings
+                            .where((h) => !alreadyAttached.contains(h.symbol))
+                            .toList();
                     if (available.isEmpty) return const SizedBox.shrink();
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1946,9 +2549,10 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                         const Text(
                           'Mes positions',
                           style: TextStyle(
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12),
+                            color: Colors.black54,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         SizedBox(
@@ -1956,31 +2560,34 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             itemCount: available.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(width: 8),
+                            separatorBuilder:
+                                (_, __) => const SizedBox(width: 8),
                             itemBuilder: (context, i) {
                               final h = available[i];
                               return ActionChip(
                                 label: Text(h.symbol),
-                                avatar: const Icon(Icons.add_rounded,
-                                    size: 14),
+                                avatar: const Icon(Icons.add_rounded, size: 14),
                                 backgroundColor: Colors.white,
                                 side: BorderSide(
-                                    color: detailsColor2
-                                        .withValues(alpha: 0.18)),
+                                  color: detailsColor2.withValues(alpha: 0.18),
+                                ),
                                 labelStyle: const TextStyle(
-                                    color: textColor,
-                                    fontWeight: FontWeight.w700),
-                                onPressed: _attachedTickers.length >= 3
-                                    ? null
-                                    : () {
-                                        if (_attachedTickers.any((t) =>
-                                            t.symbol == h.symbol)) {
-                                          return;
-                                        }
-                                        setState(
-                                            () => _attachedTickers.add(h));
-                                      },
+                                  color: textColor,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                onPressed:
+                                    _attachedTickers.length >= 3
+                                        ? null
+                                        : () {
+                                          if (_attachedTickers.any(
+                                            (t) => t.symbol == h.symbol,
+                                          )) {
+                                            return;
+                                          }
+                                          setState(
+                                            () => _attachedTickers.add(h),
+                                          );
+                                        },
                               );
                             },
                           ),
@@ -1991,32 +2598,51 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                   },
                 ),
               // ── 2.2 — multi-ticker ──
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (_attachedTickers.length < 3)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _pickTickerAttachment,
-                        icon: const Icon(Icons.show_chart_rounded),
-                        label: Text(_attachedTickers.isEmpty
+                    OutlinedButton.icon(
+                      onPressed: _pickTickerAttachment,
+                      icon: const Icon(Icons.show_chart_rounded),
+                      label: Text(
+                        _attachedTickers.isEmpty
                             ? 'Attacher un ticker'
-                            : 'Ajouter un ticker (${_attachedTickers.length}/3)'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: detailsColor2,
-                          side: BorderSide(
-                              color: detailsColor2.withValues(alpha: 0.2)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16)),
+                            : 'Ajouter un ticker (${_attachedTickers.length}/3)',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: detailsColor2,
+                        side: BorderSide(
+                          color: detailsColor2.withValues(alpha: 0.2),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
                     ),
                   if (_attachedTickers.isNotEmpty &&
                       _selectedPostType != 'pitch') ...[
-                    const SizedBox(width: 10),
-                    _SquareActionButton(
-                      icon: Icons.draw_rounded,
-                      onTap: _openAnnotationEditor,
+                    if (_attachedTickers.length < 3) const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: _openAnnotationEditor,
+                      icon: const Icon(Icons.draw_rounded),
+                      label: Text(
+                        _chartAnnotationPng == null
+                            ? 'Ouvrir l’atelier d’annotation'
+                            : 'Refaire l’annotation',
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: textColor,
+                        backgroundColor: Colors.white,
+                        side: BorderSide(
+                          color: detailsColor2.withValues(alpha: 0.22),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -2024,26 +2650,29 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
               if (_attachedTickers.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Column(
-                  children: _attachedTickers.map((t) {
-                    final idx = _attachedTickers.indexOf(t);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _ForumTickerAttachmentPreview(
-                        attachment: t,
-                        compact: true,
-                        onRemove: () =>
-                            setState(() => _attachedTickers.removeAt(idx)),
-                      ),
-                    );
-                  }).toList(),
+                  children:
+                      _attachedTickers.map((t) {
+                        final idx = _attachedTickers.indexOf(t);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _ForumTickerAttachmentPreview(
+                            attachment: t,
+                            compact: true,
+                            onRemove:
+                                () => setState(
+                                  () => _attachedTickers.removeAt(idx),
+                                ),
+                          ),
+                        );
+                      }).toList(),
                 ),
               ],
               if (_chartAnnotationPng != null) ...[
                 const SizedBox(height: 8),
                 _AnnotationImagePreview(
                   base64Png: _chartAnnotationPng!,
-                  onRemove: () =>
-                      setState(() => _chartAnnotationPng = null),
+                  onTap: _openAnnotationEditor,
+                  onRemove: () => setState(() => _chartAnnotationPng = null),
                 ),
               ],
               const SizedBox(height: 12),
@@ -2053,19 +2682,22 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                   controller: _textController,
                   focusNode: _focusNode,
                   enabled: user != null && !_sending,
-                  onTapOutside: (_) =>
-                      FocusManager.instance.primaryFocus?.unfocus(),
+                  onTapOutside:
+                      (_) => FocusManager.instance.primaryFocus?.unfocus(),
                   minLines: 3,
                   maxLines: 8,
                   textInputAction: TextInputAction.newline,
                   // 4.2 — auto-save brouillon
-                  onChanged: (v) => SharedPreferences.getInstance()
-                      .then((p) => p.setString('forum_draft', v)),
+                  onChanged:
+                      (v) => SharedPreferences.getInstance().then(
+                        (p) => p.setString('forum_draft', v),
+                      ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: user == null
-                        ? 'Connecte-toi pour publier'
-                        : 'Analyse, question, idée de trade, contexte marché...',
+                    hintText:
+                        user == null
+                            ? 'Connecte-toi pour publier'
+                            : 'Analyse, question, idée de trade, contexte marché...',
                   ),
                 ),
               ),
@@ -2080,16 +2712,20 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  icon: _sending
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send_rounded),
+                  icon:
+                      _sending
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Icon(Icons.send_rounded),
                   label: Text(_sending ? 'Publication...' : 'Publier'),
                 ),
               ),
@@ -2101,79 +2737,514 @@ class _ComposerBottomSheetState extends State<_ComposerBottomSheet> {
   }
 }
 
-// ─── Barre de recherche ───────────────────────────────────────────────────────
+class _PitchLifecycleSheet extends StatefulWidget {
+  const _PitchLifecycleSheet({required this.message});
 
-class _ForumSearchBar extends StatelessWidget {
-  const _ForumSearchBar({
-    required this.controller,
-    required this.bookmarksOnly,
-    required this.sortByTop,
-    required this.activeTagFilter,
-    required this.onChanged,
-    required this.onToggleBookmarks,
-    required this.onToggleSort,
-    required this.onClearTagFilter,
-  });
+  final _ForumMessage message;
 
-  final TextEditingController controller;
-  final bool bookmarksOnly;
-  final bool sortByTop;
-  final String? activeTagFilter;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onToggleBookmarks;
-  final VoidCallback onToggleSort;
-  final VoidCallback onClearTagFilter;
+  @override
+  State<_PitchLifecycleSheet> createState() => _PitchLifecycleSheetState();
+}
+
+class _PitchLifecycleSheetState extends State<_PitchLifecycleSheet> {
+  late String _status;
+  late String _outcome;
+  late final TextEditingController _returnCtrl;
+  late final TextEditingController _noteCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.message.convictionStatus ?? 'open';
+    _outcome = widget.message.convictionOutcome ?? 'pending';
+    _returnCtrl = TextEditingController(
+      text:
+          widget.message.convictionReturnPct == null
+              ? ''
+              : widget.message.convictionReturnPct!.toStringAsFixed(1),
+    );
+    _noteCtrl = TextEditingController(
+      text: widget.message.convictionNote ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _returnCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final returnPct = _parseOptionalDouble(_returnCtrl.text.trim());
+    if (_returnCtrl.text.trim().isNotEmpty && returnPct == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le rendement du pitch est invalide.')),
+      );
+      return;
+    }
+    if (_status == 'closed' && _outcome == 'pending') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choisis un résultat final pour clôturer.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final now = Timestamp.now();
+    final resolvedOutcome = switch (_status) {
+      'hit_target' => 'win',
+      'invalidated' => 'loss',
+      'closed' => _outcome,
+      _ => 'pending',
+    };
+    try {
+      await FirebaseFirestore.instance
+          .collection('forum_chat_messages')
+          .doc(widget.message.id)
+          .set({
+            'convictionStatus': _status,
+            'convictionOutcome': resolvedOutcome,
+            'convictionUpdatedAt': now,
+            'convictionClosedAt': _status == 'closed' ? now : null,
+            'convictionReturnPct': returnPct,
+            'convictionNote': _noteCtrl.text.trim(),
+          }, SetOptions(merge: true));
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mise à jour impossible : $error')),
+      );
+      setState(() => _saving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE6E8EB)),
-            ),
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              onTapOutside: (_) =>
-                  FocusManager.instance.primaryFocus?.unfocus(),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Rechercher un message, un tag ou un ticker...',
-                icon: Icon(Icons.search_rounded),
+    return Material(
+      color: backgroundColor,
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 18),
+              const Text(
+                'Suivi de conviction',
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.message.pitchTitle?.trim().isNotEmpty == true
+                    ? widget.message.pitchTitle!
+                    : widget.message.primaryTicker ?? 'Pitch',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children:
+                    _convictionStatuses.map((status) {
+                      final active = _status == status;
+                      return ChoiceChip(
+                        label: Text(_convictionStatusLabel(status)),
+                        selected: active,
+                        onSelected: (_) => setState(() => _status = status),
+                        selectedColor: detailsColor1.withValues(alpha: 0.16),
+                        backgroundColor: Colors.white,
+                        showCheckmark: false,
+                        labelStyle: TextStyle(
+                          color: active ? detailsColor2 : textColor,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        side: BorderSide(
+                          color:
+                              active
+                                  ? detailsColor2.withValues(alpha: 0.18)
+                                  : const Color(0xFFE6E8EB),
+                        ),
+                      );
+                    }).toList(),
+              ),
+              const SizedBox(height: 12),
+              if (_status == 'closed')
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children:
+                      _convictionOutcomes
+                          .where((outcome) => outcome != 'pending')
+                          .map((outcome) {
+                            final active = _outcome == outcome;
+                            return ChoiceChip(
+                              label: Text(_convictionOutcomeLabel(outcome)),
+                              selected: active,
+                              onSelected:
+                                  (_) => setState(() => _outcome = outcome),
+                              selectedColor: detailsColor1.withValues(
+                                alpha: 0.16,
+                              ),
+                              backgroundColor: Colors.white,
+                              showCheckmark: false,
+                              labelStyle: TextStyle(
+                                color: active ? detailsColor2 : textColor,
+                                fontWeight: FontWeight.w800,
+                              ),
+                              side: BorderSide(
+                                color:
+                                    active
+                                        ? detailsColor2.withValues(alpha: 0.18)
+                                        : const Color(0xFFE6E8EB),
+                              ),
+                            );
+                          })
+                          .toList(),
+                ),
+              if (_status == 'closed') const SizedBox(height: 12),
+              _WhiteInputBox(
+                child: TextField(
+                  controller: _returnCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: 'Performance finale (%)',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _WhiteInputBox(
+                child: TextField(
+                  controller: _noteCtrl,
+                  minLines: 2,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText:
+                        'Note de suivi: ce qui a changé, ce qui a cassé, ce qui a confirmé…',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _saving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  icon:
+                      _saving
+                          ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Icon(Icons.track_changes_rounded),
+                  label: Text(
+                    _saving ? 'Mise à jour...' : 'Enregistrer le suivi',
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 10),
-        _CircleToggleButton(
-          active: bookmarksOnly,
-          icon: Icons.bookmark_rounded,
-          tooltip: 'Favoris',
-          onTap: onToggleBookmarks,
+      ),
+    );
+  }
+}
+
+// ─── Header compact du feed ──────────────────────────────────────────────────
+
+class _ForumFeedHeader extends StatelessWidget {
+  const _ForumFeedHeader({
+    required this.controller,
+    required this.query,
+    required this.activeTagFilter,
+    required this.activeTickerFilter,
+    required this.activeThemeFilterId,
+    required this.bookmarksOnly,
+    required this.themes,
+    required this.messages,
+    required this.onChanged,
+    required this.onToggleBookmarks,
+    required this.onSelectTag,
+    required this.onSelectTicker,
+    required this.onSelectTheme,
+    required this.onClearAll,
+  });
+
+  final TextEditingController controller;
+  final String query;
+  final String? activeTagFilter;
+  final String? activeTickerFilter;
+  final String? activeThemeFilterId;
+  final bool bookmarksOnly;
+  final List<_ForumThemeLite> themes;
+  final List<_ForumMessage> messages;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onToggleBookmarks;
+  final ValueChanged<String> onSelectTag;
+  final ValueChanged<String> onSelectTicker;
+  final ValueChanged<_ForumThemeLite> onSelectTheme;
+  final VoidCallback onClearAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final themeById = {for (final theme in themes) theme.id: theme};
+    final selectedTheme =
+        activeThemeFilterId == null ? null : themeById[activeThemeFilterId];
+    final suggestedThemes = _suggestedThemes(themes, messages);
+    final topTickers = _topTickerCandidates(messages);
+    final hasAnyFilters =
+        query.trim().isNotEmpty ||
+        activeTagFilter != null ||
+        activeTickerFilter != null ||
+        selectedTheme != null ||
+        bookmarksOnly;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          stream:
+              FirebaseFirestore.instance
+                  .collection('forum_weekly_winner')
+                  .doc('current')
+                  .snapshots(),
+          builder: (context, winnerSnap) {
+            final data = winnerSnap.data?.data();
+            if (data == null) return const SizedBox.shrink();
+            final weekOf = data['weekOf'] as Timestamp?;
+            if (weekOf == null) return const SizedBox.shrink();
+            final age = DateTime.now().difference(weekOf.toDate()).inDays;
+            if (age > 7) return const SizedBox.shrink();
+            return _WeeklyWinnerBanner(data: data);
+          },
         ),
-        const SizedBox(width: 8),
-        _CircleToggleButton(
-          active: sortByTop,
-          icon: Icons.local_fire_department_rounded,
-          tooltip: 'Tri top / récent',
-          onTap: onToggleSort,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE6E8EB)),
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    onTapOutside:
+                        (_) => FocusManager.instance.primaryFocus?.unfocus(),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Rechercher un post, un thème ou un ticker...',
+                      icon: Icon(Icons.search_rounded),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _CircleToggleButton(
+                active: bookmarksOnly,
+                icon: Icons.bookmark_rounded,
+                tooltip: 'Favoris uniquement',
+                onTap: onToggleBookmarks,
+              ),
+              if (hasAnyFilters) ...[
+                const SizedBox(width: 8),
+                _CircleToggleButton(
+                  active: true,
+                  icon: Icons.close_rounded,
+                  tooltip: 'Réinitialiser les filtres',
+                  onTap: onClearAll,
+                ),
+              ],
+            ],
+          ),
         ),
-        if (activeTagFilter != null) ...[
-          const SizedBox(width: 8),
-          _CircleToggleButton(
-            active: true,
-            icon: Icons.close_rounded,
-            tooltip: 'Retirer le filtre tag',
-            onTap: onClearTagFilter,
+        if (hasAnyFilters)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (bookmarksOnly) const _FilterStatusPill(label: 'Favoris'),
+                if (activeTagFilter != null)
+                  _FilterStatusPill(label: '#$activeTagFilter'),
+                if (activeTickerFilter != null)
+                  _FilterStatusPill(label: activeTickerFilter!),
+                if (selectedTheme != null)
+                  _FilterStatusPill(label: selectedTheme.name),
+                if (query.trim().isNotEmpty)
+                  _FilterStatusPill(label: 'Recherche: ${query.trim()}'),
+              ],
+            ),
+          ),
+        if (suggestedThemes.isNotEmpty)
+          _HorizontalFeedStrip<_ForumThemeLite>(
+            title: 'Thèmes à suivre',
+            items: suggestedThemes,
+            labelBuilder: (theme) => theme.name,
+            activeCheck: (theme) => activeThemeFilterId == theme.id,
+            onTap: onSelectTheme,
+          ),
+        if (topTickers.isNotEmpty)
+          _HorizontalFeedStrip<String>(
+            title: 'Flux ticker',
+            items: topTickers,
+            labelBuilder: (ticker) => ticker,
+            activeCheck: (ticker) => activeTickerFilter == ticker,
+            onTap: onSelectTicker,
+          ),
+        _HorizontalFeedStrip<String>(
+          title: 'Tags rapides',
+          items: _forumTagOptions,
+          labelBuilder: (tag) => '#$tag',
+          activeCheck: (tag) => activeTagFilter == tag,
+          onTap: onSelectTag,
+        ),
+      ],
+    );
+  }
+}
+
+class _HorizontalFeedStrip<T> extends StatelessWidget {
+  const _HorizontalFeedStrip({
+    required this.title,
+    required this.items,
+    required this.labelBuilder,
+    required this.activeCheck,
+    required this.onTap,
+  });
+
+  final String title;
+  final List<T> items;
+  final String Function(T item) labelBuilder;
+  final bool Function(T item) activeCheck;
+  final ValueChanged<T> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 0, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(right: 16),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                final active = activeCheck(item);
+                return ChoiceChip(
+                  label: Text(labelBuilder(item)),
+                  selected: active,
+                  onSelected: (_) => onTap(item),
+                  selectedColor: detailsColor1.withValues(alpha: 0.16),
+                  backgroundColor: Colors.white,
+                  showCheckmark: false,
+                  labelStyle: TextStyle(
+                    color: active ? detailsColor2 : textColor,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  side: BorderSide(
+                    color:
+                        active
+                            ? detailsColor2.withValues(alpha: 0.18)
+                            : const Color(0xFFE6E8EB),
+                  ),
+                );
+              },
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemCount: items.length,
+            ),
           ),
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _FilterStatusPill extends StatelessWidget {
+  const _FilterStatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: detailsColor2.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: detailsColor2,
+          fontWeight: FontWeight.w800,
+          fontSize: 11.5,
+        ),
+      ),
     );
   }
 }
@@ -2186,9 +3257,11 @@ class _ForumMessageCard extends StatelessWidget {
     required this.canModerate,
     required this.canReport,
     required this.canDelete,
+    required this.canManagePitch,
     required this.isBookmarked,
     required this.isExpanded,
     required this.isFollowingTheme,
+    required this.isHighlighted,
     // 5.1 — collapse posts négatifs
     required this.isForceExpandedNegative,
     required this.onForceExpandNegative,
@@ -2200,6 +3273,9 @@ class _ForumMessageCard extends StatelessWidget {
     required this.onReport,
     required this.onTogglePinned,
     required this.onFollowTheme,
+    required this.onManagePitch,
+    required this.onOpenTickerFeed,
+    required this.onOpenThemeFeed,
     required this.onDelete,
     required this.replies,
   });
@@ -2208,9 +3284,11 @@ class _ForumMessageCard extends StatelessWidget {
   final bool canModerate;
   final bool canReport;
   final bool canDelete;
+  final bool canManagePitch;
   final bool isBookmarked;
   final bool isExpanded;
   final bool isFollowingTheme;
+  final bool isHighlighted;
   final bool isForceExpandedNegative;
   final VoidCallback onForceExpandNegative;
   final VoidCallback onToggleExpanded;
@@ -2221,12 +3299,14 @@ class _ForumMessageCard extends StatelessWidget {
   final VoidCallback onReport;
   final VoidCallback onTogglePinned;
   final VoidCallback onFollowTheme;
+  final VoidCallback onManagePitch;
+  final ValueChanged<String> onOpenTickerFeed;
+  final VoidCallback onOpenThemeFeed;
   final VoidCallback onDelete;
   final Widget? replies;
 
   // 5.1 — le post doit-il être replié ?
-  bool get _isCollapsed =>
-      message.score < -3 && !isForceExpandedNegative;
+  bool get _isCollapsed => message.score < -3 && !isForceExpandedNegative;
 
   @override
   Widget build(BuildContext context) {
@@ -2241,14 +3321,16 @@ class _ForumMessageCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.visibility_off_rounded,
-                size: 16, color: Colors.black38),
+            const Icon(
+              Icons.visibility_off_rounded,
+              size: 16,
+              color: Colors.black38,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'Post masqué (score ${message.score}) — ',
-                style: const TextStyle(
-                    color: Colors.black45, fontSize: 13),
+                style: const TextStyle(color: Colors.black45, fontSize: 13),
               ),
             ),
             GestureDetector(
@@ -2272,11 +3354,16 @@ class _ForumMessageCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE6E8EB)),
+        border: Border.all(
+          color: isHighlighted ? detailsColor2 : const Color(0xFFE6E8EB),
+          width: isHighlighted ? 1.4 : 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
+            color: (isHighlighted ? detailsColor2 : Colors.black).withValues(
+              alpha: isHighlighted ? 0.12 : 0.04,
+            ),
+            blurRadius: isHighlighted ? 22 : 16,
             offset: const Offset(0, 10),
           ),
         ],
@@ -2289,14 +3376,16 @@ class _ForumMessageCard extends StatelessWidget {
             children: [
               // 3.2 — avatar tappable → profil auteur
               GestureDetector(
-                onTap: () => showCupertinoModalBottomSheet<void>(
-                  context: context,
-                  expand: false,
-                  builder: (_) => _AuthorProfileSheet(
-                    authorUid: message.uid,
-                    authorName: message.authorName,
-                  ),
-                ),
+                onTap:
+                    () => showCupertinoModalBottomSheet<void>(
+                      context: context,
+                      expand: false,
+                      builder:
+                          (_) => _AuthorProfileSheet(
+                            authorUid: message.uid,
+                            authorName: message.authorName,
+                          ),
+                    ),
                 child: _ForumAvatar(
                   avatarId: message.authorAvatarId,
                   name: message.authorName,
@@ -2314,8 +3403,9 @@ class _ForumMessageCard extends StatelessWidget {
                           child: Text(
                             message.authorName,
                             style: const TextStyle(
-                                color: textColor,
-                                fontWeight: FontWeight.w900),
+                              color: textColor,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         // 5.2 — badge vérifié
@@ -2328,6 +3418,12 @@ class _ForumMessageCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           _KarmaBadge(karma: message.authorKarma),
                         ],
+                        if (message.authorReputationScore > 0) ...[
+                          const SizedBox(width: 6),
+                          _ForumReputationBadge(
+                            score: message.authorReputationScore,
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -2338,8 +3434,16 @@ class _ForumMessageCard extends StatelessWidget {
                         if (message.isPinned)
                           const _PostBadge(label: 'Épinglé'),
                         _PostBadge(label: message.postTypeLabel),
-                        _PostBadge(
-                            label: message.themeName, alternate: true),
+                        GestureDetector(
+                          onTap: onOpenThemeFeed,
+                          child: _PostBadge(
+                            label: message.themeName,
+                            alternate: true,
+                          ),
+                        ),
+                        _ForumQualityBadge(
+                          score: _messageQualityScore(message),
+                        ),
                       ],
                     ),
                   ],
@@ -2366,66 +3470,94 @@ class _ForumMessageCard extends StatelessWidget {
                       if (value == 'pin') onTogglePinned();
                       if (value == 'report') onReport();
                       if (value == 'follow') onFollowTheme();
+                      if (value == 'manage_pitch') onManagePitch();
                       if (value == 'delete') onDelete();
                     },
                     itemBuilder: (_) {
                       final items = <PopupMenuEntry<String>>[];
-                      if (canDelete) {
-                        items.add(PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Row(
-                            children: const [
-                              Icon(Icons.delete_outline_rounded,
-                                  color: Colors.red, size: 18),
-                              SizedBox(width: 8),
-                              Text('Supprimer',
-                                  style: TextStyle(color: Colors.red)),
-                            ],
+                      if (canManagePitch) {
+                        items.add(
+                          const PopupMenuItem<String>(
+                            value: 'manage_pitch',
+                            child: Text('Mettre à jour la conviction'),
                           ),
-                        ));
+                        );
+                      }
+                      if (canDelete) {
+                        if (items.isNotEmpty) {
+                          items.add(const PopupMenuDivider());
+                        }
+                        items.add(
+                          PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Colors.red,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Supprimer',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       }
                       if (canModerate) {
-                        if (items.isNotEmpty) items.add(const PopupMenuDivider());
-                        items.add(PopupMenuItem<String>(
-                          value: 'pin',
-                          child: Text(
-                              message.isPinned ? 'Désépingler' : 'Épingler'),
-                        ));
+                        if (items.isNotEmpty) {
+                          items.add(const PopupMenuDivider());
+                        }
+                        items.add(
+                          PopupMenuItem<String>(
+                            value: 'pin',
+                            child: Text(
+                              message.isPinned ? 'Désépingler' : 'Épingler',
+                            ),
+                          ),
+                        );
                       }
                       if (canReport) {
                         if (items.isNotEmpty) {
                           items.add(const PopupMenuDivider());
                         }
-                        items.add(const PopupMenuItem<String>(
-                          value: 'report',
-                          child: Text('Signaler'),
-                        ));
+                        items.add(
+                          const PopupMenuItem<String>(
+                            value: 'report',
+                            child: Text('Signaler'),
+                          ),
+                        );
                       }
                       if (items.isNotEmpty) {
                         items.add(const PopupMenuDivider());
                       }
-                      items.add(PopupMenuItem<String>(
-                        value: 'follow',
-                        child: Row(
-                          children: [
-                            Icon(
-                              isFollowingTheme
-                                  ? Icons.bookmark_remove_outlined
-                                  : Icons.bookmark_add_outlined,
-                              color: detailsColor2,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
+                      items.add(
+                        PopupMenuItem<String>(
+                          value: 'follow',
+                          child: Row(
+                            children: [
+                              Icon(
                                 isFollowingTheme
-                                    ? 'Ne plus suivre "${message.themeName}"'
-                                    : 'Suivre "${message.themeName}"',
+                                    ? Icons.bookmark_remove_outlined
+                                    : Icons.bookmark_add_outlined,
+                                color: detailsColor2,
+                                size: 18,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  isFollowingTheme
+                                      ? 'Ne plus suivre "${message.themeName}"'
+                                      : 'Suivre "${message.themeName}"',
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ));
+                      );
                       return items;
                     },
                   ),
@@ -2434,38 +3566,47 @@ class _ForumMessageCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Text(message.text,
-              style: const TextStyle(color: textColor, height: 1.45)),
+          Text(
+            message.text,
+            style: const TextStyle(color: textColor, height: 1.45),
+          ),
           if (message.tags.isNotEmpty) ...[
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: message.tags
-                  .map(
-                    (tag) => Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: detailsColor1.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '#$tag',
-                        style: const TextStyle(
-                            color: textColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11.5),
-                      ),
-                    ),
-                  )
-                  .toList(),
+              children:
+                  message.tags
+                      .map(
+                        (tag) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: detailsColor1.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '#$tag',
+                            style: const TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
             ),
           ],
           // 2.2 — multi-ticker side-by-side
           if (message.attachments.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _MultiTickerRow(attachments: message.attachments),
+            _MultiTickerRow(
+              attachments: message.attachments,
+              onTap: onOpenTickerFeed,
+            ),
           ],
           // 2.1 — annotation exportée
           if (message.chartAnnotationPng != null) ...[
@@ -2475,7 +3616,7 @@ class _ForumMessageCard extends StatelessWidget {
           // 2.4 — pitch structuré
           if (message.postType == 'pitch') ...[
             const SizedBox(height: 12),
-            _PitchCard(message: message),
+            _PitchCard(message: message, onOpenTickerFeed: onOpenTickerFeed),
           ],
           // 2.5 — snapshot portefeuille
           if (message.portfolioSnapshot != null) ...[
@@ -2531,7 +3672,9 @@ class _ForumMessageCard extends StatelessWidget {
               Text(
                 'Score ${message.score}',
                 style: const TextStyle(
-                    color: Colors.black54, fontWeight: FontWeight.w700),
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -2574,7 +3717,10 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
 
   // 3.4 — vote sur une réponse
   Future<void> _voteReply(
-      String replyId, int value, Map<String, dynamic> replyData) async {
+    String replyId,
+    int value,
+    Map<String, dynamic> replyData,
+  ) async {
     final user = widget.currentUser;
     if (user == null) return;
     final replyUid = (replyData['uid'] as String?) ?? '';
@@ -2609,16 +3755,12 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
           deltaDown += 1;
           deltaScore -= 1;
         }
-        tx.set(
-          replyRef,
-          {
-            'upVotes': FieldValue.increment(deltaUp),
-            'downVotes': FieldValue.increment(deltaDown),
-            'score': FieldValue.increment(deltaScore),
-            'lastVoteAt': now,
-          },
-          SetOptions(merge: true),
-        );
+        tx.set(replyRef, {
+          'upVotes': FieldValue.increment(deltaUp),
+          'downVotes': FieldValue.increment(deltaDown),
+          'score': FieldValue.increment(deltaScore),
+          'lastVoteAt': now,
+        }, SetOptions(merge: true));
         if (next == 0) {
           if (voteSnap.exists) tx.delete(voteRef);
         } else {
@@ -2644,9 +3786,8 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
       return;
     }
     final query = word.toLowerCase();
-    final filtered = participants
-        .where((p) => p.toLowerCase().startsWith(query))
-        .toList();
+    final filtered =
+        participants.where((p) => p.toLowerCase().startsWith(query)).toList();
     setState(() {
       _showMentions = filtered.isNotEmpty;
       _mentionCandidates = filtered;
@@ -2663,8 +3804,7 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
     final newText = '${text.substring(0, atIdx)}@$name $after';
     _controller.value = TextEditingValue(
       text: newText,
-      selection:
-          TextSelection.collapsed(offset: atIdx + name.length + 2),
+      selection: TextSelection.collapsed(offset: atIdx + name.length + 2),
     );
     setState(() => _showMentions = false);
   }
@@ -2681,32 +3821,32 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Réponses',
-              style: TextStyle(color: textColor, fontWeight: FontWeight.w800)),
+          const Text(
+            'Réponses',
+            style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 10),
           StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: FirebaseFirestore.instance
-                .collection('forum_chat_messages')
-                .doc(widget.message.id)
-                .collection('replies')
-                .orderBy('createdAt')
-                .snapshots(),
+            stream:
+                FirebaseFirestore.instance
+                    .collection('forum_chat_messages')
+                    .doc(widget.message.id)
+                    .collection('replies')
+                    .orderBy('createdAt')
+                    .snapshots(),
             builder: (context, snapshot) {
               final docs = snapshot.data?.docs ?? const [];
               // 3.4 — tri client-side par score desc
               final sorted = [...docs]..sort((a, b) {
-                  final sa =
-                      (a.data()['score'] as num?)?.toInt() ?? 0;
-                  final sb =
-                      (b.data()['score'] as num?)?.toInt() ?? 0;
-                  return sb.compareTo(sa);
-                });
+                final sa = (a.data()['score'] as num?)?.toInt() ?? 0;
+                final sb = (b.data()['score'] as num?)?.toInt() ?? 0;
+                return sb.compareTo(sa);
+              });
 
               // 3.5 — participants (pour @mentions)
               final participants = <String>{widget.message.authorName};
               for (final doc in docs) {
-                final name =
-                    (doc.data()['authorName'] as String?) ?? '';
+                final name = (doc.data()['authorName'] as String?) ?? '';
                 if (name.isNotEmpty) participants.add(name);
               }
 
@@ -2716,8 +3856,10 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
                   if (sorted.isEmpty)
                     const Align(
                       alignment: Alignment.centerLeft,
-                      child: Text('Aucune réponse pour le moment.',
-                          style: TextStyle(color: Colors.black54)),
+                      child: Text(
+                        'Aucune réponse pour le moment.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
                     )
                   else
                     for (final doc in sorted)
@@ -2726,12 +3868,9 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
                         child: _ReplyBubble(
                           replyId: doc.id,
                           data: doc.data(),
-                          currentUid:
-                              widget.currentUser?.uid,
-                          onVoteUp: () => _voteReply(
-                              doc.id, 1, doc.data()),
-                          onVoteDown: () => _voteReply(
-                              doc.id, -1, doc.data()),
+                          currentUid: widget.currentUser?.uid,
+                          onVoteUp: () => _voteReply(doc.id, 1, doc.data()),
+                          onVoteDown: () => _voteReply(doc.id, -1, doc.data()),
                         ),
                       ),
                   // 3.5 — suggestions @mention
@@ -2742,21 +3881,22 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: _mentionCandidates.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(width: 6),
-                        itemBuilder: (context, i) => ActionChip(
-                          label: Text('@${_mentionCandidates[i]}'),
-                          backgroundColor: Colors.white,
-                          side: BorderSide(
-                              color:
-                                  detailsColor2.withValues(alpha: 0.2)),
-                          labelStyle: const TextStyle(
-                              color: detailsColor2,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12),
-                          onPressed: () => _insertMention(
-                              _mentionCandidates[i]),
-                        ),
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder:
+                            (context, i) => ActionChip(
+                              label: Text('@${_mentionCandidates[i]}'),
+                              backgroundColor: Colors.white,
+                              side: BorderSide(
+                                color: detailsColor2.withValues(alpha: 0.2),
+                              ),
+                              labelStyle: const TextStyle(
+                                color: detailsColor2,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                              onPressed:
+                                  () => _insertMention(_mentionCandidates[i]),
+                            ),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -2765,12 +3905,12 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
                     child: TextField(
                       controller: _controller,
                       enabled: widget.currentUser != null && !_sending,
-                      onTapOutside: (_) =>
-                          FocusManager.instance.primaryFocus?.unfocus(),
+                      onTapOutside:
+                          (_) => FocusManager.instance.primaryFocus?.unfocus(),
                       minLines: 1,
                       maxLines: 4,
-                      onChanged: (v) => _onTextChanged(
-                          v, participants.toList()),
+                      onChanged:
+                          (v) => _onTextChanged(v, participants.toList()),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: 'Répondre… (@pseudo pour mentionner)',
@@ -2781,21 +3921,21 @@ class _ForumRepliesSectionState extends State<_ForumRepliesSection> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: ElevatedButton.icon(
-                      onPressed: widget.currentUser == null || _sending
-                          ? null
-                          : () async {
-                              final text =
-                                  _controller.text.trim();
-                              if (text.isEmpty) return;
-                              setState(() => _sending = true);
-                              await widget.onSendReply(text);
-                              if (!mounted) return;
-                              _controller.clear();
-                              setState(() {
-                                _sending = false;
-                                _showMentions = false;
-                              });
-                            },
+                      onPressed:
+                          widget.currentUser == null || _sending
+                              ? null
+                              : () async {
+                                final text = _controller.text.trim();
+                                if (text.isEmpty) return;
+                                setState(() => _sending = true);
+                                await widget.onSendReply(text);
+                                if (!mounted) return;
+                                _controller.clear();
+                                setState(() {
+                                  _sending = false;
+                                  _showMentions = false;
+                                });
+                              },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
@@ -2850,14 +3990,17 @@ class _TickerAttachmentSearchSheetState
     }
     setState(() => _loading = true);
     try {
-      final results = await YahooFinanceService.searchSecurities(trimmed,
-          quotesCount: 20);
+      final results = await YahooFinanceService.searchSecurities(
+        trimmed,
+        quotesCount: 20,
+      );
       if (!mounted) return;
       setState(() {
-        _results = results
-            .where((item) => item.isSearchDisplayableInstrument)
-            .take(12)
-            .toList();
+        _results =
+            results
+                .where((item) => item.isSearchDisplayableInstrument)
+                .take(12)
+                .toList();
         _loading = false;
       });
     } catch (_) {
@@ -2889,8 +4032,10 @@ class _TickerAttachmentSearchSheetState
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
@@ -2899,8 +4044,8 @@ class _TickerAttachmentSearchSheetState
                 child: TextField(
                   controller: _controller,
                   autofocus: true,
-                  onTapOutside: (_) =>
-                      FocusManager.instance.primaryFocus?.unfocus(),
+                  onTapOutside:
+                      (_) => FocusManager.instance.primaryFocus?.unfocus(),
                   onChanged: (value) {
                     _debounce?.cancel();
                     _debounce = Timer(
@@ -2917,75 +4062,86 @@ class _TickerAttachmentSearchSheetState
               ),
             ),
             Expanded(
-              child: _loading
-                  ? const Center(
-                      child:
-                          CircularProgressIndicator(color: detailsColor1))
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      itemCount: _results.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final item = _results[index];
-                        return InkWell(
-                          borderRadius: BorderRadius.circular(18),
-                          onTap: () => Navigator.of(context).pop(
-                            _ForumTickerAttachment.fromSearchResult(item),
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(18),
-                              border: Border.all(
-                                  color: const Color(0xFFE6E8EB)),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 42,
-                                  height: 42,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(14),
-                                    gradient: const LinearGradient(
-                                      colors: [detailsColor1, detailsColor2],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
+              child:
+                  _loading
+                      ? const Center(
+                        child: CircularProgressIndicator(color: detailsColor1),
+                      )
+                      : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                        itemCount: _results.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final item = _results[index];
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap:
+                                () => Navigator.of(context).pop(
+                                  _ForumTickerAttachment.fromSearchResult(item),
+                                ),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: const Color(0xFFE6E8EB),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(14),
+                                      gradient: const LinearGradient(
+                                        colors: [detailsColor1, detailsColor2],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.show_chart_rounded,
+                                      color: Colors.white,
                                     ),
                                   ),
-                                  child: const Icon(
-                                      Icons.show_chart_rounded,
-                                      color: Colors.white),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(item.symbol,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.symbol,
                                           style: const TextStyle(
-                                              color: textColor,
-                                              fontWeight: FontWeight.w900)),
-                                      const SizedBox(height: 4),
-                                      Text(item.displayName,
+                                            color: textColor,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.displayName,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: const TextStyle(
-                                              color: Colors.black54,
-                                              fontWeight: FontWeight.w600)),
-                                    ],
+                                            color: Colors.black54,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                _PostBadge(
+                                  _PostBadge(
                                     label: item.instrumentLabel,
-                                    alternate: true),
-                              ],
+                                    alternate: true,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
             ),
           ],
         ),
@@ -3001,15 +4157,17 @@ class _ForumTickerAttachmentPreview extends StatelessWidget {
     required this.attachment,
     this.compact = false,
     this.onRemove,
+    this.onTap,
   });
 
   final _ForumTickerAttachment attachment;
   final bool compact;
   final VoidCallback? onRemove;
+  final ValueChanged<String>? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8FA),
@@ -3025,29 +4183,38 @@ class _ForumTickerAttachmentPreview extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(attachment.symbol,
-                        style: const TextStyle(
-                            color: textColor, fontWeight: FontWeight.w900)),
+                    Text(
+                      attachment.symbol,
+                      style: const TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(attachment.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w600)),
+                    Text(
+                      attachment.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
               _TickerMetaPill(
-                label: attachment.quoteType.trim().isEmpty
-                    ? 'Actif'
-                    : attachment.quoteType,
+                label:
+                    attachment.quoteType.trim().isEmpty
+                        ? 'Actif'
+                        : attachment.quoteType,
               ),
               if (onRemove != null)
                 IconButton(
-                    onPressed: onRemove,
-                    icon: const Icon(Icons.close_rounded)),
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.close_rounded),
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -3056,14 +4223,16 @@ class _ForumTickerAttachmentPreview extends StatelessWidget {
             runSpacing: 8,
             children: [
               _TickerMetaPill(
-                label: attachment.exchange.trim().isEmpty
-                    ? 'Marché inconnu'
-                    : attachment.exchange,
+                label:
+                    attachment.exchange.trim().isEmpty
+                        ? 'Marché inconnu'
+                        : attachment.exchange,
               ),
               _TickerMetaPill(
-                label: attachment.currency.trim().isEmpty
-                    ? 'Devise -'
-                    : attachment.currency,
+                label:
+                    attachment.currency.trim().isEmpty
+                        ? 'Devise -'
+                        : attachment.currency,
               ),
             ],
           ),
@@ -3073,6 +4242,14 @@ class _ForumTickerAttachmentPreview extends StatelessWidget {
           ],
         ],
       ),
+    );
+    if (onTap == null) {
+      return content;
+    }
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => onTap!(attachment.symbol.toUpperCase()),
+      child: content,
     );
   }
 }
@@ -3106,10 +4283,14 @@ class _MiniTickerChartState extends State<_MiniTickerChart> {
           return Container(
             height: 132,
             decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
             alignment: Alignment.center,
             child: const CircularProgressIndicator(
-                strokeWidth: 2, color: detailsColor1),
+              strokeWidth: 2,
+              color: detailsColor1,
+            ),
           );
         }
         final payload = snapshot.data;
@@ -3117,7 +4298,9 @@ class _MiniTickerChartState extends State<_MiniTickerChart> {
           return Container(
             height: 132,
             decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
             alignment: Alignment.center,
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 18),
@@ -3131,9 +4314,10 @@ class _MiniTickerChartState extends State<_MiniTickerChart> {
         }
         final chartPainter = _MiniChartPainter(
           points: payload.points.map((p) => p.close).toList(),
-          color: payload.positive
-              ? const Color(0xFF177A53)
-              : const Color(0xFF9A2D2D),
+          color:
+              payload.positive
+                  ? const Color(0xFF177A53)
+                  : const Color(0xFF9A2D2D),
         );
         return LayoutBuilder(
           builder: (context, constraints) {
@@ -3148,7 +4332,9 @@ class _MiniTickerChartState extends State<_MiniTickerChart> {
               height: 132,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3159,18 +4345,25 @@ class _MiniTickerChartState extends State<_MiniTickerChart> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(payload.priceLabel,
-                                style: const TextStyle(
-                                    color: textColor,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 18)),
+                            Text(
+                              payload.priceLabel,
+                              style: const TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            Text(payload.changeLabel,
-                                style: TextStyle(
-                                    color: payload.positive
+                            Text(
+                              payload.changeLabel,
+                              style: TextStyle(
+                                color:
+                                    payload.positive
                                         ? const Color(0xFF177A53)
                                         : const Color(0xFF9A2D2D),
-                                    fontWeight: FontWeight.w800)),
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -3179,13 +4372,17 @@ class _MiniTickerChartState extends State<_MiniTickerChart> {
                   ),
                   const SizedBox(height: 10),
                   Expanded(
-                    child: payload.points.length < 2
-                        ? const Center(
-                            child: Text('Mini-courbe indisponible',
-                                style: TextStyle(color: Colors.black54)))
-                        : SizedBox.expand(
-                            child: CustomPaint(painter: chartPainter),
-                          ),
+                    child:
+                        payload.points.length < 2
+                            ? const Center(
+                              child: Text(
+                                'Mini-courbe indisponible',
+                                style: TextStyle(color: Colors.black54),
+                              ),
+                            )
+                            : SizedBox.expand(
+                              child: CustomPaint(painter: chartPainter),
+                            ),
                   ),
                 ],
               ),
@@ -3220,19 +4417,20 @@ class _MiniChartPainter extends CustomPainter {
         path.lineTo(x, y);
       }
     }
-    final fillPath = Path.from(path)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
+    final fillPath =
+        Path.from(path)
+          ..lineTo(size.width, size.height)
+          ..lineTo(0, size.height)
+          ..close();
+    canvas.drawPath(fillPath, Paint()..color = color.withValues(alpha: 0.12));
     canvas.drawPath(
-        fillPath, Paint()..color = color.withValues(alpha: 0.12));
-    canvas.drawPath(
-        path,
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.4
-          ..strokeCap = StrokeCap.round);
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override
@@ -3253,11 +4451,14 @@ class _TickerMetaPill extends StatelessWidget {
         color: detailsColor2.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(label,
-          style: const TextStyle(
-              color: detailsColor2,
-              fontWeight: FontWeight.w800,
-              fontSize: 11.5)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: detailsColor2,
+          fontWeight: FontWeight.w800,
+          fontSize: 11.5,
+        ),
+      ),
     );
   }
 }
@@ -3278,7 +4479,9 @@ class _MiniTickerSnapshot {
   final bool positive;
 
   static Future<_MiniTickerSnapshot?> load(
-      _ForumTickerAttachment attachment) async {
+    _ForumTickerAttachment attachment, {
+    ChartInterval interval = ChartInterval.sevenDays,
+  }) async {
     QuoteDetail? quote;
     List<HistoricalPoint> points = const <HistoricalPoint>[];
     try {
@@ -3288,32 +4491,39 @@ class _MiniTickerSnapshot {
     }
     try {
       points = await YahooFinanceService.fetchHistoricalSeries(
-          attachment.symbol, ChartInterval.sevenDays);
+        attachment.symbol,
+        interval,
+      );
     } catch (_) {
       points = const <HistoricalPoint>[];
     }
     final marketPrice = quote?.regularMarketPrice;
     final change = quote?.regularMarketChange;
     final changePercent = quote?.regularMarketChangePercent;
-    final positive = points.length >= 2
-        ? points.last.close >= points.first.close
-        : (change ?? 0) >= 0;
+    final positive =
+        points.length >= 2
+            ? points.last.close >= points.first.close
+            : (change ?? 0) >= 0;
     if (marketPrice == null && points.isEmpty) return null;
-    final priceLabel = marketPrice == null
-        ? attachment.currency.trim().isEmpty
-            ? 'Cours indisponible'
-            : 'Cours en ${attachment.currency}'
-        : '${marketPrice.toStringAsFixed(marketPrice >= 100 ? 2 : 3)} ${attachment.currency.trim().isEmpty ? '' : attachment.currency}'
-            .trim();
-    final changeLabel = change == null
-        ? 'Variation en direct indisponible'
-        : '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}${changePercent == null ? '' : ' · ${changePercent >= 0 ? '+' : ''}${changePercent.toStringAsFixed(2)}%'}';
+    final priceLabel =
+        marketPrice == null
+            ? attachment.currency.trim().isEmpty
+                ? 'Cours indisponible'
+                : 'Cours en ${attachment.currency}'
+            : '${marketPrice.toStringAsFixed(marketPrice >= 100 ? 2 : 3)} ${attachment.currency.trim().isEmpty ? '' : attachment.currency}'
+                .trim();
+    final changeLabel =
+        change == null
+            ? 'Variation en direct indisponible'
+            : '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}${changePercent == null ? '' : ' · ${changePercent >= 0 ? '+' : ''}${changePercent.toStringAsFixed(2)}%'}';
     final marketLabel =
         (quote?.fullExchangeName ?? quote?.exchange ?? attachment.exchange)
-                    .trim()
-                    .isEmpty
+                .trim()
+                .isEmpty
             ? 'Marché'
-            : (quote?.fullExchangeName ?? quote?.exchange ?? attachment.exchange)
+            : (quote?.fullExchangeName ??
+                    quote?.exchange ??
+                    attachment.exchange)
                 .trim();
     return _MiniTickerSnapshot(
       points: points,
@@ -3367,9 +4577,13 @@ class _ReplyBubble extends StatelessWidget {
             children: [
               _ForumAvatar(avatarId: avatarId, name: authorName, size: 28),
               const SizedBox(width: 8),
-              Text(authorName,
-                  style: const TextStyle(
-                      color: textColor, fontWeight: FontWeight.w800)),
+              Text(
+                authorName,
+                style: const TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -3480,9 +4694,10 @@ class _CircleToggleButton extends StatelessWidget {
                 active ? detailsColor2.withValues(alpha: 0.10) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: active
-                  ? detailsColor2.withValues(alpha: 0.22)
-                  : const Color(0xFFE6E8EB),
+              color:
+                  active
+                      ? detailsColor2.withValues(alpha: 0.22)
+                      : const Color(0xFFE6E8EB),
             ),
           ),
           child: Icon(icon, color: active ? detailsColor2 : textColor),
@@ -3512,8 +4727,7 @@ class _MiniActionButton extends StatelessWidget {
         onTap();
       },
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: const Color(0xFFF7F8FA),
           borderRadius: BorderRadius.circular(999),
@@ -3524,11 +4738,14 @@ class _MiniActionButton extends StatelessWidget {
           children: [
             Icon(icon, size: 15, color: detailsColor2),
             const SizedBox(width: 6),
-            Text(label,
-                style: const TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12)),
+            Text(
+              label,
+              style: const TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
       ),
@@ -3561,8 +4778,7 @@ class _ForumReactionChip extends StatelessWidget {
           onTap();
         },
         child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
             color: const Color(0xFFF7F8FA),
             borderRadius: BorderRadius.circular(999),
@@ -3573,11 +4789,14 @@ class _ForumReactionChip extends StatelessWidget {
             children: [
               Icon(icon, size: 15, color: detailsColor2),
               const SizedBox(width: 6),
-              Text('$label · $count',
-                  style: const TextStyle(
-                      color: textColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12)),
+              Text(
+                '$label · $count',
+                style: const TextStyle(
+                  color: textColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
             ],
           ),
         ),
@@ -3597,9 +4816,10 @@ class _PostBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: alternate
-            ? detailsColor2.withValues(alpha: 0.08)
-            : detailsColor1.withValues(alpha: 0.12),
+        color:
+            alternate
+                ? detailsColor2.withValues(alpha: 0.08)
+                : detailsColor1.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -3618,7 +4838,9 @@ class _PostBadge extends StatelessWidget {
 
 /// TabBar identique au design de _GameHubTabStrip — 3 onglets : Fil · Suivi · Top
 class _ForumTabStrip extends StatelessWidget {
-  const _ForumTabStrip();
+  const _ForumTabStrip({required this.controller});
+
+  final TabController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -3637,6 +4859,7 @@ class _ForumTabStrip extends StatelessWidget {
         ],
       ),
       child: TabBar(
+        controller: controller,
         dividerColor: Colors.transparent,
         indicatorSize: TabBarIndicatorSize.tab,
         indicator: BoxDecoration(
@@ -3650,14 +4873,14 @@ class _ForumTabStrip extends StatelessWidget {
         labelColor: Colors.white,
         unselectedLabelColor: textColor,
         labelStyle: const TextStyle(
-            fontWeight: FontWeight.w900, fontSize: 13.5),
+          fontWeight: FontWeight.w900,
+          fontSize: 13.5,
+        ),
         unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w800, fontSize: 13.5),
-        tabs: const [
-          Tab(text: 'Fil'),
-          Tab(text: 'Suivi'),
-          Tab(text: 'Top 🔥'),
-        ],
+          fontWeight: FontWeight.w800,
+          fontSize: 13.5,
+        ),
+        tabs: const [Tab(text: 'Fil'), Tab(text: 'Suivi'), Tab(text: 'Top 🔥')],
       ),
     );
   }
@@ -3665,10 +4888,7 @@ class _ForumTabStrip extends StatelessWidget {
 
 /// FAB animé (flottement sinusoïdal) avec icône stylo SVG
 class _AnimatedComposerFab extends StatelessWidget {
-  const _AnimatedComposerFab({
-    required this.ctrl,
-    required this.onTap,
-  });
+  const _AnimatedComposerFab({required this.ctrl, required this.onTap});
 
   final AnimationController ctrl;
   final VoidCallback onTap;
@@ -3682,10 +4902,7 @@ class _AnimatedComposerFab extends StatelessWidget {
         builder: (context, child) {
           final dx = math.sin(ctrl.value * math.pi * 2) * 4.0;
           final dy = math.cos(ctrl.value * math.pi * 2) * 6.0;
-          return Transform.translate(
-            offset: Offset(dx, dy),
-            child: child,
-          );
+          return Transform.translate(offset: Offset(dx, dy), child: child);
         },
         child: Container(
           width: 64,
@@ -3803,14 +5020,72 @@ enum _KarmaLevel {
   expert(emoji: '🔥', bg: Color(0xFFFEF3E2), fg: Color(0xFFB45309)),
   maitre(emoji: '👑', bg: Color(0xFFFFF4CC), fg: Color(0xFF92650A));
 
-  const _KarmaLevel({
-    required this.emoji,
-    required this.bg,
-    required this.fg,
-  });
+  const _KarmaLevel({required this.emoji, required this.bg, required this.fg});
   final String emoji;
   final Color bg;
   final Color fg;
+}
+
+class _ForumReputationBadge extends StatelessWidget {
+  const _ForumReputationBadge({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        score >= 75
+            ? const Color(0xFF175D94)
+            : score >= 55
+            ? detailsColor2
+            : const Color(0xFF7A5F00);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'Rep $score',
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _ForumQualityBadge extends StatelessWidget {
+  const _ForumQualityBadge({required this.score});
+
+  final int score;
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        score >= 78
+            ? const Color(0xFF13804A)
+            : score >= 55
+            ? detailsColor2
+            : const Color(0xFF7A5F00);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        'Qualité $score',
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 11.5,
+        ),
+      ),
+    );
+  }
 }
 
 // ─── 3.5 — Highlight @mentions ───────────────────────────────────────────────
@@ -3828,26 +5103,32 @@ class _MentionText extends StatelessWidget {
     int last = 0;
     for (final match in regex.allMatches(text)) {
       if (match.start > last) {
-        spans.add(TextSpan(
-          text: text.substring(last, match.start),
-          style: const TextStyle(color: textColor, height: 1.35),
-        ));
+        spans.add(
+          TextSpan(
+            text: text.substring(last, match.start),
+            style: const TextStyle(color: textColor, height: 1.35),
+          ),
+        );
       }
-      spans.add(TextSpan(
-        text: match.group(0),
-        style: const TextStyle(
-          color: detailsColor2,
-          fontWeight: FontWeight.w800,
-          height: 1.35,
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: const TextStyle(
+            color: detailsColor2,
+            fontWeight: FontWeight.w800,
+            height: 1.35,
+          ),
         ),
-      ));
+      );
       last = match.end;
     }
     if (last < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(last),
-        style: const TextStyle(color: textColor, height: 1.35),
-      ));
+      spans.add(
+        TextSpan(
+          text: text.substring(last),
+          style: const TextStyle(color: textColor, height: 1.35),
+        ),
+      );
     }
     return Text.rich(TextSpan(children: spans));
   }
@@ -3934,23 +5215,37 @@ class _AuthorProfileSheet extends StatelessWidget {
                   // Stats chips
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
                       children: [
                         _ProfileStatChip(
                           label: 'Posts',
                           value: '${stats.postCount}',
                         ),
-                        const SizedBox(width: 12),
-                        _ProfileStatChip(
-                          label: 'Karma',
-                          value: '${stats.karma}',
-                        ),
-                        const SizedBox(width: 12),
                         _ProfileStatChip(
                           label: 'Niveau',
                           value: '${stats.level}',
                         ),
+                        _ProfileStatChip(
+                          label: 'Réputation',
+                          value: '${stats.reputationScore}',
+                        ),
+                        _ProfileStatChip(
+                          label: 'Qualité',
+                          value: '${stats.qualityScore}',
+                        ),
+                        _ProfileStatChip(
+                          label: 'Convictions',
+                          value: '${stats.convictionScore}',
+                        ),
+                        if (stats.closedPitchCount > 0)
+                          _ProfileStatChip(
+                            label: 'Win rate',
+                            value:
+                                '${(stats.convictionWinRate * 100).toStringAsFixed(0)}%',
+                          ),
                       ],
                     ),
                   ),
@@ -3975,8 +5270,9 @@ class _AuthorProfileSheet extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
-                              border:
-                                  Border.all(color: const Color(0xFFE6E8EB)),
+                              border: Border.all(
+                                color: const Color(0xFFE6E8EB),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3984,15 +5280,20 @@ class _AuthorProfileSheet extends StatelessWidget {
                                 Row(
                                   children: [
                                     _PostBadge(
-                                        label: stats.topPost!['themeName']
-                                                as String? ??
-                                            'Thème',
-                                        alternate: true),
+                                      label:
+                                          stats.topPost!['themeName']
+                                              as String? ??
+                                          'Thème',
+                                      alternate: true,
+                                    ),
                                     const Spacer(),
-                                    Icon(Icons.arrow_upward_rounded,
-                                        size: 14,
-                                        color: detailsColor2
-                                            .withValues(alpha: 0.7)),
+                                    Icon(
+                                      Icons.arrow_upward_rounded,
+                                      size: 14,
+                                      color: detailsColor2.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                    ),
                                     const SizedBox(width: 4),
                                     Text(
                                       '${(stats.topPost!['score'] as num?)?.toInt() ?? 0}',
@@ -4010,7 +5311,9 @@ class _AuthorProfileSheet extends StatelessWidget {
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                      color: textColor, height: 1.4),
+                                    color: textColor,
+                                    height: 1.4,
+                                  ),
                                 ),
                               ],
                             ),
@@ -4035,39 +5338,86 @@ class _AuthorStats {
     required this.karma,
     required this.level,
     required this.postCount,
+    required this.qualityScore,
+    required this.convictionScore,
+    required this.reputationScore,
+    required this.closedPitchCount,
+    required this.convictionWinRate,
     this.topPost,
   });
 
   final int karma;
   final int level;
   final int postCount;
+  final int qualityScore;
+  final int convictionScore;
+  final int reputationScore;
+  final int closedPitchCount;
+  final double convictionWinRate;
   final Map<String, dynamic>? topPost;
 
   static Future<_AuthorStats> load(String uid) async {
     int karma = 0;
     int level = 0;
     int postCount = 0;
+    int qualityScore = 0;
+    int convictionScore = 0;
+    int reputationScore = 0;
+    int closedPitchCount = 0;
+    double convictionWinRate = 0;
     Map<String, dynamic>? topPost;
 
     try {
-      final userSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+      final userSnap =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
       karma = (userSnap.data()?['karma'] as num?)?.toInt() ?? 0;
       level = (userSnap.data()?['level'] as num?)?.toInt() ?? 0;
     } catch (_) {}
 
     try {
-      final postsSnap = await FirebaseFirestore.instance
-          .collection('forum_chat_messages')
-          .where('uid', isEqualTo: uid)
-          .orderBy('score', descending: true)
-          .limit(50)
-          .get();
-      postCount = postsSnap.docs.length;
-      if (postsSnap.docs.isNotEmpty) {
-        topPost = postsSnap.docs.first.data();
+      final postsSnap =
+          await FirebaseFirestore.instance
+              .collection('forum_chat_messages')
+              .where('uid', isEqualTo: uid)
+              .limit(80)
+              .get();
+      final posts = postsSnap.docs.map(_ForumMessage.fromDoc).toList();
+      postCount = posts.length;
+      if (posts.isNotEmpty) {
+        final snapshot = _deriveAuthorReputationSnapshot(posts);
+        qualityScore = snapshot.qualityScore;
+        convictionScore = snapshot.convictionScore;
+        reputationScore = snapshot.reputationScore;
+
+        final settledPitches =
+            posts
+                .where(
+                  (post) =>
+                      post.hasStructuredPitch &&
+                      post.convictionStatus == 'closed' &&
+                      post.convictionOutcome != null &&
+                      post.convictionOutcome != 'pending',
+                )
+                .toList();
+        closedPitchCount = settledPitches.length;
+        if (settledPitches.isNotEmpty) {
+          final wins =
+              settledPitches
+                  .where((post) => post.convictionOutcome == 'win')
+                  .length;
+          convictionWinRate = wins / settledPitches.length;
+        }
+
+        final topMessage = [...posts]..sort(
+          (left, right) =>
+              _messageQualityScore(right).compareTo(_messageQualityScore(left)),
+        );
+        final best = topMessage.first;
+        topPost = <String, dynamic>{
+          'themeName': best.themeName,
+          'score': best.score,
+          'text': best.text,
+        };
       }
     } catch (_) {}
 
@@ -4075,6 +5425,11 @@ class _AuthorStats {
       karma: karma,
       level: level,
       postCount: postCount,
+      qualityScore: qualityScore,
+      convictionScore: convictionScore,
+      reputationScore: reputationScore,
+      closedPitchCount: closedPitchCount,
+      convictionWinRate: convictionWinRate,
       topPost: topPost,
     );
   }
@@ -4252,21 +5607,25 @@ String _postTypeLabel(String type) {
 // ─── 2.2 — Multi-ticker row ───────────────────────────────────────────────────
 
 class _MultiTickerRow extends StatelessWidget {
-  const _MultiTickerRow({required this.attachments});
+  const _MultiTickerRow({required this.attachments, this.onTap});
 
   final List<_ForumTickerAttachment> attachments;
+  final ValueChanged<String>? onTap;
 
   @override
   Widget build(BuildContext context) {
     if (attachments.length == 1) {
-      return _ForumTickerAttachmentPreview(attachment: attachments.first);
+      return _ForumTickerAttachmentPreview(
+        attachment: attachments.first,
+        onTap: onTap,
+      );
     }
     return Row(
       children: [
         for (var i = 0; i < attachments.length; i++) ...[
           if (i > 0) const SizedBox(width: 8),
           Expanded(
-            child: _CompactTickerCard(attachment: attachments[i]),
+            child: _CompactTickerCard(attachment: attachments[i], onTap: onTap),
           ),
         ],
       ],
@@ -4275,13 +5634,14 @@ class _MultiTickerRow extends StatelessWidget {
 }
 
 class _CompactTickerCard extends StatelessWidget {
-  const _CompactTickerCard({required this.attachment});
+  const _CompactTickerCard({required this.attachment, this.onTap});
 
   final _ForumTickerAttachment attachment;
+  final ValueChanged<String>? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final content = Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8FA),
@@ -4294,7 +5654,10 @@ class _CompactTickerCard extends StatelessWidget {
           Text(
             attachment.symbol,
             style: const TextStyle(
-                color: textColor, fontWeight: FontWeight.w900, fontSize: 13),
+              color: textColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 2),
           Text(
@@ -4304,12 +5667,15 @@ class _CompactTickerCard extends StatelessWidget {
             style: const TextStyle(color: Colors.black54, fontSize: 11),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 60,
-            child: _MiniTickerChart(attachment: attachment),
-          ),
+          SizedBox(height: 60, child: _MiniTickerChart(attachment: attachment)),
         ],
       ),
+    );
+    if (onTap == null) return content;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => onTap!(attachment.symbol.toUpperCase()),
+      child: content,
     );
   }
 }
@@ -4319,10 +5685,12 @@ class _CompactTickerCard extends StatelessWidget {
 class _AnnotationImagePreview extends StatelessWidget {
   const _AnnotationImagePreview({
     required this.base64Png,
+    this.onTap,
     this.onRemove,
   });
 
   final String base64Png;
+  final VoidCallback? onTap;
   final VoidCallback? onRemove;
 
   @override
@@ -4333,16 +5701,49 @@ class _AnnotationImagePreview extends StatelessWidget {
     } catch (_) {
       return const SizedBox.shrink();
     }
+    final preview = ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Image.memory(bytes, width: double.infinity, fit: BoxFit.fitWidth),
+    );
     return Stack(
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.memory(
-            bytes,
-            width: double.infinity,
-            fit: BoxFit.fitWidth,
+        if (onTap == null)
+          preview
+        else
+          GestureDetector(onTap: onTap, child: preview),
+        if (onTap != null)
+          Positioned(
+            left: 10,
+            bottom: 10,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.58),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.edit_rounded, color: Colors.white, size: 14),
+                    SizedBox(width: 6),
+                    Text(
+                      'Retoucher',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
         if (onRemove != null)
           Positioned(
             top: 6,
@@ -4356,8 +5757,11 @@ class _AnnotationImagePreview extends StatelessWidget {
                   color: Colors.black.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Icon(Icons.close_rounded,
-                    color: Colors.white, size: 16),
+                child: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.white,
+                  size: 16,
+                ),
               ),
             ),
           ),
@@ -4366,17 +5770,104 @@ class _AnnotationImagePreview extends StatelessWidget {
   }
 }
 
+class _AnnotationTickerPickerSheet extends StatelessWidget {
+  const _AnnotationTickerPickerSheet({required this.attachments});
+
+  final List<_ForumTickerAttachment> attachments;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight =
+        math
+            .min(
+              MediaQuery.of(context).size.height * 0.72,
+              180 + (attachments.length * 112),
+            )
+            .toDouble();
+    return Material(
+      color: backgroundColor,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: maxHeight,
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 48,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
+                child: Text(
+                  'Choisir le ticker à annoter',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'L’annotation sera générée à partir du graphique du ticker sélectionné.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: attachments.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final attachment = attachments[index];
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => Navigator.of(context).pop(attachment),
+                      child: _ForumTickerAttachmentPreview(
+                        attachment: attachment,
+                        compact: true,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── 2.4 — Pitch card ────────────────────────────────────────────────────────
 
 class _PitchCard extends StatelessWidget {
-  const _PitchCard({required this.message});
+  const _PitchCard({required this.message, this.onOpenTickerFeed});
 
   final _ForumMessage message;
+  final ValueChanged<String>? onOpenTickerFeed;
 
   @override
   Widget build(BuildContext context) {
     final hasTicker = message.attachments.isNotEmpty;
     final ticker = hasTicker ? message.attachments.first.symbol : null;
+    final statusColor = _convictionStatusColor(
+      message.convictionStatus ?? 'open',
+    );
+    final outcomeColor = _convictionOutcomeColor(
+      message.convictionOutcome ?? 'pending',
+    );
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -4398,8 +5889,10 @@ class _PitchCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: detailsColor2,
                   borderRadius: BorderRadius.circular(999),
@@ -4407,15 +5900,46 @@ class _PitchCard extends StatelessWidget {
                 child: const Text(
                   '🎯 Pitch',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11.5),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11.5,
+                  ),
                 ),
               ),
               if (ticker != null) ...[
                 const SizedBox(width: 8),
-                _TickerMetaPill(label: ticker),
+                GestureDetector(
+                  onTap:
+                      onOpenTickerFeed == null
+                          ? null
+                          : () => onOpenTickerFeed!(ticker.toUpperCase()),
+                  child: _TickerMetaPill(label: ticker),
+                ),
               ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _PitchMetricPill(
+                label: message.convictionSideLabel,
+                color: detailsColor2,
+              ),
+              _PitchMetricPill(
+                label: message.convictionStatusLabel,
+                color: statusColor,
+              ),
+              if ((message.convictionHorizon ?? '').trim().isNotEmpty)
+                _PitchMetricPill(
+                  label: message.convictionHorizon!,
+                  color: const Color(0xFF175D94),
+                ),
+              _PitchMetricPill(
+                label: message.convictionOutcomeLabel,
+                color: outcomeColor,
+              ),
             ],
           ),
           if ((message.pitchTitle ?? '').isNotEmpty) ...[
@@ -4423,27 +5947,102 @@ class _PitchCard extends StatelessWidget {
             Text(
               message.pitchTitle!,
               style: const TextStyle(
-                  color: textColor,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15),
+                color: textColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+              ),
+            ),
+          ],
+          if (message.convictionEntryPrice != null ||
+              message.convictionTargetPrice != null ||
+              message.convictionInvalidationPrice != null ||
+              message.convictionReturnPct != null) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (message.convictionEntryPrice != null)
+                  _PitchMetricPill(
+                    label:
+                        'Entrée ${message.convictionEntryPrice!.toStringAsFixed(2)}',
+                    color: textColor,
+                  ),
+                if (message.convictionTargetPrice != null)
+                  _PitchMetricPill(
+                    label:
+                        'Cible ${message.convictionTargetPrice!.toStringAsFixed(2)}',
+                    color: const Color(0xFF13804A),
+                  ),
+                if (message.convictionInvalidationPrice != null)
+                  _PitchMetricPill(
+                    label:
+                        'Invalidation ${message.convictionInvalidationPrice!.toStringAsFixed(2)}',
+                    color: const Color(0xFFB4533B),
+                  ),
+                if (message.convictionReturnPct != null)
+                  _PitchMetricPill(
+                    label:
+                        '${message.convictionReturnPct! >= 0 ? '+' : ''}${message.convictionReturnPct!.toStringAsFixed(1)}%',
+                    color:
+                        message.convictionReturnPct! >= 0
+                            ? const Color(0xFF13804A)
+                            : const Color(0xFFB4533B),
+                  ),
+              ],
             ),
           ],
           if ((message.pitchThesis ?? '').isNotEmpty)
             _PitchSection(
-                icon: Icons.lightbulb_rounded,
-                label: 'Thèse',
-                text: message.pitchThesis!),
+              icon: Icons.lightbulb_rounded,
+              label: 'Thèse',
+              text: message.pitchThesis!,
+            ),
           if ((message.pitchCatalysts ?? '').isNotEmpty)
             _PitchSection(
-                icon: Icons.rocket_launch_rounded,
-                label: 'Catalyseurs',
-                text: message.pitchCatalysts!),
+              icon: Icons.rocket_launch_rounded,
+              label: 'Catalyseurs',
+              text: message.pitchCatalysts!,
+            ),
           if ((message.pitchRisks ?? '').isNotEmpty)
             _PitchSection(
-                icon: Icons.warning_amber_rounded,
-                label: 'Risques',
-                text: message.pitchRisks!),
+              icon: Icons.warning_amber_rounded,
+              label: 'Risques',
+              text: message.pitchRisks!,
+            ),
+          if ((message.convictionNote ?? '').trim().isNotEmpty)
+            _PitchSection(
+              icon: Icons.track_changes_rounded,
+              label: 'Suivi',
+              text: message.convictionNote!,
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _PitchMetricPill extends StatelessWidget {
+  const _PitchMetricPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 11.5,
+        ),
       ),
     );
   }
@@ -4474,15 +6073,15 @@ class _PitchSection extends StatelessWidget {
               Text(
                 label,
                 style: const TextStyle(
-                    color: detailsColor2,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 12),
+                  color: detailsColor2,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(text,
-              style: const TextStyle(color: textColor, height: 1.4)),
+          Text(text, style: const TextStyle(color: textColor, height: 1.4)),
         ],
       ),
     );
@@ -4500,7 +6099,8 @@ class _PortfolioSnapshotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final pnlPct = (snapshot['totalPnlPct'] as num?)?.toDouble() ?? 0;
     final level = (snapshot['level'] as num?)?.toInt() ?? 0;
-    final positions = (snapshot['positions'] as List<dynamic>?)
+    final positions =
+        (snapshot['positions'] as List<dynamic>?)
             ?.whereType<Map<String, dynamic>>()
             .toList() ??
         const [];
@@ -4523,8 +6123,10 @@ class _PortfolioSnapshotCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: detailsColor2,
                   borderRadius: BorderRadius.circular(999),
@@ -4532,19 +6134,23 @@ class _PortfolioSnapshotCard extends StatelessWidget {
                 child: const Text(
                   '📊 Snapshot portefeuille',
                   style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11.5),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11.5,
+                  ),
                 ),
               ),
               const Spacer(),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: pnlPositive
-                      ? const Color(0xFFE8F5EC)
-                      : const Color(0xFFFFEFEA),
+                  color:
+                      pnlPositive
+                          ? const Color(0xFFE8F5EC)
+                          : const Color(0xFFFFEFEA),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -4552,9 +6158,10 @@ class _PortfolioSnapshotCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
-                    color: pnlPositive
-                        ? const Color(0xFF13804A)
-                        : const Color(0xFFB4533B),
+                    color:
+                        pnlPositive
+                            ? const Color(0xFF13804A)
+                            : const Color(0xFFB4533B),
                   ),
                 ),
               ),
@@ -4571,9 +6178,10 @@ class _PortfolioSnapshotCard extends StatelessWidget {
           Text(
             'Niveau $level · Performance globale',
             style: const TextStyle(
-                color: Colors.black54,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600),
+              color: Colors.black54,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -4600,7 +6208,10 @@ class _SnapshotPositionRow extends StatelessWidget {
           child: Text(
             symbol,
             style: const TextStyle(
-                color: textColor, fontWeight: FontWeight.w800, fontSize: 12),
+              color: textColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
           ),
         ),
         Expanded(
@@ -4623,9 +6234,10 @@ class _SnapshotPositionRow extends StatelessWidget {
             '${weightPct.toStringAsFixed(0)}%',
             textAlign: TextAlign.right,
             style: const TextStyle(
-                color: Colors.black54,
-                fontWeight: FontWeight.w600,
-                fontSize: 11),
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -4637,9 +6249,10 @@ class _SnapshotPositionRow extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 12,
-              color: pnlPositive
-                  ? const Color(0xFF13804A)
-                  : const Color(0xFFB4533B),
+              color:
+                  pnlPositive
+                      ? const Color(0xFF13804A)
+                      : const Color(0xFFB4533B),
             ),
           ),
         ),
@@ -4650,14 +6263,74 @@ class _SnapshotPositionRow extends StatelessWidget {
 
 // ─── 2.1 — Éditeur d'annotations ─────────────────────────────────────────────
 
-enum _AnnotationTool { pen, hLine, upArrow, downArrow }
+enum _AnnotationTool { trendLine, hLine, zone, pen, upArrow, downArrow }
+
+enum _AnnotationInteractionMode { draw, navigate }
 
 class _AnnotationStroke {
   _AnnotationStroke({required this.tool, required this.color});
 
   final _AnnotationTool tool;
   final Color color;
-  final List<Offset> points = [];
+  final List<Offset> points = <Offset>[];
+}
+
+Rect _annotationPlotRect(Size size) {
+  return Rect.fromLTRB(18, 18, size.width - 18, size.height - 28);
+}
+
+String _annotationToolLabel(_AnnotationTool tool) {
+  switch (tool) {
+    case _AnnotationTool.trendLine:
+      return 'Tendance';
+    case _AnnotationTool.hLine:
+      return 'Support';
+    case _AnnotationTool.zone:
+      return 'Zone';
+    case _AnnotationTool.pen:
+      return 'Libre';
+    case _AnnotationTool.upArrow:
+      return 'Flèche haute';
+    case _AnnotationTool.downArrow:
+      return 'Flèche basse';
+  }
+}
+
+String _annotationToolHint(_AnnotationTool tool) {
+  switch (tool) {
+    case _AnnotationTool.trendLine:
+      return 'Glisse pour tracer une droite de tendance.';
+    case _AnnotationTool.hLine:
+      return 'Place une ligne horizontale pour ton niveau clé.';
+    case _AnnotationTool.zone:
+      return 'Délimite une zone de réaction ou de congestion.';
+    case _AnnotationTool.pen:
+      return 'Dessine librement pour entourer ou commenter.';
+    case _AnnotationTool.upArrow:
+      return 'Pose un repère haussier sur la zone visée.';
+    case _AnnotationTool.downArrow:
+      return 'Pose un repère baissier sur la zone surveillée.';
+  }
+}
+
+String _formatAnnotationDateLabel(DateTime time, ChartInterval interval) {
+  final day = time.day.toString().padLeft(2, '0');
+  final month = time.month.toString().padLeft(2, '0');
+  if (interval.isIntraday) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$day/$month $hour:$minute';
+  }
+  if (interval == ChartInterval.fiveYears || interval == ChartInterval.max) {
+    return '${time.year}';
+  }
+  return '$day/$month';
+}
+
+String _formatAnnotationPrice(double value) {
+  if (value.abs() >= 1000) return value.toStringAsFixed(0);
+  if (value.abs() >= 100) return value.toStringAsFixed(2);
+  return value.toStringAsFixed(3);
 }
 
 class _ChartAnnotationEditor extends StatefulWidget {
@@ -4666,16 +6339,20 @@ class _ChartAnnotationEditor extends StatefulWidget {
   final _ForumTickerAttachment attachment;
 
   @override
-  State<_ChartAnnotationEditor> createState() =>
-      _ChartAnnotationEditorState();
+  State<_ChartAnnotationEditor> createState() => _ChartAnnotationEditorState();
 }
 
 class _ChartAnnotationEditorState extends State<_ChartAnnotationEditor> {
   final GlobalKey _repaintKey = GlobalKey();
-  final List<_AnnotationStroke> _strokes = [];
-  _AnnotationTool _tool = _AnnotationTool.pen;
+  final List<_AnnotationStroke> _strokes = <_AnnotationStroke>[];
+  final List<_AnnotationStroke> _redoStrokes = <_AnnotationStroke>[];
+  late Future<_MiniTickerSnapshot?> _snapshotFuture;
+  _AnnotationTool _tool = _AnnotationTool.trendLine;
+  _AnnotationInteractionMode _interactionMode = _AnnotationInteractionMode.draw;
+  ChartInterval _interval = ChartInterval.oneMonth;
   Color _color = detailsColor2;
   bool _exporting = false;
+  int _strokeRevision = 0;
 
   // Zoom / pan state
   double _scale = 1.0;
@@ -4685,8 +6362,10 @@ class _ChartAnnotationEditorState extends State<_ChartAnnotationEditor> {
   Offset _baseFocalPoint = Offset.zero;
 
   static const _tools = [
-    (_AnnotationTool.pen, Icons.draw_rounded, 'Libre'),
+    (_AnnotationTool.trendLine, Icons.show_chart_rounded, 'Tendance'),
     (_AnnotationTool.hLine, Icons.horizontal_rule_rounded, 'Support/Rés.'),
+    (_AnnotationTool.zone, Icons.crop_square_rounded, 'Zone'),
+    (_AnnotationTool.pen, Icons.draw_rounded, 'Libre'),
     (_AnnotationTool.upArrow, Icons.arrow_upward_rounded, 'Haussier'),
     (_AnnotationTool.downArrow, Icons.arrow_downward_rounded, 'Baissier'),
   ];
@@ -4698,47 +6377,164 @@ class _ChartAnnotationEditorState extends State<_ChartAnnotationEditor> {
     Color(0xFF1565C0),
   ];
 
-  /// Convertit une position écran (espace GestureDetector) → espace canvas.
+  @override
+  void initState() {
+    super.initState();
+    _snapshotFuture = _loadSnapshot();
+  }
+
+  Future<_MiniTickerSnapshot?> _loadSnapshot() {
+    return _MiniTickerSnapshot.load(widget.attachment, interval: _interval);
+  }
+
   Offset _toCanvas(Offset screen) => (screen - _offset) / _scale;
 
-  void _onScaleStart(ScaleStartDetails d) {
-    if (d.pointerCount >= 2) {
-      // Mode navigation (zoom/pan)
-      _baseFocalPoint = d.localFocalPoint;
+  Offset _normalizeCanvasPoint(Offset canvasPoint, Size size) {
+    final rect = _annotationPlotRect(size);
+    final dx = math.max(
+      0.0,
+      math.min(1.0, (canvasPoint.dx - rect.left) / rect.width),
+    );
+    final dy = math.max(
+      0.0,
+      math.min(1.0, (canvasPoint.dy - rect.top) / rect.height),
+    );
+    return Offset(dx, dy);
+  }
+
+  void _resetView() {
+    setState(() {
+      _scale = 1.0;
+      _offset = Offset.zero;
+    });
+  }
+
+  void _setInterval(ChartInterval interval) {
+    if (_interval == interval) return;
+    setState(() {
+      _interval = interval;
+      _snapshotFuture = _loadSnapshot();
+      _scale = 1.0;
+      _offset = Offset.zero;
+    });
+  }
+
+  void _undo() {
+    if (_strokes.isEmpty) return;
+    setState(() {
+      _redoStrokes.add(_strokes.removeLast());
+      _strokeRevision++;
+    });
+  }
+
+  void _redo() {
+    if (_redoStrokes.isEmpty) return;
+    setState(() {
+      _strokes.add(_redoStrokes.removeLast());
+      _strokeRevision++;
+    });
+  }
+
+  void _clearAnnotations() {
+    if (_strokes.isEmpty && _redoStrokes.isEmpty) return;
+    setState(() {
+      _strokes.clear();
+      _redoStrokes.clear();
+      _strokeRevision++;
+    });
+  }
+
+  bool _shouldDiscardStroke(_AnnotationStroke stroke) {
+    if (stroke.points.isEmpty) return true;
+    if (stroke.tool == _AnnotationTool.pen) return stroke.points.length < 2;
+    if (stroke.tool == _AnnotationTool.trendLine ||
+        stroke.tool == _AnnotationTool.zone) {
+      if (stroke.points.length < 2) return true;
+      return (stroke.points.first - stroke.points.last).distance < 0.02;
+    }
+    return false;
+  }
+
+  void _onScaleStart(ScaleStartDetails details, Size size) {
+    final navigating =
+        _interactionMode == _AnnotationInteractionMode.navigate ||
+        details.pointerCount >= 2;
+    if (navigating) {
+      _baseFocalPoint = details.localFocalPoint;
       _baseScale = _scale;
       _baseOffset = _offset;
-    } else {
-      // Mode dessin (1 doigt)
-      final stroke = _AnnotationStroke(tool: _tool, color: _color);
-      stroke.points.add(_toCanvas(d.localFocalPoint));
-      setState(() => _strokes.add(stroke));
+      return;
     }
+
+    final stroke = _AnnotationStroke(tool: _tool, color: _color);
+    stroke.points.add(
+      _normalizeCanvasPoint(_toCanvas(details.localFocalPoint), size),
+    );
+    setState(() {
+      _redoStrokes.clear();
+      _strokes.add(stroke);
+      _strokeRevision++;
+    });
   }
 
-  void _onScaleUpdate(ScaleUpdateDetails d) {
-    if (d.pointerCount >= 2) {
+  void _onScaleUpdate(ScaleUpdateDetails details, Size size) {
+    final navigating =
+        _interactionMode == _AnnotationInteractionMode.navigate ||
+        details.pointerCount >= 2;
+    if (navigating) {
       setState(() {
-        _scale = (_baseScale * d.scale).clamp(1.0, 6.0);
-        _offset = _baseOffset + (d.localFocalPoint - _baseFocalPoint);
+        _scale = (_baseScale * details.scale).clamp(1.0, 5.0);
+        _offset = _baseOffset + (details.localFocalPoint - _baseFocalPoint);
       });
-    } else {
-      if (_strokes.isEmpty) return;
-      setState(() => _strokes.last.points.add(_toCanvas(d.localFocalPoint)));
+      return;
     }
+
+    if (_strokes.isEmpty) return;
+    final point = _normalizeCanvasPoint(
+      _toCanvas(details.localFocalPoint),
+      size,
+    );
+    final stroke = _strokes.last;
+    setState(() {
+      if (stroke.tool == _AnnotationTool.pen) {
+        stroke.points.add(point);
+      } else if (stroke.tool == _AnnotationTool.trendLine ||
+          stroke.tool == _AnnotationTool.zone) {
+        if (stroke.points.length == 1) {
+          stroke.points.add(point);
+        } else {
+          stroke.points[1] = point;
+        }
+      } else {
+        stroke.points
+          ..clear()
+          ..add(point);
+      }
+      _strokeRevision++;
+    });
   }
 
-  void _resetView() => setState(() {
-        _scale = 1.0;
-        _offset = Offset.zero;
+  void _onScaleEnd(ScaleEndDetails details) {
+    if (_strokes.isEmpty) return;
+    final stroke = _strokes.last;
+    if (_shouldDiscardStroke(stroke)) {
+      setState(() {
+        _strokes.removeLast();
+        _strokeRevision++;
       });
+    }
+  }
 
   Future<void> _export() async {
     debugPrint('[Forum] _export called');
     setState(() => _exporting = true);
     try {
-      final boundary = _repaintKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      debugPrint('[Forum] boundary=$boundary repaintKey=${_repaintKey.currentContext}');
+      final boundary =
+          _repaintKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      debugPrint(
+        '[Forum] boundary=$boundary repaintKey=${_repaintKey.currentContext}',
+      );
       if (boundary == null) {
         debugPrint('[Forum] ERROR: boundary is null');
         if (mounted) {
@@ -4751,9 +6547,9 @@ class _ChartAnnotationEditorState extends State<_ChartAnnotationEditor> {
         }
         return;
       }
+      await Future<void>.delayed(const Duration(milliseconds: 16));
       final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null || !mounted) {
         debugPrint('[Forum] ERROR: byteData=$byteData mounted=$mounted');
         return;
@@ -4764,153 +6560,273 @@ class _ChartAnnotationEditorState extends State<_ChartAnnotationEditor> {
     } catch (e, st) {
       debugPrint('[Forum] export ERROR: $e\n$st');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export impossible : $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Export impossible : $e')));
       }
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: backgroundColor,
-      child: SafeArea(
-        top: false,
+  Widget _buildLoadingState() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      alignment: Alignment.center,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(color: detailsColor1),
+          SizedBox(height: 14),
+          Text(
+            'Chargement du graphique...',
+            style: TextStyle(color: textColor, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.wifi_tethering_error_rounded,
+            color: Color(0xFFB4533B),
+            size: 36,
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Impossible de charger le graphique pour le moment.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Réessaie ou change d’horizon pour relancer la vue.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => setState(() => _snapshotFuture = _loadSnapshot()),
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Recharger'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkspace(_MiniTickerSnapshot payload) {
+    return RepaintBoundary(
+      key: _repaintKey,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 24,
+              offset: const Offset(0, 14),
+            ),
+          ],
+        ),
         child: Column(
           children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 48,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 4, 0),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Annoter le graphique',
-                      style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 17),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (_scale > 1.0)
-                    IconButton(
-                      onPressed: _resetView,
-                      icon: const Icon(Icons.zoom_out_map_rounded, size: 20),
-                      tooltip: 'Réinitialiser la vue',
-                      color: Colors.black54,
-                    ),
-                  if (_strokes.isNotEmpty)
-                    IconButton(
-                      onPressed: () => setState(() => _strokes.clear()),
-                      icon: const Icon(Icons.undo_rounded, size: 20),
-                      tooltip: 'Effacer les annotations',
-                      color: Colors.black54,
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ClipRect(
-                  child: RepaintBoundary(
-                    key: _repaintKey,
-                    child: GestureDetector(
-                      onScaleStart: _onScaleStart,
-                      onScaleUpdate: _onScaleUpdate,
-                      child: Transform(
-                        transform: Matrix4.translationValues(
-                                _offset.dx, _offset.dy, 0)
-                            ..scaleByDouble(_scale, _scale, 1, 1),
-                        child: Stack(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _ForumTickerAttachmentPreview(
-                                attachment: widget.attachment),
-                            Positioned.fill(
-                              child: CustomPaint(
-                                painter: _AnnotationPainter(strokes: _strokes),
+                            Text(
+                              widget.attachment.symbol,
+                              style: const TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 24,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.attachment.displayName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Palette outils
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  for (final t in _tools)
-                    _AnnotationToolButton(
-                      icon: t.$2,
-                      label: t.$3,
-                      selected: _tool == t.$1,
-                      onTap: () => setState(() => _tool = t.$1),
-                    ),
-                  for (final c in _colors)
-                    GestureDetector(
-                      onTap: () => setState(() => _color = c),
-                      child: Container(
-                        width: 26,
-                        height: 26,
-                        decoration: BoxDecoration(
-                          color: c,
-                          shape: BoxShape.circle,
-                          border: _color == c
-                              ? Border.all(color: Colors.black, width: 2.5)
-                              : null,
-                        ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          _AnnotationHeaderBadge(
+                            label: _interval.shortLabel,
+                            icon: Icons.timeline_rounded,
+                            color: detailsColor2,
+                          ),
+                          if (_scale > 1.0) ...[
+                            const SizedBox(height: 8),
+                            _AnnotationHeaderBadge(
+                              label: '${_scale.toStringAsFixed(1)}x',
+                              icon: Icons.zoom_in_rounded,
+                              color: const Color(0xFF175D94),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _AnnotationInfoChip(
+                        icon: Icons.show_chart_rounded,
+                        label: payload.priceLabel,
+                      ),
+                      _AnnotationInfoChip(
+                        icon:
+                            payload.positive
+                                ? Icons.arrow_upward_rounded
+                                : Icons.arrow_downward_rounded,
+                        label: payload.changeLabel,
+                        color:
+                            payload.positive
+                                ? const Color(0xFF13804A)
+                                : const Color(0xFFB4533B),
+                      ),
+                      _AnnotationInfoChip(
+                        icon: Icons.public_rounded,
+                        label: payload.marketLabel,
+                        color: const Color(0xFF175D94),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _exporting ? null : _export,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16)),
-                  ),
-                  icon: _exporting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Icon(Icons.check_rounded),
-                  label: Text(_exporting
-                      ? 'Export en cours...'
-                      : 'Valider l\'annotation'),
+            const Divider(height: 1),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size = Size(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: GestureDetector(
+                        onScaleStart: (details) => _onScaleStart(details, size),
+                        onScaleUpdate:
+                            (details) => _onScaleUpdate(details, size),
+                        onScaleEnd: _onScaleEnd,
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFF7FAFD), Color(0xFFFFFFFF)],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Transform(
+                                transform: Matrix4.translationValues(
+                                  _offset.dx,
+                                  _offset.dy,
+                                  0,
+                                )..scaleByDouble(_scale, _scale, 1.0, 1.0),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    CustomPaint(
+                                      painter: _AnnotationChartPainter(
+                                        snapshot: payload,
+                                        interval: _interval,
+                                      ),
+                                    ),
+                                    CustomPaint(
+                                      painter: _AnnotationPainter(
+                                        strokes: _strokes,
+                                        revision: _strokeRevision,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Positioned(
+                                top: 10,
+                                left: 10,
+                                child: _AnnotationHeaderBadge(
+                                  label:
+                                      _interactionMode ==
+                                              _AnnotationInteractionMode.draw
+                                          ? 'Mode dessin'
+                                          : 'Mode navigation',
+                                  icon:
+                                      _interactionMode ==
+                                              _AnnotationInteractionMode.draw
+                                          ? Icons.edit_rounded
+                                          : Icons.pan_tool_alt_rounded,
+                                  color:
+                                      _interactionMode ==
+                                              _AnnotationInteractionMode.draw
+                                          ? detailsColor2
+                                          : const Color(0xFF175D94),
+                                  filled: true,
+                                ),
+                              ),
+                              if (_strokes.isEmpty)
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: Center(
+                                      child: _AnnotationEmptyStateCard(
+                                        title: _annotationToolLabel(_tool),
+                                        message: _annotationToolHint(_tool),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -4919,42 +6835,379 @@ class _ChartAnnotationEditorState extends State<_ChartAnnotationEditor> {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_MiniTickerSnapshot?>(
+      future: _snapshotFuture,
+      builder: (context, snapshot) {
+        final payload = snapshot.data;
+        final loading = snapshot.connectionState == ConnectionState.waiting;
+        return Material(
+          color: backgroundColor,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Atelier d’annotation',
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${widget.attachment.symbol} · ${_annotationToolHint(_tool)}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.close_rounded),
+                        color: Colors.black54,
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE6E8EB)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: detailsColor2.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            _interactionMode == _AnnotationInteractionMode.draw
+                                ? Icons.edit_rounded
+                                : Icons.pan_tool_alt_rounded,
+                            color: detailsColor2,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            _interactionMode == _AnnotationInteractionMode.draw
+                                ? '1 doigt pour annoter, 2 doigts pour zoomer. Utilise "Naviguer" si tu veux déplacer la vue au doigt.'
+                                : '1 doigt pour déplacer, pince pour zoomer. Reviens en mode dessin dès que la vue est calée.',
+                            style: const TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child:
+                        payload != null
+                            ? _buildWorkspace(payload)
+                            : loading
+                            ? _buildLoadingState()
+                            : _buildErrorState(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children:
+                          ChartInterval.values.map((interval) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: _AnnotationActionChip(
+                                icon: Icons.timeline_rounded,
+                                label: interval.shortLabel,
+                                selected: _interval == interval,
+                                onTap: () => _setInterval(interval),
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _AnnotationActionChip(
+                          icon: Icons.edit_rounded,
+                          label: 'Dessiner',
+                          selected:
+                              _interactionMode ==
+                              _AnnotationInteractionMode.draw,
+                          onTap:
+                              () => setState(
+                                () =>
+                                    _interactionMode =
+                                        _AnnotationInteractionMode.draw,
+                              ),
+                        ),
+                        const SizedBox(width: 8),
+                        _AnnotationActionChip(
+                          icon: Icons.pan_tool_alt_rounded,
+                          label: 'Naviguer',
+                          selected:
+                              _interactionMode ==
+                              _AnnotationInteractionMode.navigate,
+                          onTap:
+                              () => setState(
+                                () =>
+                                    _interactionMode =
+                                        _AnnotationInteractionMode.navigate,
+                              ),
+                        ),
+                        const SizedBox(width: 8),
+                        _AnnotationActionChip(
+                          icon: Icons.undo_rounded,
+                          label: 'Annuler',
+                          enabled: _strokes.isNotEmpty,
+                          onTap: _undo,
+                        ),
+                        const SizedBox(width: 8),
+                        _AnnotationActionChip(
+                          icon: Icons.redo_rounded,
+                          label: 'Refaire',
+                          enabled: _redoStrokes.isNotEmpty,
+                          onTap: _redo,
+                        ),
+                        const SizedBox(width: 8),
+                        _AnnotationActionChip(
+                          icon: Icons.zoom_out_map_rounded,
+                          label: 'Vue',
+                          onTap: _resetView,
+                        ),
+                        const SizedBox(width: 8),
+                        _AnnotationActionChip(
+                          icon: Icons.layers_clear_rounded,
+                          label: 'Effacer',
+                          enabled:
+                              _strokes.isNotEmpty || _redoStrokes.isNotEmpty,
+                          onTap: _clearAnnotations,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children:
+                          _tools.map((tool) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: _AnnotationToolButton(
+                                icon: tool.$2,
+                                label: tool.$3,
+                                selected: _tool == tool.$1,
+                                onTap: () => setState(() => _tool = tool.$1),
+                              ),
+                            );
+                          }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Couleur',
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children:
+                              _colors.map((color) {
+                                return _AnnotationColorSwatch(
+                                  color: color,
+                                  selected: _color == color,
+                                  onTap: () => setState(() => _color = color),
+                                );
+                              }).toList(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _exporting || payload == null ? null : _export,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      icon:
+                          _exporting
+                              ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Icon(Icons.check_rounded),
+                      label: Text(
+                        _exporting
+                            ? 'Export en cours...'
+                            : 'Valider l’annotation',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _AnnotationPainter extends CustomPainter {
-  const _AnnotationPainter({required this.strokes});
+  const _AnnotationPainter({required this.strokes, required this.revision});
 
   final List<_AnnotationStroke> strokes;
+  final int revision;
+
+  Offset _resolvePoint(Offset normalized, Rect rect) {
+    return Offset(
+      rect.left + (normalized.dx * rect.width),
+      rect.top + (normalized.dy * rect.height),
+    );
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
+    final plotRect = _annotationPlotRect(size);
     for (final stroke in strokes) {
-      final paint = Paint()
-        ..color = stroke.color
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
+      final paint =
+          Paint()
+            ..color = stroke.color
+            ..strokeWidth = 2.6
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round
+            ..style = PaintingStyle.stroke;
 
       final pts = stroke.points;
       if (pts.isEmpty) continue;
 
       switch (stroke.tool) {
+        case _AnnotationTool.trendLine:
+          if (pts.length < 2) break;
+          final start = _resolvePoint(pts.first, plotRect);
+          final end = _resolvePoint(pts.last, plotRect);
+          canvas.drawLine(start, end, paint);
+          canvas.drawCircle(
+            start,
+            4,
+            Paint()..color = stroke.color.withValues(alpha: 0.18),
+          );
+          canvas.drawCircle(
+            end,
+            4,
+            Paint()..color = stroke.color.withValues(alpha: 0.18),
+          );
+        case _AnnotationTool.hLine:
+          final y = _resolvePoint(pts.last, plotRect).dy;
+          canvas.drawLine(
+            Offset(plotRect.left, y),
+            Offset(plotRect.right, y),
+            paint..strokeWidth = 1.9,
+          );
+        case _AnnotationTool.zone:
+          if (pts.length < 2) break;
+          final rect = Rect.fromPoints(
+            _resolvePoint(pts.first, plotRect),
+            _resolvePoint(pts.last, plotRect),
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(12)),
+            Paint()..color = stroke.color.withValues(alpha: 0.12),
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(12)),
+            paint..strokeWidth = 1.9,
+          );
         case _AnnotationTool.pen:
           if (pts.length < 2) break;
-          final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+          final first = _resolvePoint(pts.first, plotRect);
+          final path = Path()..moveTo(first.dx, first.dy);
           for (var i = 1; i < pts.length; i++) {
-            path.lineTo(pts[i].dx, pts[i].dy);
+            final point = _resolvePoint(pts[i], plotRect);
+            path.lineTo(point.dx, point.dy);
           }
           canvas.drawPath(path, paint);
-        case _AnnotationTool.hLine:
-          final y = pts.last.dy;
-          canvas.drawLine(
-              Offset(0, y), Offset(size.width, y), paint..strokeWidth = 1.8);
         case _AnnotationTool.upArrow:
-          final center = pts.last;
+          final center = _resolvePoint(pts.last, plotRect);
           _drawArrow(canvas, center, true, stroke.color);
         case _AnnotationTool.downArrow:
-          final center = pts.last;
+          final center = _resolvePoint(pts.last, plotRect);
           _drawArrow(canvas, center, false, stroke.color);
       }
     }
@@ -4962,20 +7215,22 @@ class _AnnotationPainter extends CustomPainter {
 
   void _drawArrow(Canvas canvas, Offset center, bool up, Color color) {
     final dir = up ? -1.0 : 1.0;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+    final paint =
+        Paint()
+          ..color = color
+          ..strokeWidth = 2.5
+          ..strokeCap = StrokeCap.round
+          ..style = PaintingStyle.stroke;
     final fillPaint = Paint()..color = color.withValues(alpha: 0.22);
     final tip = Offset(center.dx, center.dy - dir * 22);
     final left = Offset(center.dx - 12, center.dy + dir * 8);
     final right = Offset(center.dx + 12, center.dy + dir * 8);
-    final path = Path()
-      ..moveTo(tip.dx, tip.dy)
-      ..lineTo(left.dx, left.dy)
-      ..lineTo(right.dx, right.dy)
-      ..close();
+    final path =
+        Path()
+          ..moveTo(tip.dx, tip.dy)
+          ..lineTo(left.dx, left.dy)
+          ..lineTo(right.dx, right.dy)
+          ..close();
     canvas.drawPath(path, fillPaint);
     canvas.drawPath(path, paint);
     canvas.drawLine(
@@ -4987,7 +7242,186 @@ class _AnnotationPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AnnotationPainter oldDelegate) =>
-      oldDelegate.strokes != strokes;
+      oldDelegate.revision != revision;
+}
+
+class _AnnotationChartPainter extends CustomPainter {
+  const _AnnotationChartPainter({
+    required this.snapshot,
+    required this.interval,
+  });
+
+  final _MiniTickerSnapshot snapshot;
+  final ChartInterval interval;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final plotRect = _annotationPlotRect(size);
+    final framePaint =
+        Paint()
+          ..color = const Color(0xFFDDE4EC)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(plotRect, const Radius.circular(18)),
+      framePaint,
+    );
+
+    final gridPaint =
+        Paint()
+          ..color = const Color(0xFFE7EDF3)
+          ..strokeWidth = 1;
+    for (var i = 0; i < 4; i++) {
+      final y = plotRect.top + ((plotRect.height / 3) * i);
+      canvas.drawLine(
+        Offset(plotRect.left, y),
+        Offset(plotRect.right, y),
+        gridPaint,
+      );
+    }
+    for (var i = 0; i < 3; i++) {
+      final x = plotRect.left + ((plotRect.width / 2) * i);
+      canvas.drawLine(
+        Offset(x, plotRect.top),
+        Offset(x, plotRect.bottom),
+        gridPaint,
+      );
+    }
+
+    final points = snapshot.points;
+    if (points.length < 2) {
+      final painter = TextPainter(
+        text: const TextSpan(
+          text: 'Pas assez de données pour afficher la courbe.',
+          style: TextStyle(
+            color: Colors.black54,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: plotRect.width - 24);
+      painter.paint(
+        canvas,
+        Offset(
+          plotRect.left + ((plotRect.width - painter.width) / 2),
+          plotRect.top + ((plotRect.height - painter.height) / 2),
+        ),
+      );
+      return;
+    }
+
+    var minValue = points.first.close;
+    var maxValue = points.first.close;
+    for (final point in points.skip(1)) {
+      minValue = math.min(minValue, point.close);
+      maxValue = math.max(maxValue, point.close);
+    }
+    final delta =
+        (maxValue - minValue).abs() < 0.0001 ? 1.0 : maxValue - minValue;
+
+    Offset pointToOffset(int index) {
+      final x =
+          plotRect.left + ((index / (points.length - 1)) * plotRect.width);
+      final normalized = (points[index].close - minValue) / delta;
+      final y = plotRect.bottom - (normalized * plotRect.height);
+      return Offset(x, y);
+    }
+
+    final linePath = Path();
+    for (var i = 0; i < points.length; i++) {
+      final point = pointToOffset(i);
+      if (i == 0) {
+        linePath.moveTo(point.dx, point.dy);
+      } else {
+        linePath.lineTo(point.dx, point.dy);
+      }
+    }
+    final fillPath =
+        Path.from(linePath)
+          ..lineTo(plotRect.right, plotRect.bottom)
+          ..lineTo(plotRect.left, plotRect.bottom)
+          ..close();
+
+    final chartColor =
+        snapshot.positive ? const Color(0xFF177A53) : const Color(0xFF9A2D2D);
+    canvas.drawPath(
+      fillPath,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [
+            chartColor.withValues(alpha: 0.18),
+            chartColor.withValues(alpha: 0.02),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(plotRect),
+    );
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = chartColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round,
+    );
+
+    final lastPoint = pointToOffset(points.length - 1);
+    canvas.drawCircle(
+      lastPoint,
+      9,
+      Paint()..color = chartColor.withValues(alpha: 0.14),
+    );
+    canvas.drawCircle(lastPoint, 4.2, Paint()..color = chartColor);
+
+    void paintLabel(
+      String text,
+      Offset anchor, {
+      bool alignRight = false,
+      Color color = Colors.black54,
+    }) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painter.paint(
+        canvas,
+        Offset(alignRight ? anchor.dx - painter.width : anchor.dx, anchor.dy),
+      );
+    }
+
+    paintLabel(
+      _formatAnnotationPrice(maxValue),
+      Offset(plotRect.right, plotRect.top - 14),
+      alignRight: true,
+    );
+    paintLabel(
+      _formatAnnotationPrice(minValue),
+      Offset(plotRect.right, plotRect.bottom + 6),
+      alignRight: true,
+    );
+    paintLabel(
+      _formatAnnotationDateLabel(points.first.time, interval),
+      Offset(plotRect.left, plotRect.bottom + 6),
+    );
+    paintLabel(
+      _formatAnnotationDateLabel(points.last.time, interval),
+      Offset(plotRect.right, plotRect.bottom + 6),
+      alignRight: true,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AnnotationChartPainter oldDelegate) {
+    return oldDelegate.snapshot != snapshot || oldDelegate.interval != interval;
+  }
 }
 
 class _AnnotationToolButton extends StatelessWidget {
@@ -5008,36 +7442,263 @@ class _AnnotationToolButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: selected
-              ? detailsColor2.withValues(alpha: 0.12)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color:
+              selected ? detailsColor2.withValues(alpha: 0.12) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected
-                ? detailsColor2.withValues(alpha: 0.30)
-                : const Color(0xFFE6E8EB),
+            color:
+                selected
+                    ? detailsColor2.withValues(alpha: 0.30)
+                    : const Color(0xFFE6E8EB),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                size: 14,
-                color: selected ? detailsColor2 : textColor),
-            const SizedBox(width: 4),
+            Icon(icon, size: 15, color: selected ? detailsColor2 : textColor),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w700,
                 color: selected ? detailsColor2 : textColor,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AnnotationActionChip extends StatelessWidget {
+  const _AnnotationActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.selected = false,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground =
+        !enabled
+            ? Colors.black38
+            : selected
+            ? detailsColor2
+            : textColor;
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.55,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color:
+                selected ? detailsColor2.withValues(alpha: 0.10) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color:
+                  selected
+                      ? detailsColor2.withValues(alpha: 0.28)
+                      : const Color(0xFFE6E8EB),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: foreground),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AnnotationColorSwatch extends StatelessWidget {
+  const _AnnotationColorSwatch({
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: selected ? Border.all(color: Colors.black, width: 2.5) : null,
+          boxShadow:
+              selected
+                  ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                  : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _AnnotationHeaderBadge extends StatelessWidget {
+  const _AnnotationHeaderBadge({
+    required this.label,
+    required this.icon,
+    required this.color,
+    this.filled = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final background =
+        filled
+            ? Colors.black.withValues(alpha: 0.64)
+            : color.withValues(alpha: 0.10);
+    final foreground = filled ? Colors.white : color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontWeight: FontWeight.w800,
+              fontSize: 11.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnnotationInfoChip extends StatelessWidget {
+  const _AnnotationInfoChip({
+    required this.icon,
+    required this.label,
+    this.color = textColor,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnnotationEmptyStateCard extends StatelessWidget {
+  const _AnnotationEmptyStateCard({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 280),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.draw_rounded, color: detailsColor2, size: 22),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: const TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -5080,8 +7741,9 @@ class _VerifiedBadge extends StatelessWidget {
 
 // ── 4.1 — Notifications Sheet ───────────────────────────────────────────────
 class _NotificationsSheet extends StatelessWidget {
-  const _NotificationsSheet({required this.uid});
+  const _NotificationsSheet({required this.uid, required this.onOpenPost});
   final String uid;
+  final ValueChanged<String> onOpenPost;
 
   String _label(String type) {
     switch (type) {
@@ -5129,8 +7791,11 @@ class _NotificationsSheet extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  Icon(Icons.notifications_rounded,
-                      size: 20, color: detailsColor2),
+                  Icon(
+                    Icons.notifications_rounded,
+                    size: 20,
+                    color: detailsColor2,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Notifications',
@@ -5159,8 +7824,7 @@ class _NotificationsSheet extends StatelessWidget {
                         padding: EdgeInsets.all(32),
                         child: Text(
                           'Aucune notification pour l\'instant.',
-                          style:
-                              TextStyle(color: Colors.black45, fontSize: 14),
+                          style: TextStyle(color: Colors.black45, fontSize: 14),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -5168,20 +7832,22 @@ class _NotificationsSheet extends StatelessWidget {
                   }
                   return ListView.separated(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: docs.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, i) {
                       final d = docs[i].data();
                       final isRead = d['read'] as bool? ?? true;
-                      final fromName =
-                          d['fromName'] as String? ?? 'Quelqu\'un';
+                      final fromName = d['fromName'] as String? ?? 'Quelqu\'un';
                       final type = d['type'] as String? ?? '';
+                      final postId = (d['postId'] as String?)?.trim() ?? '';
+                      final score = (d['score'] as String?)?.trim() ?? '';
                       final ts = d['createdAt'] as Timestamp?;
                       String ago = '';
                       if (ts != null) {
-                        final diff =
-                            DateTime.now().difference(ts.toDate());
+                        final diff = DateTime.now().difference(ts.toDate());
                         if (diff.inDays >= 1) {
                           ago = 'il y a ${diff.inDays}j';
                         } else if (diff.inHours >= 1) {
@@ -5192,53 +7858,67 @@ class _NotificationsSheet extends StatelessWidget {
                       }
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
+                        onTap: postId.isEmpty ? null : () => onOpenPost(postId),
                         leading: CircleAvatar(
                           radius: 18,
-                          backgroundColor: isRead
-                              ? Colors.grey.shade200
-                              : detailsColor2.withValues(alpha: 0.15),
+                          backgroundColor:
+                              isRead
+                                  ? Colors.grey.shade200
+                                  : detailsColor2.withValues(alpha: 0.15),
                           child: Text(
                             fromName.isNotEmpty
                                 ? fromName[0].toUpperCase()
                                 : '?',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
-                              color:
-                                  isRead ? Colors.black45 : detailsColor2,
+                              color: isRead ? Colors.black45 : detailsColor2,
                             ),
                           ),
                         ),
                         title: RichText(
                           text: TextSpan(
                             style: const TextStyle(
-                                fontSize: 13, color: textColor),
+                              fontSize: 13,
+                              color: textColor,
+                            ),
                             children: [
                               TextSpan(
-                                text: fromName,
+                                text:
+                                    type == 'vote_milestone'
+                                        ? 'Le forum'
+                                        : fromName,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w700),
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                              TextSpan(text: ' ${_label(type)}'),
+                              TextSpan(
+                                text:
+                                    ' ${_label(type)}${score.isEmpty ? '' : ' ($score)'}',
+                              ),
                             ],
                           ),
                         ),
-                        subtitle: ago.isNotEmpty
-                            ? Text(
-                                ago,
-                                style: const TextStyle(
-                                    fontSize: 11, color: Colors.black45),
-                              )
-                            : null,
-                        trailing: isRead
-                            ? null
-                            : Container(
-                                width: 8,
-                                height: 8,
-                                decoration: const BoxDecoration(
-                                  color: detailsColor2,
-                                  shape: BoxShape.circle,
+                        subtitle:
+                            ago.isNotEmpty
+                                ? Text(
+                                  ago,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.black45,
+                                  ),
+                                )
+                                : null,
+                        trailing:
+                            isRead
+                                ? null
+                                : Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: detailsColor2,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
                       );
                     },
                   );

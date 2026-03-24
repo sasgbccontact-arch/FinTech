@@ -324,6 +324,9 @@ class _MarketSimulationPageState extends State<MarketSimulationPage> {
     if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
     if (id == '_groseline') return 'assets/avatars/groseline.png';
     if (id == '_gay') return 'assets/avatars/gay.png';
+    if (id == '_javataimertoutelavie') {
+      return 'assets/avatars/javataimertoutelavie.png';
+    }
     if (id == '_call') return 'assets/avatars/avatar_call.png';
     if (id == '_happy') return 'assets/avatars/avatar_happy.png';
     if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';
@@ -2606,6 +2609,9 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
     if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
     if (id == '_groseline') return 'assets/avatars/groseline.png';
     if (id == '_gay') return 'assets/avatars/gay.png';
+    if (id == '_javataimertoutelavie') {
+      return 'assets/avatars/javataimertoutelavie.png';
+    }
     if (id == '_call') return 'assets/avatars/avatar_call.png';
     if (id == '_happy') return 'assets/avatars/avatar_happy.png';
     if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';
@@ -2705,12 +2711,9 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                   final wealthyUserRef = FirebaseFirestore.instance
                       .collection('users')
                       .doc(user.uid);
-                  await wealthyUserRef
-                      .collection('games')
-                      .doc('progress')
-                      .set({
-                        'xp': FieldValue.increment(200),
-                      }, SetOptions(merge: true));
+                  await wealthyUserRef.collection('games').doc('progress').set({
+                    'xp': FieldValue.increment(200),
+                  }, SetOptions(merge: true));
                   await wealthyUserRef.set({
                     'xp': FieldValue.increment(200),
                   }, SetOptions(merge: true));
@@ -2967,11 +2970,8 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                   // Avatar (au dessus)
                   GestureDetector(
                     onTap:
-                        () => _showAvatarPreview(
-                          context,
-                          avatarId,
-                          allUnlocked,
-                        ),
+                        () =>
+                            _showAvatarPreview(context, avatarId, allUnlocked),
                     child: Container(
                       width: 160,
                       height: 160,
@@ -3036,28 +3036,38 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
               // Image agrandie
               ClipRRect(
                 borderRadius: BorderRadius.circular(28),
-                child: avatarId != null
-                    ? Image.asset(
-                        _getAvatarAsset(avatarId),
-                        width: 280,
-                        height: 280,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                child:
+                    avatarId != null
+                        ? Image.asset(
+                          _getAvatarAsset(avatarId),
                           width: 280,
                           height: 280,
-                          color: Colors.grey.shade200,
-                          child: const Icon(Icons.person, size: 120, color: Colors.grey),
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (_, __, ___) => Container(
+                                width: 280,
+                                height: 280,
+                                color: Colors.grey.shade200,
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 120,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                        )
+                        : Container(
+                          width: 280,
+                          height: 280,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(28),
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            size: 120,
+                            color: Colors.grey,
+                          ),
                         ),
-                      )
-                    : Container(
-                        width: 280,
-                        height: 280,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(28),
-                        ),
-                        child: const Icon(Icons.person, size: 120, color: Colors.grey),
-                      ),
               ),
               const SizedBox(height: 20),
               Row(
@@ -3068,7 +3078,10 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
                       Navigator.of(ctx).pop();
                     },
                     icon: const Icon(Icons.close, color: Colors.white70),
-                    label: const Text('Fermer', style: TextStyle(color: Colors.white70)),
+                    label: const Text(
+                      'Fermer',
+                      style: TextStyle(color: Colors.white70),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   ElevatedButton.icon(
@@ -3114,6 +3127,7 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
       '_beyondbig',
       '_groseline',
       '_gay',
+      '_javataimertoutelavie',
       '_call',
       '_happy',
       '_wealthy',
@@ -3121,7 +3135,15 @@ class _UserProfileHeaderState extends State<UserProfileHeader> {
     ];
 
     // Avatars cachés tant qu'ils ne sont pas débloqués (codes secrets)
-    final Set<String> secretAvatars = {'_easteregg', '_sydsteregg', '_quintprime', '_beyondbig', '_groseline', '_gay'};
+    final Set<String> secretAvatars = {
+      '_easteregg',
+      '_sydsteregg',
+      '_quintprime',
+      '_beyondbig',
+      '_groseline',
+      '_gay',
+      '_javataimertoutelavie',
+    };
 
     final List<String> allAvatars =
         specialAvatars.where((id) {

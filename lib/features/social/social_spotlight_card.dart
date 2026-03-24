@@ -9,7 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 import 'package:fintech/core/constants.dart';
-import 'package:fintech/features/settings/app_settings_sheet.dart' show AvatarPickerSheet;
+import 'package:fintech/features/settings/app_settings_sheet.dart'
+    show AvatarPickerSheet;
 
 enum _LeaderboardScope { global, friends }
 
@@ -95,18 +96,18 @@ class _SocialSpotlightCardState extends State<SocialSpotlightCard> {
     try {
       final db = FirebaseFirestore.instance;
       final uid = widget.currentUserId;
-      final progressSnap = await db
-          .collection('users')
-          .doc(uid)
-          .collection('games')
-          .doc('progress')
-          .get();
+      final progressSnap =
+          await db
+              .collection('users')
+              .doc(uid)
+              .collection('games')
+              .doc('progress')
+              .get();
       final xp = (progressSnap.data()?['xp'] as num?)?.toInt();
       if (xp != null && xp > 0) {
-        await db
-            .collection('users')
-            .doc(uid)
-            .set({'xp': xp}, SetOptions(merge: true));
+        await db.collection('users').doc(uid).set({
+          'xp': xp,
+        }, SetOptions(merge: true));
       }
     } catch (_) {}
   }
@@ -2496,10 +2497,11 @@ class _SocialProfileSheetState extends State<_SocialProfileSheet> {
                       clipBehavior: Clip.none,
                       children: [
                         GestureDetector(
-                          onTap: () => showAvatarPreview(
-                            context,
-                            _avatarAsset(entry.avatarId),
-                          ),
+                          onTap:
+                              () => showAvatarPreview(
+                                context,
+                                _avatarAsset(entry.avatarId),
+                              ),
                           child: _AvatarBadge(
                             avatarId: entry.avatarId,
                             rank: null,
@@ -2523,8 +2525,9 @@ class _SocialProfileSheetState extends State<_SocialProfileSheet> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black
-                                          .withValues(alpha: 0.15),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.15,
+                                      ),
                                       blurRadius: 6,
                                       offset: const Offset(0, 2),
                                     ),
@@ -3183,6 +3186,9 @@ String? _avatarAsset(String? id) {
   if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
   if (id == '_groseline') return 'assets/avatars/groseline.png';
   if (id == '_gay') return 'assets/avatars/gay.png';
+  if (id == '_javataimertoutelavie') {
+    return 'assets/avatars/javataimertoutelavie.png';
+  }
   if (id == '_call') return 'assets/avatars/avatar_call.png';
   if (id == '_happy') return 'assets/avatars/avatar_happy.png';
   if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';

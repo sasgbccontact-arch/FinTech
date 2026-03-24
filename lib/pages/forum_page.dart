@@ -9,7 +9,6 @@ import 'package:fintech/core/constants.dart';
 import 'package:fintech/features/duel/duel_models.dart';
 import 'package:fintech/features/forum/forum_boursier_sheet.dart';
 import 'package:fintech/features/social/social_spotlight_card.dart';
-import 'package:fintech/widgets/sponsored_native_ad_card.dart';
 
 import 'community_page.dart';
 
@@ -41,77 +40,60 @@ class _ForumPageState extends State<ForumPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomScrollInset = MediaQuery.of(context).padding.bottom + 102;
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      body: SafeArea(
-        child: StreamBuilder<User?>(
-          stream: FirebaseAuth.instance.authStateChanges(),
-          initialData: FirebaseAuth.instance.currentUser,
-          builder: (context, snapshot) {
-            final user = snapshot.data;
-            return ListView(
-              padding: EdgeInsets.fromLTRB(0, 0, 0, bottomScrollInset),
-              children: [
-                if (user == null)
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        body: SafeArea(
+          child: StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            initialData: FirebaseAuth.instance.currentUser,
+            builder: (context, snapshot) {
+              final user = snapshot.data;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(12, 8, 12, 0),
-                    child: _GradientInfoCard(
-                      text:
-                          'Tu peux explorer le hub social, mais il faut être connecté pour envoyer des demandes d’amis et participer au forum boursier.',
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: _SocialPageHeader(),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: _SocialTabStrip(),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _SocialTabView(
+                          child:
+                              user != null
+                                  ? SocialSpotlightCard(
+                                    currentUserId: user.uid,
+                                    onOpenCommunity: _openCommunitySheet,
+                                  )
+                                  : const _GradientInfoCard(
+                                    text:
+                                        'Connecte-toi pour activer le classement social, les amis et les badges personnalisés.',
+                                  ),
+                        ),
+                        _SocialTabView(
+                          child: _ForumPulseEntryCard(
+                            canCompose: user != null,
+                            onTap: _openForumSheet,
+                          ),
+                        ),
+                        _SocialTabView(
+                          child: _DuelPulseEntryCard(
+                            onTap: _openCommunitySheet,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  child: _ForumSectionHeader(
-                    title: 'Espace social',
-                    subtitle:
-                        'Profils publics, badges, demandes d’amis et classements globaux ou entre amis.',
-                  ),
-                ),
-                if (user != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                    child: SocialSpotlightCard(
-                      currentUserId: user.uid,
-                      onOpenCommunity: _openCommunitySheet,
-                    ),
-                  )
-                else
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
-                    child: _GradientInfoCard(
-                      text:
-                          'Connecte-toi pour activer le social, les amis et les classements personnalisés.',
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-                  child: _ForumPulseEntryCard(
-                    canCompose: user != null,
-                    onTap: _openForumSheet,
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  child: _ForumSectionHeader(
-                    title: 'Communauté',
-                    subtitle:
-                        'Passe du classement social au duel hebdo sans garder l’ancien système de mini-jeux.',
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
-                  child: _ForumCommunityCard(),
-                ),
-                if (user != null)
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(12, 12, 12, 0),
-                    child: SponsoredNativeAdCard.social(),
-                  ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -148,35 +130,88 @@ class _GradientInfoCard extends StatelessWidget {
   }
 }
 
-class _ForumSectionHeader extends StatelessWidget {
-  const _ForumSectionHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
+class _SocialPageHeader extends StatelessWidget {
+  const _SocialPageHeader();
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: const [
         Text(
-          title,
-          style: const TextStyle(
+          'Social',
+          style: TextStyle(
             color: textColor,
             fontWeight: FontWeight.w900,
-            fontSize: 18,
+            fontSize: 28,
+            letterSpacing: -0.4,
           ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
-          subtitle,
-          style: const TextStyle(
-            color: Colors.black54,
-            fontSize: 12.8,
-            height: 1.4,
-          ),
+          'Classement, forum et duel réunis dans le même hub.',
+          style: TextStyle(color: Colors.black54, fontSize: 13, height: 1.35),
         ),
       ],
+    );
+  }
+}
+
+class _SocialTabStrip extends StatelessWidget {
+  const _SocialTabStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE6E8EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: const TabBar(
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        indicator: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [detailsColor1, detailsColor2],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+        labelColor: Colors.white,
+        unselectedLabelColor: textColor,
+        labelStyle: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+        unselectedLabelStyle: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
+        ),
+        tabs: [Tab(text: 'Classement'), Tab(text: 'Forum'), Tab(text: 'Duel')],
+      ),
+    );
+  }
+}
+
+class _SocialTabView extends StatelessWidget {
+  const _SocialTabView({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomScrollInset = MediaQuery.of(context).padding.bottom + 118;
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(12, 14, 12, bottomScrollInset),
+      children: [child],
     );
   }
 }
@@ -488,8 +523,33 @@ class _ForumPulseTag extends StatelessWidget {
   }
 }
 
-class _ForumCommunityCard extends StatelessWidget {
-  const _ForumCommunityCard();
+class _DuelPulseEntryCard extends StatefulWidget {
+  const _DuelPulseEntryCard({required this.onTap});
+
+  final Future<void> Function() onTap;
+
+  @override
+  State<_DuelPulseEntryCard> createState() => _DuelPulseEntryCardState();
+}
+
+class _DuelPulseEntryCardState extends State<_DuelPulseEntryCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -533,71 +593,171 @@ class _ForumCommunityCard extends StatelessWidget {
                     ? '$openCount duel(s) actif(s) dans la communauté.'
                     : 'Lance le duel hebdo pour affronter un joueur proche de ton niveau.',
             };
+            final statusLabel = switch (ownProfile?.state) {
+              'pending_received' => 'À répondre',
+              'pending_sent' => 'En attente',
+              'active_duel' => 'En cours',
+              _ => openCount > 0 ? '$openCount actif(s)' : 'Matchmaking',
+            };
 
-            return InkWell(
-              onTap:
-                  () => showCupertinoModalBottomSheet(
-                    context: context,
-                    expand: true,
-                    builder: (_) => const CommunityPage(),
-                  ),
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE6E8EB)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 46,
-                      height: 46,
+            return Semantics(
+              button: true,
+              label: 'Ouvrir le hub duel hebdomadaire',
+              child: InkWell(
+                onTap: widget.onTap,
+                borderRadius: BorderRadius.circular(28),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) {
+                    final phase = _controller.value;
+                    return Container(
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(28),
                         gradient: const LinearGradient(
                           colors: [detailsColor1, detailsColor2],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.sports_kabaddi_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Duel hebdo',
-                            style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            subtitle,
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: detailsColor1.withValues(alpha: 0.22),
+                            blurRadius: 24,
+                            offset: const Offset(0, 14),
                           ),
                         ],
                       ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.black38,
-                    ),
-                  ],
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                painter: _DuelArenaPainter(progress: phase),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 4 + (math.sin(phase * math.pi * 2) * 5),
+                            right: 4,
+                            child: _ForumFloatingPill(
+                              icon: Icons.local_fire_department_rounded,
+                              label: statusLabel,
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 54 + (math.cos(phase * math.pi * 2) * 4),
+                            right: 18,
+                            child: const _ForumFloatingPill(
+                              icon: Icons.query_stats_rounded,
+                              label: 'Dashboard live',
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 54,
+                                    height: 54,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.20,
+                                        ),
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.sports_kabaddi_rounded,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Expanded(
+                                    child: Text(
+                                      'Duel hebdo',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 21,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              const Text(
+                                'Un face-à-face de portefeuille, une semaine pour creuser l’écart.',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                subtitle,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: const [
+                                  _ForumPulseTag(label: 'Radar adverse'),
+                                  _ForumPulseTag(label: 'Révélations'),
+                                  _ForumPulseTag(label: 'Score live'),
+                                ],
+                              ),
+                              const SizedBox(height: 18),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Ouvrir le hub duel',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      color: Colors.white,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             );
@@ -605,5 +765,80 @@ class _ForumCommunityCard extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class _DuelArenaPainter extends CustomPainter {
+  const _DuelArenaPainter({required this.progress});
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final orbitPaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..color = Colors.white.withValues(alpha: 0.13);
+    final glowPaint =
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round
+          ..color = Colors.white.withValues(alpha: 0.28);
+    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.95);
+
+    final center = Offset(size.width * 0.82, size.height * 0.28);
+    final outerRect = Rect.fromCenter(
+      center: center,
+      width: size.width * 0.40,
+      height: size.height * 0.42,
+    );
+    final innerRect = Rect.fromCenter(
+      center: center,
+      width: size.width * 0.24,
+      height: size.height * 0.24,
+    );
+
+    canvas.drawOval(outerRect, orbitPaint);
+    canvas.drawOval(innerRect, orbitPaint);
+    canvas.drawCircle(
+      Offset(size.width * 0.20, size.height * 0.78),
+      size.width * 0.12,
+      orbitPaint,
+    );
+
+    final orbitStart = progress * math.pi * 2;
+    canvas.drawArc(outerRect, orbitStart, math.pi * 0.95, false, glowPaint);
+    canvas.drawArc(
+      innerRect,
+      -orbitStart * 1.2,
+      math.pi * 0.78,
+      false,
+      glowPaint,
+    );
+
+    final movingOuter = Offset(
+      center.dx + (outerRect.width / 2) * math.cos(orbitStart),
+      center.dy + (outerRect.height / 2) * math.sin(orbitStart),
+    );
+    final movingInner = Offset(
+      center.dx + (innerRect.width / 2) * math.cos(-orbitStart * 1.2),
+      center.dy + (innerRect.height / 2) * math.sin(-orbitStart * 1.2),
+    );
+
+    canvas.drawCircle(movingOuter, 4.5, dotPaint);
+    canvas.drawCircle(movingInner, 3.5, dotPaint);
+
+    final bottomPulse = Offset(
+      size.width * 0.20 + size.width * 0.12 * math.cos(orbitStart * 0.7),
+      size.height * 0.78 + size.width * 0.12 * math.sin(orbitStart * 0.7),
+    );
+    canvas.drawCircle(bottomPulse, 5, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DuelArenaPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }

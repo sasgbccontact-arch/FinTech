@@ -50,26 +50,26 @@ service cloud.firestore {
         && tags.size() <= 4;
     }
 
-    function isValidAttachment(attachment) {
-      return attachment == null
-        || (
-          attachment is map
-          && attachment.keys().hasOnly([
-            'symbol', 'displayName', 'exchange', 'currency', 'quoteType'
-          ])
-          && attachment.symbol is string
-          && attachment.symbol.size() > 0
-          && attachment.symbol.size() <= 16
-          && attachment.displayName is string
-          && attachment.displayName.size() > 0
-          && attachment.displayName.size() <= 200
-          && attachment.exchange is string
-          && attachment.exchange.size() <= 40
-          && attachment.currency is string
-          && attachment.currency.size() <= 12
-          && attachment.quoteType is string
-          && attachment.quoteType.size() <= 32
-        );
+    function isShortText(value, maxLength) {
+      return value == null || (value is string && value.size() <= maxLength);
+    }
+
+    function isValidTickerList(values, maxSize) {
+      return values == null || (values is list && values.size() <= maxSize);
+    }
+
+    function isValidConvictionSide(side) {
+      return side == null || side in ['long', 'short'];
+    }
+
+    function isValidConvictionStatus(status) {
+      return status == null || status in [
+        'open', 'monitoring', 'hit_target', 'invalidated', 'closed'
+      ];
+    }
+
+    function isValidConvictionOutcome(outcome) {
+      return outcome == null || outcome in ['pending', 'win', 'loss', 'flat'];
     }
 
     function hasAcceptedFriendRequest(participants) {
@@ -636,12 +636,44 @@ service cloud.firestore {
       allow read: if true;
 
       allow create: if isSignedIn()
-        && request.resource.data.keys().hasOnly(['name', 'createdAt', 'createdByUid'])
+        && request.resource.data.keys().hasOnly([
+          'name', 'description', 'iconKey',
+          'relatedTickers', 'aliases',
+          'isCurated',
+          'createdAt', 'updatedAt', 'createdByUid'
+        ])
         && isValidThemeName(request.resource.data.name)
+        && isShortText(request.resource.data.get('description', null), 140)
+        && isShortText(request.resource.data.get('iconKey', null), 32)
+        && isValidTickerList(request.resource.data.get('relatedTickers', null), 12)
+        && isValidTickerList(request.resource.data.get('aliases', null), 12)
+        && request.resource.data.get('isCurated', false) == false
         && request.resource.data.createdByUid == uid()
         && request.resource.data.createdAt is timestamp;
 
-      allow update, delete: if false;
+      allow update: if isAdminUser()
+        && request.resource.data.keys().hasOnly([
+          'name', 'description', 'iconKey',
+          'relatedTickers', 'aliases',
+          'isCurated',
+          'createdAt', 'updatedAt', 'createdByUid'
+        ])
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && isValidThemeName(request.resource.data.name)
+        && isShortText(request.resource.data.get('description', null), 140)
+        && isShortText(request.resource.data.get('iconKey', null), 32)
+        && isValidTickerList(request.resource.data.get('relatedTickers', null), 12)
+        && isValidTickerList(request.resource.data.get('aliases', null), 12)
+        && request.resource.data.get('isCurated', false) is bool
+        && request.resource.data.updatedAt is timestamp;
+
+      allow delete: if false;
+    }
+
+    match /forum_weekly_winner/{winnerId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // =========================
@@ -696,9 +728,16 @@ service cloud.firestore {
           'postType', 'tags',
           'attachment', 'attachments',
           'authorKarma', 'isVerifiedAuthor',
+          'authorQualityScore', 'authorConvictionScore', 'authorReputationScore',
           'chartAnnotationPng',
           'pitchTitle', 'pitchThesis', 'pitchCatalysts', 'pitchRisks',
-          'portfolioSnapshot'
+          'portfolioSnapshot',
+          'convictionSide', 'convictionStatus', 'convictionOutcome',
+          'convictionHorizon',
+          'convictionEntryPrice', 'convictionTargetPrice',
+          'convictionInvalidationPrice', 'convictionReturnPct',
+          'convictionOpenedAt', 'convictionUpdatedAt', 'convictionClosedAt',
+          'convictionNote'
         ])
         && request.resource.data.uid == uid()
         && request.resource.data.text is string
@@ -719,7 +758,40 @@ service cloud.firestore {
         && request.resource.data.reactions.insightful == 0
         && request.resource.data.isPinned == false
         && isValidPostType(request.resource.data.postType)
-        && isValidTags(request.resource.data.tags);
+        && isValidTags(request.resource.data.tags)
+        && request.resource.data.get('authorQualityScore', 0) is int
+        && request.resource.data.get('authorQualityScore', 0) >= 0
+        && request.resource.data.get('authorConvictionScore', 0) is int
+        && request.resource.data.get('authorConvictionScore', 0) >= 0
+        && request.resource.data.get('authorReputationScore', 0) is int
+        && request.resource.data.get('authorReputationScore', 0) >= 0
+        && isShortText(request.resource.data.get('pitchTitle', null), 120)
+        && isShortText(request.resource.data.get('pitchThesis', null), 1600)
+        && isShortText(request.resource.data.get('pitchCatalysts', null), 1600)
+        && isShortText(request.resource.data.get('pitchRisks', null), 1600)
+        && isValidConvictionSide(request.resource.data.get('convictionSide', null))
+        && isValidConvictionStatus(request.resource.data.get('convictionStatus', null))
+        && isValidConvictionOutcome(request.resource.data.get('convictionOutcome', null))
+        && isShortText(request.resource.data.get('convictionHorizon', null), 40)
+        && isShortText(request.resource.data.get('convictionNote', null), 280)
+        && isOptionalNumber(request.resource.data.get('convictionEntryPrice', null))
+        && isOptionalNumber(request.resource.data.get('convictionTargetPrice', null))
+        && isOptionalNumber(request.resource.data.get('convictionInvalidationPrice', null))
+        && isOptionalNumber(request.resource.data.get('convictionReturnPct', null))
+        && isOptionalTimestamp(request.resource.data.get('convictionOpenedAt', null))
+        && isOptionalTimestamp(request.resource.data.get('convictionUpdatedAt', null))
+        && isOptionalTimestamp(request.resource.data.get('convictionClosedAt', null))
+        && (
+          request.resource.data.postType != 'pitch'
+          || (
+            request.resource.data.get('pitchTitle', null) is string
+            && request.resource.data.get('pitchTitle', null).size() > 0
+            && request.resource.data.get('convictionStatus', null) == 'open'
+            && request.resource.data.get('convictionOutcome', null) == 'pending'
+            && request.resource.data.get('convictionOpenedAt', null) is timestamp
+            && request.resource.data.get('convictionUpdatedAt', null) is timestamp
+          )
+        );
 
       allow update: if isSignedIn()
         && request.resource.data.keys().hasOnly([
@@ -731,9 +803,16 @@ service cloud.firestore {
           'postType', 'tags',
           'attachment', 'attachments',
           'authorKarma', 'isVerifiedAuthor',
+          'authorQualityScore', 'authorConvictionScore', 'authorReputationScore',
           'chartAnnotationPng',
           'pitchTitle', 'pitchThesis', 'pitchCatalysts', 'pitchRisks',
-          'portfolioSnapshot'
+          'portfolioSnapshot',
+          'convictionSide', 'convictionStatus', 'convictionOutcome',
+          'convictionHorizon',
+          'convictionEntryPrice', 'convictionTargetPrice',
+          'convictionInvalidationPrice', 'convictionReturnPct',
+          'convictionOpenedAt', 'convictionUpdatedAt', 'convictionClosedAt',
+          'convictionNote'
         ])
         && (
           // Vote
@@ -755,12 +834,27 @@ service cloud.firestore {
             && request.resource.data.get('attachments', null) == resource.data.get('attachments', null)
             && request.resource.data.get('authorKarma', 0) == resource.data.get('authorKarma', 0)
             && request.resource.data.get('isVerifiedAuthor', false) == resource.data.get('isVerifiedAuthor', false)
+            && request.resource.data.get('authorQualityScore', 0) == resource.data.get('authorQualityScore', 0)
+            && request.resource.data.get('authorConvictionScore', 0) == resource.data.get('authorConvictionScore', 0)
+            && request.resource.data.get('authorReputationScore', 0) == resource.data.get('authorReputationScore', 0)
             && request.resource.data.get('chartAnnotationPng', null) == resource.data.get('chartAnnotationPng', null)
             && request.resource.data.get('pitchTitle', null) == resource.data.get('pitchTitle', null)
             && request.resource.data.get('pitchThesis', null) == resource.data.get('pitchThesis', null)
             && request.resource.data.get('pitchCatalysts', null) == resource.data.get('pitchCatalysts', null)
             && request.resource.data.get('pitchRisks', null) == resource.data.get('pitchRisks', null)
             && request.resource.data.get('portfolioSnapshot', null) == resource.data.get('portfolioSnapshot', null)
+            && request.resource.data.get('convictionSide', null) == resource.data.get('convictionSide', null)
+            && request.resource.data.get('convictionStatus', null) == resource.data.get('convictionStatus', null)
+            && request.resource.data.get('convictionOutcome', null) == resource.data.get('convictionOutcome', null)
+            && request.resource.data.get('convictionHorizon', null) == resource.data.get('convictionHorizon', null)
+            && request.resource.data.get('convictionEntryPrice', null) == resource.data.get('convictionEntryPrice', null)
+            && request.resource.data.get('convictionTargetPrice', null) == resource.data.get('convictionTargetPrice', null)
+            && request.resource.data.get('convictionInvalidationPrice', null) == resource.data.get('convictionInvalidationPrice', null)
+            && request.resource.data.get('convictionReturnPct', null) == resource.data.get('convictionReturnPct', null)
+            && request.resource.data.get('convictionOpenedAt', null) == resource.data.get('convictionOpenedAt', null)
+            && request.resource.data.get('convictionUpdatedAt', null) == resource.data.get('convictionUpdatedAt', null)
+            && request.resource.data.get('convictionClosedAt', null) == resource.data.get('convictionClosedAt', null)
+            && request.resource.data.get('convictionNote', null) == resource.data.get('convictionNote', null)
             && request.resource.data.upVotes is int
             && request.resource.data.downVotes is int
             && request.resource.data.upVotes >= 0
@@ -798,12 +892,27 @@ service cloud.firestore {
             && request.resource.data.get('attachments', null) == resource.data.get('attachments', null)
             && request.resource.data.get('authorKarma', 0) == resource.data.get('authorKarma', 0)
             && request.resource.data.get('isVerifiedAuthor', false) == resource.data.get('isVerifiedAuthor', false)
+            && request.resource.data.get('authorQualityScore', 0) == resource.data.get('authorQualityScore', 0)
+            && request.resource.data.get('authorConvictionScore', 0) == resource.data.get('authorConvictionScore', 0)
+            && request.resource.data.get('authorReputationScore', 0) == resource.data.get('authorReputationScore', 0)
             && request.resource.data.get('chartAnnotationPng', null) == resource.data.get('chartAnnotationPng', null)
             && request.resource.data.get('pitchTitle', null) == resource.data.get('pitchTitle', null)
             && request.resource.data.get('pitchThesis', null) == resource.data.get('pitchThesis', null)
             && request.resource.data.get('pitchCatalysts', null) == resource.data.get('pitchCatalysts', null)
             && request.resource.data.get('pitchRisks', null) == resource.data.get('pitchRisks', null)
             && request.resource.data.get('portfolioSnapshot', null) == resource.data.get('portfolioSnapshot', null)
+            && request.resource.data.get('convictionSide', null) == resource.data.get('convictionSide', null)
+            && request.resource.data.get('convictionStatus', null) == resource.data.get('convictionStatus', null)
+            && request.resource.data.get('convictionOutcome', null) == resource.data.get('convictionOutcome', null)
+            && request.resource.data.get('convictionHorizon', null) == resource.data.get('convictionHorizon', null)
+            && request.resource.data.get('convictionEntryPrice', null) == resource.data.get('convictionEntryPrice', null)
+            && request.resource.data.get('convictionTargetPrice', null) == resource.data.get('convictionTargetPrice', null)
+            && request.resource.data.get('convictionInvalidationPrice', null) == resource.data.get('convictionInvalidationPrice', null)
+            && request.resource.data.get('convictionReturnPct', null) == resource.data.get('convictionReturnPct', null)
+            && request.resource.data.get('convictionOpenedAt', null) == resource.data.get('convictionOpenedAt', null)
+            && request.resource.data.get('convictionUpdatedAt', null) == resource.data.get('convictionUpdatedAt', null)
+            && request.resource.data.get('convictionClosedAt', null) == resource.data.get('convictionClosedAt', null)
+            && request.resource.data.get('convictionNote', null) == resource.data.get('convictionNote', null)
             && request.resource.data.isPinned == resource.data.isPinned
             && request.resource.data.upVotes == resource.data.upVotes
             && request.resource.data.downVotes == resource.data.downVotes
@@ -846,18 +955,56 @@ service cloud.firestore {
             && request.resource.data.get('attachments', null) == resource.data.get('attachments', null)
             && request.resource.data.get('authorKarma', 0) == resource.data.get('authorKarma', 0)
             && request.resource.data.get('isVerifiedAuthor', false) == resource.data.get('isVerifiedAuthor', false)
+            && request.resource.data.get('authorQualityScore', 0) == resource.data.get('authorQualityScore', 0)
+            && request.resource.data.get('authorConvictionScore', 0) == resource.data.get('authorConvictionScore', 0)
+            && request.resource.data.get('authorReputationScore', 0) == resource.data.get('authorReputationScore', 0)
             && request.resource.data.get('chartAnnotationPng', null) == resource.data.get('chartAnnotationPng', null)
             && request.resource.data.get('pitchTitle', null) == resource.data.get('pitchTitle', null)
             && request.resource.data.get('pitchThesis', null) == resource.data.get('pitchThesis', null)
             && request.resource.data.get('pitchCatalysts', null) == resource.data.get('pitchCatalysts', null)
             && request.resource.data.get('pitchRisks', null) == resource.data.get('pitchRisks', null)
             && request.resource.data.get('portfolioSnapshot', null) == resource.data.get('portfolioSnapshot', null)
+            && request.resource.data.get('convictionSide', null) == resource.data.get('convictionSide', null)
+            && request.resource.data.get('convictionStatus', null) == resource.data.get('convictionStatus', null)
+            && request.resource.data.get('convictionOutcome', null) == resource.data.get('convictionOutcome', null)
+            && request.resource.data.get('convictionHorizon', null) == resource.data.get('convictionHorizon', null)
+            && request.resource.data.get('convictionEntryPrice', null) == resource.data.get('convictionEntryPrice', null)
+            && request.resource.data.get('convictionTargetPrice', null) == resource.data.get('convictionTargetPrice', null)
+            && request.resource.data.get('convictionInvalidationPrice', null) == resource.data.get('convictionInvalidationPrice', null)
+            && request.resource.data.get('convictionReturnPct', null) == resource.data.get('convictionReturnPct', null)
+            && request.resource.data.get('convictionOpenedAt', null) == resource.data.get('convictionOpenedAt', null)
+            && request.resource.data.get('convictionUpdatedAt', null) == resource.data.get('convictionUpdatedAt', null)
+            && request.resource.data.get('convictionClosedAt', null) == resource.data.get('convictionClosedAt', null)
+            && request.resource.data.get('convictionNote', null) == resource.data.get('convictionNote', null)
             && request.resource.data.reactions == resource.data.reactions
             && request.resource.data.upVotes == resource.data.upVotes
             && request.resource.data.downVotes == resource.data.downVotes
             && request.resource.data.score == resource.data.score
             && request.resource.data.lastVoteAt == resource.data.lastVoteAt
             && request.resource.data.isPinned is bool
+          )
+          // Mise à jour propriétaire d'un pitch suivi
+          || (
+            resource.data.uid == uid()
+            && resource.data.postType == 'pitch'
+            && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+              'pitchThesis', 'pitchCatalysts', 'pitchRisks',
+              'convictionStatus', 'convictionOutcome', 'convictionReturnPct',
+              'convictionUpdatedAt', 'convictionClosedAt', 'convictionNote'
+            ])
+            && isShortText(request.resource.data.get('pitchThesis', null), 1600)
+            && isShortText(request.resource.data.get('pitchCatalysts', null), 1600)
+            && isShortText(request.resource.data.get('pitchRisks', null), 1600)
+            && isValidConvictionStatus(request.resource.data.get('convictionStatus', null))
+            && isValidConvictionOutcome(request.resource.data.get('convictionOutcome', null))
+            && isOptionalNumber(request.resource.data.get('convictionReturnPct', null))
+            && request.resource.data.get('convictionUpdatedAt', null) is timestamp
+            && isOptionalTimestamp(request.resource.data.get('convictionClosedAt', null))
+            && isShortText(request.resource.data.get('convictionNote', null), 280)
+            && (
+              request.resource.data.get('convictionStatus', null) != 'closed'
+              || request.resource.data.get('convictionOutcome', null) in ['win', 'loss', 'flat']
+            )
           )
         );
 
@@ -918,21 +1065,46 @@ service cloud.firestore {
           && resource.data.uid != uid()
           && request.resource.data.keys().hasOnly([
             'text', 'uid', 'authorName', 'photoURL', 'authorAvatarId',
-            'createdAt', 'upVotes', 'downVotes', 'score'
+            'createdAt', 'upVotes', 'downVotes', 'score', 'lastVoteAt'
           ])
           && request.resource.data.text == resource.data.text
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.authorName == resource.data.authorName
           && request.resource.data.photoURL == resource.data.photoURL
+          && request.resource.data.get('authorAvatarId', null) == resource.data.get('authorAvatarId', null)
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.upVotes is int
           && request.resource.data.downVotes is int
           && request.resource.data.upVotes >= 0
           && request.resource.data.downVotes >= 0
           && request.resource.data.score is int
-          && request.resource.data.score == (request.resource.data.upVotes - request.resource.data.downVotes);
+          && request.resource.data.score == (request.resource.data.upVotes - request.resource.data.downVotes)
+          && request.resource.data.lastVoteAt is timestamp
+          && (
+            (
+              existsAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/replies/$(replyId)/votes/$(uid()))
+              && getAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/replies/$(replyId)/votes/$(uid())).data.value in [1, -1]
+              && getAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/replies/$(replyId)/votes/$(uid())).data.updatedAt is timestamp
+            )
+            || (
+              !existsAfter(/databases/$(database)/documents/forum_chat_messages/$(messageId)/replies/$(replyId)/votes/$(uid()))
+              && exists(/databases/$(database)/documents/forum_chat_messages/$(messageId)/replies/$(replyId)/votes/$(uid()))
+            )
+          );
 
         allow delete: if isSignedIn() && resource.data.uid == uid();
+
+        match /votes/{userId} {
+          allow read: if isSignedIn() && uid() == userId;
+
+          allow create, update: if isSignedIn()
+            && uid() == userId
+            && request.resource.data.keys().hasOnly(['value', 'updatedAt'])
+            && request.resource.data.value in [1, -1]
+            && request.resource.data.updatedAt is timestamp;
+
+          allow delete: if isSignedIn() && uid() == userId;
+        }
       }
     }
 
@@ -941,11 +1113,17 @@ service cloud.firestore {
       allow read, update: if isSignedIn() && uid() == userId;
       allow create: if isSignedIn()
         && request.resource.data.keys().hasOnly([
-          'type', 'postId', 'fromUid', 'fromName', 'createdAt', 'read'
+          'type', 'postId', 'fromUid', 'fromName', 'createdAt', 'read', 'score'
         ])
         && request.resource.data.type in ['reply', 'mention', 'vote_milestone']
+        && request.resource.data.fromUid == uid()
+        && uid() != userId
+        && isValidAuthorName(request.resource.data.fromName)
+        && request.resource.data.postId is string
+        && request.resource.data.postId.size() > 0
         && request.resource.data.read == false
-        && request.resource.data.createdAt is timestamp;
+        && request.resource.data.createdAt is timestamp
+        && isShortText(request.resource.data.get('score', null), 24);
       allow delete: if isSignedIn() && uid() == userId;
     }
 

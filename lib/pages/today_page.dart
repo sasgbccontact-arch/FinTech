@@ -46,6 +46,9 @@ class _TodayPageState extends State<TodayPage> {
     if (id == '_beyondbig') return 'assets/avatars/beyond_big.png';
     if (id == '_groseline') return 'assets/avatars/groseline.png';
     if (id == '_gay') return 'assets/avatars/gay.png';
+    if (id == '_javataimertoutelavie') {
+      return 'assets/avatars/javataimertoutelavie.png';
+    }
     if (id == '_call') return 'assets/avatars/avatar_call.png';
     if (id == '_happy') return 'assets/avatars/avatar_happy.png';
     if (id == '_wealthy') return 'assets/avatars/avatar_wealthy.png';

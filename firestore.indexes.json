@@ -61,6 +61,20 @@
       ]
     },
     {
+      "collectionGroup": "forum_chat_messages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "friend_requests",
       "queryScope": "COLLECTION",
       "fields": [
