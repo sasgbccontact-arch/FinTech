@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../data/countries_fr.dart';
 import '../models/news_article.dart';
 import '../models/quiz_question.dart';
+import '../utils/news_text_sanitizer.dart';
 
 enum QuizContext { actus, monde }
 
@@ -122,7 +123,8 @@ class QuizGenerator {
     int fallbackUsed = 0;
     for (final q in dedup) {
       if (result.length >= 4) break;
-      final isMeta = q.type == QuizQuestionType.source ||
+      final isMeta =
+          q.type == QuizQuestionType.source ||
           q.type == QuizQuestionType.date ||
           q.type == QuizQuestionType.country;
       if (isMeta) {
@@ -163,9 +165,10 @@ class QuizGenerator {
     final snippet = _sanitize(article.snippet ?? '');
     if (snippet.trim().length < 50) return null;
 
-    final sentences = _extractSentences(snippet)
-        .where((s) => s.trim().length >= 35 && s.trim().length <= 220)
-        .toList();
+    final sentences =
+        _extractSentences(snippet)
+            .where((s) => s.trim().length >= 35 && s.trim().length <= 220)
+            .toList();
     if (sentences.isEmpty) return null;
 
     rng.shuffle(sentences);
@@ -179,9 +182,14 @@ class QuizGenerator {
     if (entities.isNotEmpty) {
       final entity = entities[rng.nextInt(entities.length)];
       final domain = _detectDomain(article);
-      final replacements = _buildEntityPool(domain, others)
-          .where((e) => e != entity && !original.toLowerCase().contains(e.toLowerCase()))
-          .toList();
+      final replacements =
+          _buildEntityPool(domain, others)
+              .where(
+                (e) =>
+                    e != entity &&
+                    !original.toLowerCase().contains(e.toLowerCase()),
+              )
+              .toList();
       rng.shuffle(replacements);
       if (replacements.isNotEmpty) {
         wrongs.add(original.replaceFirst(entity, replacements.first));
@@ -191,9 +199,11 @@ class QuizGenerator {
     // Variant B: replace a number with a plausible alternative
     if (nums.isNotEmpty) {
       final nm = nums[rng.nextInt(nums.length)];
-      final alts = _numericDistractors(nm.value, nm.rawNumber)
-          .where((d) => d != nm.rawNumber)
-          .toList();
+      final alts =
+          _numericDistractors(
+            nm.value,
+            nm.rawNumber,
+          ).where((d) => d != nm.rawNumber).toList();
       rng.shuffle(alts);
       if (alts.isNotEmpty) {
         wrongs.add(original.replaceFirst(nm.rawNumber, alts.first));
@@ -212,10 +222,13 @@ class QuizGenerator {
 
     // Variant E: swap entity with one from another article (cross-contamination)
     if (wrongs.length < 2 && entities.isNotEmpty && others.isNotEmpty) {
-      final otherEntities = others
-          .expand((a) => _extractNamedEntities('${a.title} ${a.snippet ?? ''}'))
-          .where((e) => !original.toLowerCase().contains(e.toLowerCase()))
-          .toList();
+      final otherEntities =
+          others
+              .expand(
+                (a) => _extractNamedEntities('${a.title} ${a.snippet ?? ''}'),
+              )
+              .where((e) => !original.toLowerCase().contains(e.toLowerCase()))
+              .toList();
       rng.shuffle(otherEntities);
       if (otherEntities.isNotEmpty) {
         wrongs.add(original.replaceFirst(entities.first, otherEntities.first));
@@ -232,8 +245,7 @@ class QuizGenerator {
 
     return QuizQuestion(
       id: 'q${idx}_true_${article.id}',
-      prompt:
-          'Laquelle de ces affirmations est correcte selon l\'article ?',
+      prompt: 'Laquelle de ces affirmations est correcte selon l\'article ?',
       choices: choices,
       correctIndex: choices.indexOf(original),
       type: QuizQuestionType.trueSentence,
@@ -255,14 +267,14 @@ class QuizGenerator {
     final hasSnippet = rawSnippet.trim().length >= 60;
     final title = _sanitize(article.title);
     // Use snippet when available, otherwise fall back to title (≥4 words)
-    final base = hasSnippet
-        ? rawSnippet
-        : (title.split(RegExp(r'\s+')).length >= 4 ? title : '');
+    final base =
+        hasSnippet
+            ? rawSnippet
+            : (title.split(RegExp(r'\s+')).length >= 4 ? title : '');
     if (base.trim().length < 20) return null;
 
     final sentences = _extractSentences(base);
-    final candidates =
-        sentences.isNotEmpty ? sentences : [base.trim()];
+    final candidates = sentences.isNotEmpty ? sentences : [base.trim()];
 
     // selectedSentenceBlanked already contains '___'
     String? selectedSentenceBlanked;
@@ -344,11 +356,10 @@ class QuizGenerator {
     } else {
       // Entity distractors: from other articles + static bank
       distractors.addAll(
-        _buildEntityPool(_detectDomain(article), others).where(
-          (e) =>
-              e != blankWord &&
-              !selectedSentenceBlanked!.contains(e),
-        ),
+        _buildEntityPool(
+          _detectDomain(article),
+          others,
+        ).where((e) => e != blankWord && !selectedSentenceBlanked!.contains(e)),
       );
       for (final other in others) {
         distractors.addAll(
@@ -394,9 +405,11 @@ class QuizGenerator {
     rng.shuffle(matches);
     final match = matches.first;
 
-    final distractors = _numericDistractors(match.value, match.rawNumber)
-        .where((d) => d != match.rawNumber)
-        .toList();
+    final distractors =
+        _numericDistractors(
+          match.value,
+          match.rawNumber,
+        ).where((d) => d != match.rawNumber).toList();
     if (distractors.length < 2) return null;
 
     rng.shuffle(distractors);
@@ -428,10 +441,11 @@ class QuizGenerator {
     final text = _sanitize('${article.title} ${article.snippet ?? ''}');
     // _extractNamedEntities skips position-0 words per sentence (noise filter).
     // For the title we also extract ALL positions since every word is content.
-    final entities = {
-      ..._extractNamedEntities(text),
-      ..._extractTitleEntities(_sanitize(article.title)),
-    }.toList();
+    final entities =
+        {
+          ..._extractNamedEntities(text),
+          ..._extractTitleEntities(_sanitize(article.title)),
+        }.toList();
     if (entities.isEmpty) return null;
 
     rng.shuffle(entities);
@@ -447,19 +461,16 @@ class QuizGenerator {
       distractorPool.addAll(
         _extractNamedEntities(
           _sanitize('${other.title} ${other.snippet ?? ''}'),
-        ).where(
-          (e) => e != correct && !articleLower.contains(e.toLowerCase()),
-        ),
+        ).where((e) => e != correct && !articleLower.contains(e.toLowerCase())),
       );
     }
 
     // Static bank
     distractorPool.addAll(
-      _buildEntityPool(_detectDomain(article), others)
-          .where(
-            (e) =>
-                e != correct && !articleLower.contains(e.toLowerCase()),
-          ),
+      _buildEntityPool(
+        _detectDomain(article),
+        others,
+      ).where((e) => e != correct && !articleLower.contains(e.toLowerCase())),
     );
 
     final distList = distractorPool.toList();
@@ -510,9 +521,7 @@ class QuizGenerator {
       );
       distractorPool.addAll(
         otherKws.where(
-          (k) =>
-              !articleLower.contains(k.toLowerCase()) &&
-              k != correct,
+          (k) => !articleLower.contains(k.toLowerCase()) && k != correct,
         ),
       );
     }
@@ -520,11 +529,9 @@ class QuizGenerator {
     // Static keyword bank (domain-appropriate, not in article)
     final domain = _detectDomain(article);
     distractorPool.addAll(
-      _staticKeywordBank(domain).where(
-        (k) =>
-            !articleLower.contains(k.toLowerCase()) &&
-            k != correct,
-      ),
+      _staticKeywordBank(
+        domain,
+      ).where((k) => !articleLower.contains(k.toLowerCase()) && k != correct),
     );
 
     final distList = distractorPool.toList();
@@ -533,8 +540,7 @@ class QuizGenerator {
     if (wrongs.length < 2) return null;
 
     // Capitalize for display (keywords are extracted in lowercase)
-    String cap(String w) =>
-        w.isEmpty ? w : w[0].toUpperCase() + w.substring(1);
+    String cap(String w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1);
 
     final choices = [correct, ...wrongs].map(cap).toList();
     final correctDisplay = cap(correct);
@@ -557,16 +563,18 @@ class QuizGenerator {
     List<NewsArticle> articles,
     _SeededRandom rng,
   ) {
-    final withSnippets = articles
-        .where((a) => _sanitize(a.snippet ?? '').trim().length >= 50)
-        .toList();
+    final withSnippets =
+        articles
+            .where((a) => _sanitize(a.snippet ?? '').trim().length >= 50)
+            .toList();
     if (withSnippets.length < 2) return null;
 
     rng.shuffle(withSnippets);
     final target = withSnippets.first;
-    final sentences = _extractSentences(_sanitize(target.snippet!))
-        .where((s) => s.trim().length >= 35 && s.trim().length <= 160)
-        .toList();
+    final sentences =
+        _extractSentences(_sanitize(target.snippet!))
+            .where((s) => s.trim().length >= 35 && s.trim().length <= 160)
+            .toList();
     if (sentences.isEmpty) return null;
 
     rng.shuffle(sentences);
@@ -584,11 +592,12 @@ class QuizGenerator {
     }
 
     final correct = _truncate(target.title, max: 90);
-    final wrongPool = articles
-        .where((a) => a.url != target.url)
-        .map((a) => _truncate(a.title, max: 90))
-        .where((t) => t != correct)
-        .toList();
+    final wrongPool =
+        articles
+            .where((a) => a.url != target.url)
+            .map((a) => _truncate(a.title, max: 90))
+            .where((t) => t != correct)
+            .toList();
 
     if (wrongPool.isEmpty) return null;
     rng.shuffle(wrongPool);
@@ -618,21 +627,20 @@ class QuizGenerator {
   ) {
     final correct =
         article.source.isNotEmpty ? article.source : 'Source inconnue';
-    final wrongPool = <String>{
-      ...others
-          .where((a) => a.source.isNotEmpty)
-          .map((a) => a.source),
-      'Reuters',
-      'AFP',
-      'Bloomberg',
-      'BBC News',
-      'Le Monde',
-      'Financial Times',
-      'The Guardian',
-      'CNBC',
-      'The Economist',
-      'Wall Street Journal',
-    }.where((s) => s != correct).toList();
+    final wrongPool =
+        <String>{
+          ...others.where((a) => a.source.isNotEmpty).map((a) => a.source),
+          'Reuters',
+          'AFP',
+          'Bloomberg',
+          'BBC News',
+          'Le Monde',
+          'Financial Times',
+          'The Guardian',
+          'CNBC',
+          'The Economist',
+          'Wall Street Journal',
+        }.where((s) => s != correct).toList();
     rng.shuffle(wrongPool);
     final choices = [correct, ...wrongPool.take(3)];
     rng.shuffle(choices);
@@ -656,10 +664,11 @@ class QuizGenerator {
     int idx,
   ) {
     final correct = countryNameFr;
-    final wrongPool = kAllCountries
-        .where((c) => c.iso2.toUpperCase() != iso2.toUpperCase())
-        .map((c) => c.nameFr)
-        .toList();
+    final wrongPool =
+        kAllCountries
+            .where((c) => c.iso2.toUpperCase() != iso2.toUpperCase())
+            .map((c) => c.nameFr)
+            .toList();
     rng.shuffle(wrongPool);
     final choices = [correct, ...wrongPool.take(3)];
     rng.shuffle(choices);
@@ -678,11 +687,7 @@ class QuizGenerator {
   /// Supprime toutes les URLs (http/https/ftp) d'un texte brut.
   /// Évite que des liens GDELT se retrouvent dans les questions.
   String _sanitize(String text) {
-    return text
-        .replaceAll(RegExp(r'https?://\S+'), '')
-        .replaceAll(RegExp(r'ftp://\S+'), '')
-        .replaceAll(RegExp(r'\s{2,}'), ' ')
-        .trim();
+    return sanitizeNewsGameText(text);
   }
 
   List<String> _extractSentences(String text) {
@@ -825,7 +830,8 @@ class QuizGenerator {
 
   String _formatLike(double value, String original) {
     final hasFraction =
-        original.contains('.') || (original.contains(',') && !original.contains('.'));
+        original.contains('.') ||
+        (original.contains(',') && !original.contains('.'));
     if (hasFraction) {
       final decimals = original.split(RegExp(r'[.,]')).last.length;
       return value.toStringAsFixed(decimals);
@@ -835,11 +841,12 @@ class QuizGenerator {
 
   /// TF-based keyword extraction, penalized for occurrence in other texts.
   List<String> _extractKeywords(String text, List<String> otherTexts) {
-    final tokens = text
-        .toLowerCase()
-        .split(RegExp('[\\s\\-,;:.!?()\\[\\]{}\'"]+'))
-        .where((t) => t.length >= 4 && !_stopWords.contains(t))
-        .toList();
+    final tokens =
+        text
+            .toLowerCase()
+            .split(RegExp('[\\s\\-,;:.!?()\\[\\]{}\'"]+'))
+            .where((t) => t.length >= 4 && !_stopWords.contains(t))
+            .toList();
 
     final freq = <String, int>{};
     for (final t in tokens) {
@@ -847,11 +854,15 @@ class QuizGenerator {
     }
 
     final otherCombined = otherTexts.join(' ').toLowerCase();
-    final scored = freq.entries.map((e) {
-      final inOthers = otherCombined.contains(e.key) ? 1 : 0;
-      return MapEntry(e.key, e.value.toDouble() * (inOthers == 0 ? 2.0 : 1.0));
-    }).toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final scored =
+        freq.entries.map((e) {
+            final inOthers = otherCombined.contains(e.key) ? 1 : 0;
+            return MapEntry(
+              e.key,
+              e.value.toDouble() * (inOthers == 0 ? 2.0 : 1.0),
+            );
+          }).toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
     return scored.take(10).map((e) => e.key).toList();
   }
@@ -893,24 +904,40 @@ class QuizGenerator {
 
   String _detectDomain(NewsArticle article) {
     final t = '${article.title} ${article.snippet ?? ''}'.toLowerCase();
-    if (t.contains('bank') || t.contains('stock') || t.contains('market') ||
-        t.contains('fund') || t.contains('invest') || t.contains('finance')) {
+    if (t.contains('bank') ||
+        t.contains('stock') ||
+        t.contains('market') ||
+        t.contains('fund') ||
+        t.contains('invest') ||
+        t.contains('finance')) {
       return 'finance';
     }
-    if (t.contains('war') || t.contains('guerre') || t.contains('nato') ||
-        t.contains('military') || t.contains('sanction') || t.contains('missile')) {
+    if (t.contains('war') ||
+        t.contains('guerre') ||
+        t.contains('nato') ||
+        t.contains('military') ||
+        t.contains('sanction') ||
+        t.contains('missile')) {
       return 'geo';
     }
-    if (t.contains('tech') || t.contains(' ai ') || t.contains('software') ||
-        t.contains('startup') || t.contains('digital')) {
+    if (t.contains('tech') ||
+        t.contains(' ai ') ||
+        t.contains('software') ||
+        t.contains('startup') ||
+        t.contains('digital')) {
       return 'tech';
     }
-    if (t.contains('oil') || t.contains('energy') || t.contains('opec') ||
-        t.contains('gas') || t.contains('climate')) {
+    if (t.contains('oil') ||
+        t.contains('energy') ||
+        t.contains('opec') ||
+        t.contains('gas') ||
+        t.contains('climate')) {
       return 'energy';
     }
-    if (t.contains('election') || t.contains('government') ||
-        t.contains('president') || t.contains('parlement')) {
+    if (t.contains('election') ||
+        t.contains('government') ||
+        t.contains('president') ||
+        t.contains('parlement')) {
       return 'politics';
     }
     return 'general';
@@ -932,86 +959,214 @@ class QuizGenerator {
   List<String> _staticEntityBank(String domain) {
     const banks = <String, List<String>>{
       'finance': [
-        'Goldman Sachs', 'JPMorgan Chase', 'BlackRock', 'Morgan Stanley',
-        'Vanguard Group', 'Berkshire Hathaway', 'Warren Buffett', 'Jerome Powell',
-        'Christine Lagarde', 'Larry Fink', 'Ray Dalio', 'Citadel',
-        'Deutsche Bank', 'UBS', 'Citigroup', 'Bank of America', 'HSBC',
-        'Barclays', 'Credit Suisse', 'Wells Fargo', 'Société Générale',
-        'BNP Paribas', 'Moody\'s', 'S&P Global', 'Fitch Ratings',
+        'Goldman Sachs',
+        'JPMorgan Chase',
+        'BlackRock',
+        'Morgan Stanley',
+        'Vanguard Group',
+        'Berkshire Hathaway',
+        'Warren Buffett',
+        'Jerome Powell',
+        'Christine Lagarde',
+        'Larry Fink',
+        'Ray Dalio',
+        'Citadel',
+        'Deutsche Bank',
+        'UBS',
+        'Citigroup',
+        'Bank of America',
+        'HSBC',
+        'Barclays',
+        'Credit Suisse',
+        'Wells Fargo',
+        'Société Générale',
+        'BNP Paribas',
+        'Moody\'s',
+        'S&P Global',
+        'Fitch Ratings',
       ],
       'geo': [
-        'Vladimir Poutine', 'Xi Jinping', 'Joe Biden', 'Emmanuel Macron',
-        'Volodymyr Zelensky', 'Benjamin Netanyahu', 'Olaf Scholz',
-        'Ursula von der Leyen', 'António Guterres', 'Mark Rutte',
-        'Jens Stoltenberg', 'Boris Johnson', 'Rishi Sunak', 'Recep Erdoğan',
-        'UN Security Council', 'European Commission', 'International Court of Justice',
+        'Vladimir Poutine',
+        'Xi Jinping',
+        'Joe Biden',
+        'Emmanuel Macron',
+        'Volodymyr Zelensky',
+        'Benjamin Netanyahu',
+        'Olaf Scholz',
+        'Ursula von der Leyen',
+        'António Guterres',
+        'Mark Rutte',
+        'Jens Stoltenberg',
+        'Boris Johnson',
+        'Rishi Sunak',
+        'Recep Erdoğan',
+        'UN Security Council',
+        'European Commission',
+        'International Court of Justice',
       ],
       'tech': [
-        'Google DeepMind', 'Apple Inc', 'Microsoft', 'Meta Platforms',
-        'Amazon Web Services', 'Nvidia Corporation', 'OpenAI', 'Anthropic',
-        'Sam Altman', 'Elon Musk', 'Sundar Pichai', 'Satya Nadella',
-        'Tim Cook', 'Mark Zuckerberg', 'Jensen Huang', 'Mistral AI',
-        'Hugging Face', 'Tesla', 'SpaceX', 'ByteDance',
+        'Google DeepMind',
+        'Apple Inc',
+        'Microsoft',
+        'Meta Platforms',
+        'Amazon Web Services',
+        'Nvidia Corporation',
+        'OpenAI',
+        'Anthropic',
+        'Sam Altman',
+        'Elon Musk',
+        'Sundar Pichai',
+        'Satya Nadella',
+        'Tim Cook',
+        'Mark Zuckerberg',
+        'Jensen Huang',
+        'Mistral AI',
+        'Hugging Face',
+        'Tesla',
+        'SpaceX',
+        'ByteDance',
       ],
       'energy': [
-        'OPEC Plus', 'Saudi Aramco', 'BP', 'Shell', 'ExxonMobil',
-        'TotalEnergies', 'Chevron', 'Gazprom', 'IEA', 'Prince Abdulaziz',
-        'Fatih Birol', 'ConocoPhillips', 'Hess Corporation',
-        'International Energy Agency', 'Climate Change Committee',
+        'OPEC Plus',
+        'Saudi Aramco',
+        'BP',
+        'Shell',
+        'ExxonMobil',
+        'TotalEnergies',
+        'Chevron',
+        'Gazprom',
+        'IEA',
+        'Prince Abdulaziz',
+        'Fatih Birol',
+        'ConocoPhillips',
+        'Hess Corporation',
+        'International Energy Agency',
+        'Climate Change Committee',
       ],
       'politics': [
-        'United States Congress', 'Senate', 'Supreme Court', 'White House',
-        'Kremlin', 'Élysée Palace', 'Bundestag', 'European Commission',
-        'World Bank', 'International Monetary Fund', 'Mario Draghi',
-        'Pedro Sánchez', 'Giorgia Meloni', 'Narendra Modi', 'Keir Starmer',
+        'United States Congress',
+        'Senate',
+        'Supreme Court',
+        'White House',
+        'Kremlin',
+        'Élysée Palace',
+        'Bundestag',
+        'European Commission',
+        'World Bank',
+        'International Monetary Fund',
+        'Mario Draghi',
+        'Pedro Sánchez',
+        'Giorgia Meloni',
+        'Narendra Modi',
+        'Keir Starmer',
       ],
       'general': [
-        'World Trade Organization', 'International Monetary Fund',
-        'United Nations', 'NATO', 'European Central Bank', 'Federal Reserve',
-        'World Economic Forum', 'OECD', 'G20 Summit', 'G7',
-        'Washington DC', 'Brussels', 'Beijing', 'Tokyo', 'Berlin',
-        'Davos', 'World Bank Group',
+        'World Trade Organization',
+        'International Monetary Fund',
+        'United Nations',
+        'NATO',
+        'European Central Bank',
+        'Federal Reserve',
+        'World Economic Forum',
+        'OECD',
+        'G20 Summit',
+        'G7',
+        'Washington DC',
+        'Brussels',
+        'Beijing',
+        'Tokyo',
+        'Berlin',
+        'Davos',
+        'World Bank Group',
       ],
     };
-    return [
-      ...(banks[domain] ?? []),
-      ...(banks['general'] ?? []),
-    ];
+    return [...(banks[domain] ?? []), ...(banks['general'] ?? [])];
   }
 
   List<String> _staticKeywordBank(String domain) {
     const banks = <String, List<String>>{
       'finance': [
-        'rendement', 'liquidité', 'volatilité', 'capitalisation',
-        'dividende', 'obligation', 'dérivés', 'spread', 'levier',
-        'rachat', 'acquisition', 'bénéfice', 'dette', 'couverture',
-        'émission', 'titrisation', 'covenant', 'collatéral',
+        'rendement',
+        'liquidité',
+        'volatilité',
+        'capitalisation',
+        'dividende',
+        'obligation',
+        'dérivés',
+        'spread',
+        'levier',
+        'rachat',
+        'acquisition',
+        'bénéfice',
+        'dette',
+        'couverture',
+        'émission',
+        'titrisation',
+        'covenant',
+        'collatéral',
       ],
       'geo': [
-        'cessez-le-feu', 'souveraineté', 'sanctions', 'négociations',
-        'diplomatie', 'escalade', 'armistice', 'déploiement',
-        'offensive', 'territoire', 'accord', 'ultimatum', 'représailles',
+        'cessez-le-feu',
+        'souveraineté',
+        'sanctions',
+        'négociations',
+        'diplomatie',
+        'escalade',
+        'armistice',
+        'déploiement',
+        'offensive',
+        'territoire',
+        'accord',
+        'ultimatum',
+        'représailles',
       ],
       'tech': [
-        'algorithme', 'infrastructure', 'déploiement', 'modèle',
-        'paramètres', 'cryptographie', 'surveillance', 'régulation',
-        'brevet', 'interopérabilité', 'latence', 'scalabilité',
+        'algorithme',
+        'infrastructure',
+        'déploiement',
+        'modèle',
+        'paramètres',
+        'cryptographie',
+        'surveillance',
+        'régulation',
+        'brevet',
+        'interopérabilité',
+        'latence',
+        'scalabilité',
       ],
       'energy': [
-        'capacité', 'raffinage', 'pipeline', 'approvisionnement',
-        'transition', 'émissions', 'carbone', 'quota', 'barils',
-        'mégawatts', 'stockage', 'réseau', 'interconnexion',
+        'capacité',
+        'raffinage',
+        'pipeline',
+        'approvisionnement',
+        'transition',
+        'émissions',
+        'carbone',
+        'quota',
+        'barils',
+        'mégawatts',
+        'stockage',
+        'réseau',
+        'interconnexion',
       ],
       'general': [
-        'accord', 'annonce', 'rapport', 'stratégie', 'croissance',
-        'secteur', 'réforme', 'programme', 'initiative', 'mesure',
-        'résolution', 'directive', 'protocole', 'mécanisme',
+        'accord',
+        'annonce',
+        'rapport',
+        'stratégie',
+        'croissance',
+        'secteur',
+        'réforme',
+        'programme',
+        'initiative',
+        'mesure',
+        'résolution',
+        'directive',
+        'protocole',
+        'mécanisme',
       ],
     };
-    return [
-      ...(banks[domain] ?? []),
-      ...(banks['general'] ?? []),
-    ];
+    return [...(banks[domain] ?? []), ...(banks['general'] ?? [])];
   }
 
   String _truncate(String text, {int max = 90}) {
@@ -1082,7 +1237,16 @@ const _stopWords = <String>{
   'le', 'la', 'les', 'de', 'du', 'des', 'un', 'une', 'et', 'en', 'au', 'aux',
   'ce', 'qui', 'que', 'se', 'sa', 'son', 'ses', 'sur', 'par', 'pour', 'dans',
   'avec', 'est', 'sont', 'ont', 'être', 'avoir', 'mais', 'donc', 'ni',
-  'car', 'plus', 'tout', 'tous', 'très', 'aussi', 'bien', 'comme', 'si', 'alors',
+  'car',
+  'plus',
+  'tout',
+  'tous',
+  'très',
+  'aussi',
+  'bien',
+  'comme',
+  'si',
+  'alors',
   'lors', 'leur', 'leurs', 'cette', 'ces', 'même', 'ainsi', 'entre', 'vers',
   'sous', 'contre', 'depuis', 'avant', 'après', 'selon', 'afin', 'dont',
   'autre', 'autres', 'nous', 'vous', 'ils', 'elles', 'lui',

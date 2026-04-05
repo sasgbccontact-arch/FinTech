@@ -1,3 +1,5 @@
+import '../utils/news_text_sanitizer.dart';
+
 /// Types de questions du quiz QCM.
 enum QuizQuestionType {
   // Métadonnées (fallback)
@@ -36,8 +38,11 @@ class QuizQuestion {
   factory QuizQuestion.fromFirestore(Map<String, dynamic> map) {
     return QuizQuestion(
       id: (map['id'] as String?) ?? '',
-      prompt: (map['prompt'] as String?) ?? '',
-      choices: List<String>.from((map['choices'] as List<dynamic>?) ?? []),
+      prompt: sanitizeNewsGameText((map['prompt'] as String?) ?? ''),
+      choices:
+          List<String>.from(
+            (map['choices'] as List<dynamic>?) ?? const [],
+          ).map(sanitizeNewsGameText).toList(),
       correctIndex: (map['correctIndex'] as int?) ?? 0,
       type: QuizQuestionType.values.firstWhere(
         (t) => t.name == (map['type'] as String?),

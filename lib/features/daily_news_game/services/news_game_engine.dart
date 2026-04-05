@@ -4,101 +4,10 @@ import 'package:flutter/foundation.dart';
 
 import '../models/news_article.dart';
 import '../models/news_game_models.dart';
+import '../utils/news_text_sanitizer.dart';
+export '../utils/news_text_sanitizer.dart' show sanitizeNewsGameText;
 
 const int kNewsGameMinQualityScore = 55;
-
-@visibleForTesting
-String sanitizeNewsGameText(String raw) {
-  var cleaned = raw;
-  const entityMap = <String, String>{
-    '&lt;': ' ',
-    '&gt;': ' ',
-    '&amp;': '&',
-    '&quot;': ' ',
-    '&#34;': ' ',
-    '&#39;': '\'',
-    '&apos;': '\'',
-    '&nbsp;': ' ',
-  };
-
-  entityMap.forEach((key, value) {
-    cleaned = cleaned.replaceAll(key, value);
-  });
-
-  cleaned =
-      cleaned
-          .replaceAll(RegExp(r'%3C[^%]*%3E', caseSensitive: false), ' ')
-          .replaceAll(RegExp(r'<[^>]+>', caseSensitive: false), ' ')
-          .replaceAll(
-            RegExp(
-              r'''\b[a-z][a-z0-9_-]*\s*=\s*['"][^'"]*['"]''',
-              caseSensitive: false,
-            ),
-            ' ',
-          )
-          .replaceAll(
-            RegExp(
-              r'''\b(?:href|target|rel|class|id|style|color|face|size)\s*=\s*['"][^'"]*['"]''',
-              caseSensitive: false,
-            ),
-            ' ',
-          )
-          .replaceAll(
-            RegExp(
-              r'''\b(?:href|target|rel|class|id)\s*=\s*['"]?[^'">\s]+['"]?''',
-              caseSensitive: false,
-            ),
-            ' ',
-          )
-          .replaceAll(
-            RegExp(
-              r"""\b(?:style|color|face|size)\s*=\s*[^"'>\s]+""",
-              caseSensitive: false,
-            ),
-            ' ',
-          )
-          .replaceAll(
-            RegExp(
-              r'(?<!\w)/(?:a|font|span|div|p|strong|em|b|i)\b',
-              caseSensitive: false,
-            ),
-            ' ',
-          )
-          .replaceAll(
-            RegExp(
-              r'(?<!\w)(?:/?(?:a|font|span|div|p|strong|em|b|i)|href|target|blank|font|color|style)(?!\w)',
-              caseSensitive: false,
-            ),
-            ' ',
-          )
-          .replaceAll(
-            RegExp(r'''(?<!\w)_?blank["']?(?!\w)''', caseSensitive: false),
-            ' ',
-          )
-          .replaceAll(RegExp(r'https?%3A%2F%2F\S+', caseSensitive: false), ' ')
-          .replaceAll(RegExp(r'https?://\S+', caseSensitive: false), ' ')
-          .replaceAll(RegExp(r'ftp://\S+', caseSensitive: false), ' ')
-          .replaceAll(RegExp(r'www\.\S+', caseSensitive: false), ' ')
-          .replaceAll(
-            RegExp(
-              r'\b[a-z0-9.-]+\.(com|net|org|io|co|fr|uk)\b',
-              caseSensitive: false,
-            ),
-            ' ',
-          )
-          .replaceAll(RegExp(r'[_|]+'), ' ')
-          .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
-          .replaceAll(RegExp(r'\{[^\}]*\}'), ' ')
-          .replaceAll(RegExp(r'&[#a-z0-9]+;', caseSensitive: false), ' ')
-          .replaceAll(
-            RegExp(r'\([^)]*target[^)]*\)', caseSensitive: false),
-            ' ',
-          )
-          .replaceAll(RegExp(r'\s{2,}'), ' ')
-          .trim();
-
-  return cleaned;
-}
 
 @visibleForTesting
 int scoreNewsArticleQuality(NewsArticle article) =>

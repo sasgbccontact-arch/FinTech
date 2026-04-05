@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -l \"avatarAsset\\\\|avatarId\\\\|Image\\\\.asset.*avatar\" /Users/loicconnesson/Desktop/Code/fintech_project/lib/**/*.dart)",
+      "Bash(grep -r \"class\\\\|enum\" /Users/loicconnesson/Desktop/Code/fintech_project/lib/models/*.dart)",
+      "Bash(wc -l /Users/loicconnesson/Desktop/Code/fintech_project/lib/pages/*.dart)",
+      "WebFetch(domain:firebase.google.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:docs.github.com)"
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart analyze:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(flutter pub:*)",
+      "Bash(pod install:*)",
+      "Bash(find /Users/loicconnesson/Desktop/Code/fintech_project/ios -name *.entitlements 2)",
+      "Bash(/dev/null find:*)",
+      "Bash(find /Users/loicconnesson/Desktop/Code/fintech_project -name firestore.rules -o -name *.rules)",
+      "Bash(firebase deploy:*)",
+      "Bash(grep -o '\"\"Les tendances haussières et baissières\"\"' /Users/loicconnesson/Desktop/Code/fintech_project/assets/chapitre1.json)",
+      "Bash(python3 -c \":*)",
+      "Bash(ls /Users/loicconnesson/Desktop/Code/fintech_project/assets/*.json)",
+      "Bash(python3:*)",
+      "Bash(git stash:*)"
+    ]
+  }
+}

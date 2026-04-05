@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/news_article.dart';
+import '../utils/news_text_sanitizer.dart';
 
 class DailyNewsFetchResult {
   final List<NewsArticle> articles;
@@ -943,19 +944,6 @@ class GdeltNewsService {
   }
 
   String _sanitizeText(String raw) {
-    return raw
-        .replaceAll(RegExp(r'https?://\S+', caseSensitive: false), ' ')
-        .replaceAll(RegExp(r'ftp://\S+', caseSensitive: false), ' ')
-        .replaceAll(RegExp(r'www\.\S+', caseSensitive: false), ' ')
-        .replaceAll(
-          RegExp(
-            r'\b[a-z0-9.-]+\.(com|net|org|io|co|fr|uk)\b',
-            caseSensitive: false,
-          ),
-          ' ',
-        )
-        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
-        .replaceAll(RegExp(r'\s{2,}'), ' ')
-        .trim();
+    return sanitizeNewsGameText(raw);
   }
 }

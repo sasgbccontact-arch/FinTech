@@ -1,3 +1,5 @@
+import '../utils/news_text_sanitizer.dart';
+
 class NewsArticle {
   final String id;
   final String title;
@@ -35,7 +37,7 @@ class NewsArticle {
     final url = (json['url'] as String?) ?? '';
     return NewsArticle(
       id: url.hashCode.abs().toString(),
-      title: (json['title'] as String?) ?? '',
+      title: sanitizeNewsGameText((json['title'] as String?) ?? ''),
       url: url,
       source: (json['domain'] as String?) ?? '',
       publishedAt: date,
@@ -52,11 +54,11 @@ class NewsArticle {
   }) {
     return NewsArticle(
       id: url.hashCode.abs().toString(),
-      title: title,
+      title: sanitizeNewsGameText(title),
       url: url,
       source: source,
       publishedAt: publishedAt,
-      snippet: snippet,
+      snippet: snippet == null ? null : sanitizeNewsGameText(snippet),
     );
   }
 
@@ -72,12 +74,15 @@ class NewsArticle {
 
   factory NewsArticle.fromFirestore(Map<String, dynamic> map) => NewsArticle(
     id: (map['id'] as String?) ?? '',
-    title: (map['title'] as String?) ?? '',
+    title: sanitizeNewsGameText((map['title'] as String?) ?? ''),
     url: (map['url'] as String?) ?? '',
     source: (map['source'] as String?) ?? '',
     publishedAt:
         DateTime.tryParse((map['publishedAt'] as String?) ?? '') ??
         DateTime.now(),
-    snippet: map['snippet'] as String?,
+    snippet:
+        map['snippet'] == null
+            ? null
+            : sanitizeNewsGameText((map['snippet'] as String?) ?? ''),
   );
 }

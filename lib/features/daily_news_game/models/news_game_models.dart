@@ -1,36 +1,10 @@
 import 'package:flutter/foundation.dart';
 
 import 'news_article.dart';
+import '../utils/news_text_sanitizer.dart';
 
 String _sanitizePersistedNewsText(String raw) {
-  return raw
-      .replaceAll(RegExp(r'%3C[^%]*%3E', caseSensitive: false), ' ')
-      .replaceAll(RegExp(r'<[^>]+>', caseSensitive: false), ' ')
-      .replaceAll(
-        RegExp(
-          r'''\b[a-z][a-z0-9_-]*\s*=\s*['"][^'"]*['"]''',
-          caseSensitive: false,
-        ),
-        ' ',
-      )
-      .replaceAll(
-        RegExp(r"""\b[a-z][a-z0-9_-]*\s*=\s*[^"'>\s]+""", caseSensitive: false),
-        ' ',
-      )
-      .replaceAll(
-        RegExp(
-          r'(?<!\w)(?:/?(?:a|font|span|div|p|strong|em|b|i)|href|target|blank|font|color|style)(?!\w)',
-          caseSensitive: false,
-        ),
-        ' ',
-      )
-      .replaceAll(
-        RegExp(r'''(?<!\w)_?blank["']?(?!\w)''', caseSensitive: false),
-        ' ',
-      )
-      .replaceAll(RegExp(r'&[#a-z0-9]+;', caseSensitive: false), ' ')
-      .replaceAll(RegExp(r'\s{2,}'), ' ')
-      .trim();
+  return sanitizeNewsGameText(raw);
 }
 
 enum NewsMacroCategory {
@@ -417,7 +391,8 @@ class NewsGameDeckItem {
               .toList(),
       causalChain:
           ((map['causalChain'] as List<dynamic>?) ?? const [])
-              .map((item) => item.toString())
+              .map((item) => _sanitizePersistedNewsText(item.toString()))
+              .where((item) => item.trim().isNotEmpty)
               .toList(),
       comprehensionQuestions:
           ((map['comprehensionQuestions'] as List<dynamic>?) ?? const [])
